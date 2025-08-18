@@ -72,14 +72,15 @@
               </a>
             </div>
 
-            <!-- Development Helper If database connection is gone, uncomment this pls lods, this will help verify it-->
-            <!--  <div class="dev-helper" v-if="isDev">
-              <p><strong>API URL:</strong> {{ apiBaseUrl }}</p>
-              <p><strong>Environment:</strong> Development</p>
-              <button type="button" @click="testConnection" class="test-button">
-                Test API Connection
+            <!-- Demo Credentials -->
+            <div class="demo-credentials">
+              <h4>Demo Credentials:</h4>
+              <p><strong>Email:</strong> demo@example.com</p>
+              <p><strong>Password:</strong> demo123</p>
+              <button type="button" @click="fillDemoCredentials" class="demo-button">
+                Use Demo Credentials
               </button>
-            </div>-->
+            </div>
           </div>
         </div>
       </div>
@@ -88,7 +89,8 @@
 </template>
 
 <script>
-import apiService from '../services/api.js'
+// Remove the API service import since we're going frontend-only
+// import apiService from '../services/api.js'
 
 export default {
   name: 'LoginPage',
@@ -101,9 +103,27 @@ export default {
       loading: false,
       error: null,
       successMessage: null,
-      // Use the API service base URL
-      apiBaseUrl: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
-      isDev: import.meta.env.DEV
+      // Mock user credentials for demo purposes
+      mockUsers: [
+        {
+          email: 'demo@example.com',
+          password: 'demo123',
+          userData: {
+            id: 1,
+            name: 'Demo User',
+            role: 'admin'
+          }
+        },
+        {
+          email: 'user@test.com',
+          password: 'test123',
+          userData: {
+            id: 2,
+            name: 'Test User',
+            role: 'user'
+          }
+        }
+      ]
     }
   },
   methods: {
@@ -119,16 +139,25 @@ export default {
           throw new Error('Please fill in all fields')
         }
 
-        console.log('Attempting login with API service...')
-        console.log('API Base URL:', this.apiBaseUrl)
+        console.log('Attempting frontend-only login...')
 
-        // Use the API service instead of direct fetch
-        const data = await apiService.login(this.loginForm.email, this.loginForm.password)
-        
-        console.log('Login response data:', data)
+        // Simulate API delay
+        await this.simulateDelay(1000)
 
-        // Handle successful login
-        await this.handleLoginSuccess(data)
+        // Check credentials against mock users
+        const user = this.mockUsers.find(
+          u => u.email === this.loginForm.email && u.password === this.loginForm.password
+        )
+
+        if (!user) {
+          throw new Error('Invalid email or password')
+        }
+
+        // Handle successful login - REMOVED the router push from here
+        await this.handleLoginSuccess({
+          token: this.generateMockToken(),
+          user: user.userData
+        })
 
       } catch (error) {
         console.error('Login error:', error)
@@ -141,25 +170,24 @@ export default {
     async handleLoginSuccess(data) {
       this.successMessage = 'Login successful! Redirecting...'
       
-      // Store authentication data
-      if (data.access_token || data.token) {
-        localStorage.setItem('authToken', data.access_token || data.token)
-      }
-      
-      if (data.refresh_token) {
-        localStorage.setItem('refreshToken', data.refresh_token)
+      // Store authentication data in localStorage
+      if (data.token) {
+        localStorage.setItem('authToken', data.token)
       }
 
       if (data.user) {
         localStorage.setItem('userData', JSON.stringify(data.user))
       }
 
+      // Store login timestamp
+      localStorage.setItem('loginTime', new Date().toISOString())
+
       console.log('Login successful:', data)
       console.log('Stored token:', localStorage.getItem('authToken'))
 
       // Navigate to dashboard using Vue Router
       setTimeout(() => {
-        this.$router.push('/dashboard')
+        this.$router.push('/dashboard')  // THIS IS WHERE THE NAVIGATION HAPPENS
           .then(() => {
             console.log('Successfully navigated to dashboard')
           })
@@ -168,76 +196,69 @@ export default {
             // Fallback: try to navigate to home
             this.$router.push('/home')
           })
-      }, 1000) // Small delay to show success message
+      }, 1500) // Show success message for a bit longer
     },
 
-    async handleLogout() {
-      try {
-        // Use API service for logout
-        await apiService.logout()
-      } catch (error) {
-        console.error('Logout error:', error)
-      } finally {
-        // Clear stored data regardless of API call success
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('refreshToken')
-        localStorage.removeItem('userData')
-        
-        // Reset form
-        this.loginForm = { email: '', password: '' }
-        this.error = null
-        this.successMessage = null
-        
-        // Navigate back to login
-        this.$router.push('/login')
-      }
+    handleLogout() {
+      // Clear stored data
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('userData')
+      localStorage.removeItem('loginTime')
+      
+      // Reset form
+      this.loginForm = { email: '', password: '' }
+      this.error = null
+      this.successMessage = null
+      
+      // Navigate back to login
+      this.$router.push('/login')
+      
+      console.log('User logged out successfully')
     },
 
     handleForgotPassword() {
-      // Handle forgot password functionality
-      alert('Forgot password functionality would be implemented here')
+      // Show available demo credentials instead of actual forgot password
+      alert('Demo Credentials:\nEmail: demo@example.com\nPassword: demo123\n\nOr:\nEmail: user@test.com\nPassword: test123')
     },
 
-    // Development helper method using API service
-    async testConnection() {
-      try {
-        this.error = null
-        this.successMessage = null
-        
-        console.log('Testing connection with API service...')
-        
-        // Use the health check method from API service
-        const data = await apiService.healthCheck()
-        console.log('Health check response:', data)
-        
-        this.successMessage = 'API connection successful!'
-      } catch (error) {
-        console.error('Connection test failed:', error)
-        this.error = `Connection failed: ${error.message}`
-      }
+    fillDemoCredentials() {
+      this.loginForm.email = 'demo@example.com'
+      this.loginForm.password = 'demo123'
     },
 
-    // Alternative system status test
-    async testSystemStatus() {
-      try {
-        this.error = null
-        this.successMessage = null
-        
-        console.log('Testing system status...')
-        
-        const data = await apiService.getSystemStatus()
-        console.log('System status response:', data)
-        
-        this.successMessage = 'System status check successful!'
-      } catch (error) {
-        console.error('System status test failed:', error)
-        this.error = `System status failed: ${error.message}`
-      }
+    // Utility method to simulate API delay
+    simulateDelay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms))
+    },
+
+    // Generate a mock JWT-like token
+    generateMockToken() {
+      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+      const payload = btoa(JSON.stringify({ 
+        sub: this.loginForm.email, 
+        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // 24 hours
+        iat: Math.floor(Date.now() / 1000)
+      }))
+      const signature = btoa("mock-signature")
+      return `${header}.${payload}.${signature}`
     },
 
     // Method to check if user is authenticated
     isAuthenticated() {
-      return !!localStorage.getItem('authToken')
+      const token = localStorage.getItem('authToken')
+      if (!token) return false
+      
+      // In a real app, you'd verify the token properly
+      // For demo purposes, just check if it exists and hasn't "expired"
+      const loginTime = localStorage.getItem('loginTime')
+      if (!loginTime) return false
+      
+      const loginDate = new Date(loginTime)
+      const now = new Date()
+      const hoursSinceLogin = (now - loginDate) / (1000 * 60 * 60)
+      
+      // Consider token "expired" after 24 hours for demo
+      return hoursSinceLogin < 24
     },
 
     // Method to get stored user data
@@ -246,7 +267,7 @@ export default {
       return userData ? JSON.parse(userData) : null
     },
 
-    // Method to get auth token for API calls
+    // Method to get auth token
     getAuthToken() {
       return localStorage.getItem('authToken')
     }
@@ -260,10 +281,9 @@ export default {
     }
     
     // Log current configuration for debugging
-    console.log('Login component mounted')
-    console.log('API Base URL:', this.apiBaseUrl)
-    console.log('Environment:', import.meta.env.MODE)
-    console.log('API Service imported successfully:', !!apiService)
+    console.log('Frontend-only login component mounted')
+    console.log('Environment: Frontend Only Mode')
+    console.log('Mock users available:', this.mockUsers.length)
   }
 }
 </script>
@@ -312,31 +332,11 @@ export default {
   margin-bottom: 2rem;
 }
 
-.logo-circle {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-  margin: 0 auto;
-}
-
-.logo-text {
-  font-size: 2rem;
-  font-weight: 700;
-  color: white;
-  letter-spacing: 3px;
-}
-
 .brand-title {
   font-size: 1.75rem;
   font-weight: 600;
   margin: 0 0 0.5rem 0;
- color: rgb(68, 68, 68);
+  color: rgb(68, 68, 68);
 }
 
 .brand-subtitle {
@@ -474,18 +474,29 @@ export default {
   text-decoration: underline;
 }
 
-.dev-helper {
+/* Demo Credentials Section */
+.demo-credentials {
   margin-top: 2rem;
   padding: 1rem;
   background-color: #f8fafc;
   border-radius: 0.5rem;
   border: 1px solid #e2e8f0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: #64748b;
+  text-align: center;
 }
 
-.test-button {
-  background-color: #667eea;
+.demo-credentials h4 {
+  margin: 0 0 0.5rem 0;
+  color: #374151;
+}
+
+.demo-credentials p {
+  margin: 0.25rem 0;
+}
+
+.demo-button {
+  background-color: #10b981;
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -493,10 +504,11 @@ export default {
   font-size: 0.75rem;
   cursor: pointer;
   margin-top: 0.5rem;
+  transition: background-color 0.2s ease;
 }
 
-.test-button:hover {
-  background-color: #764ba2;
+.demo-button:hover {
+  background-color: #059669;
 }
 
 /* Animation */
@@ -524,15 +536,6 @@ export default {
   
   .logo-section {
     padding: 2rem 1.5rem;
-  }
-  
-  .logo-circle {
-    width: 100px;
-    height: 100px;
-  }
-  
-  .logo-text {
-    font-size: 1.5rem;
   }
   
   .brand-title {
