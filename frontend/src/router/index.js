@@ -5,7 +5,8 @@ import HomeView from '../views/HomeView.vue'
 import Login from '../pages/Login.vue'
 import MainLayout from '../layouts/MainLayout.vue'
 import Dashboard from '../pages/Home.vue'
-
+import OnlineOrders from '@/pages/orders/OnlineOrders.vue'
+import CompleteOrders from '@/pages/orders/CompleteOrders.vue'
 
 // Auth guard function
 function requireAuth(to, from, next) {
@@ -52,6 +53,16 @@ const router = createRouter({
           path: 'dashboard',
           name: 'Dashboard',
           component: Dashboard
+        },
+        {
+          path: 'online-orders',
+          name: 'Online Orders',
+          component: OnlineOrders
+        },
+        {
+          path: 'complete-orders',
+          name: 'Complete Orders',
+          component: CompleteOrders
         },
       ]
     },

@@ -3,109 +3,89 @@
     <!-- Sidebar Component -->
     <Sidebar 
       @menu-changed="handleMenuChange"
-      @show-profile="handleShowProfile"
       @logout="handleLogout"
-      @sidebar-toggled="handleSidebarToggle"
     />
     
-   <!-- Main Content Area -->
-    <main class="main-content" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+    <!-- Main Content Area -->
+    <main class="main-content">
       <!-- Header Bar -->
       <header class="content-header">
         <div class="header-content">
-          <h1>{{ currentPageTitle }}</h1>
-          
-          <!-- Header Right Section with Notifications -->
-          <div class="header-right">
-            <!-- Notification Bell -->
-            <NotificationBell />
+          <!-- Left Side - Date/Time and Page Title -->
+          <div class="header-left">
+            <div class="datetime-display">
+              {{ currentDateTime }}
+            </div>
+            <h1>{{ currentPageTitle }}</h1>
           </div>
         </div>
       </header>
-
       <!-- Page Content - This will now show the routed component -->
       <div class="page-content">
         <router-view />
       </div>
     </main>
-
-    <!-- Profile Modal (if needed) -->
-    <div v-if="showProfileModal" class="modal-overlay" @click="closeProfileModal">
-      <div class="modal-content" @click.stop>
-        <h2>My Profile</h2>
-        <div class="profile-info">
-          <p><strong>User:</strong> {{ userInfo.full_name || 'N/A' }}</p>
-          <p><strong>Email:</strong> {{ userInfo.email || 'N/A' }}</p>
-          <p><strong>Role:</strong> {{ userInfo.role || 'N/A' }}</p>
-        </div>
-        <button @click="closeProfileModal">Close</button>
-      </div>
-    </div>
   </div>
 </template>
 
 <script>
 import Sidebar from './Sidebar.vue'
-import NotificationBell from '@/components/NotificationBell.vue'
 
 export default {
   name: 'MainLayout',
   components: {
-    Sidebar,
-    NotificationBell
+    Sidebar
   },
   data() {
     return {
-      sidebarCollapsed: false,
-      showProfileModal: false
+      currentTime: new Date(),
+      timeInterval: null
     }
   },
   computed: {
     currentPageTitle() {
       const titles = {
         '/dashboard': 'Dashboard',
-        '/accounts': 'User Accounts',
-        '/customers': 'Customers',
-        '/products': 'Products',
-        '/products/bulk': 'Add Products (Bulk)',
-        '/categories': 'Categories',
-        '/categorydetails': 'Category Details',
-        '/logs': 'System Logs',
-        '/suppliers': 'Suppliers',
-        '/promotions': 'Promotions',
-        '/salesbyitem': 'Sales By Item',
-        '/salesbycategory': 'Sales By Category',
-        '/uncategorized': 'Uncategorized Products',
-        '/allNotifications': 'All Notifications'
+        '/online-orders': 'Online Orders',
       }
-      
-      // Handle dynamic product detail routes
-      if (this.$route.path.startsWith('/products/') && this.$route.path !== '/products/bulk') {
-        return 'Product Details'
-      }
-      
-      return titles[this.$route.path] || 'Product Details'
+      return titles[this.$route.path] || 'Page'
     },
-    userInfo() {
-      const userData = localStorage.getItem('userData')
-      return userData ? JSON.parse(userData) : {}
+    currentDateTime() {
+      const now = this.currentTime
+      
+      try {
+        // Format: "28 October 2021 Thursday | 17:30"
+        const options = {
+          day: 'numeric',
+          month: 'long', 
+          year: 'numeric',
+          weekday: 'long'
+        }
+        
+        const dateStr = now.toLocaleDateString('en-US', options)
+        const timeStr = now.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false
+        })
+        
+        // Rearrange the date format
+        const parts = dateStr.split(', ')
+        const weekday = parts[0]
+        const monthDay = parts[1]
+        const year = parts[2]
+        
+        return `${monthDay} ${year} ${weekday} | ${timeStr}`
+      } catch (error) {
+        console.error('Date formatting error:', error)
+        return now.toString()
+      }
     }
   },
   methods: {
     handleMenuChange(menu) {
       console.log('Menu changed to:', menu)
-      // Navigate using router instead of changing currentPage
       this.$router.push(`/${menu}`)
-    },
-    handleShowProfile() {
-      console.log('Show profile modal')
-      this.showProfileModal = true
-    },
-    closeProfileModal() {
-      this.showProfileModal = false
-    },
-    handleSidebarToggle(collapsed) {
-      this.sidebarCollapsed = collapsed
     },
     async handleLogout() {
       console.log('User logging out')
@@ -133,13 +113,19 @@ export default {
         // Redirect to login
         this.$router.push('/login')
       }
+    },
+    updateTime() {
+      this.currentTime = new Date()
     }
   },
   mounted() {
-    // Load sidebar state from localStorage
-    const savedState = localStorage.getItem('sidebar-collapsed')
-    if (savedState !== null) {
-      this.sidebarCollapsed = JSON.parse(savedState)
+    // Start the time update interval (update every second)
+    this.timeInterval = setInterval(this.updateTime, 1000)
+  },
+  beforeUnmount() {
+    // Clear the interval when component is destroyed
+    if (this.timeInterval) {
+      clearInterval(this.timeInterval)
     }
   },
   beforeRouteEnter(to, from, next) {
@@ -155,32 +141,31 @@ export default {
 </script>
 
 <style scoped>
+
 .app-layout {
   min-height: 100vh;
   width: 100vw;
   margin: 0;
   padding: 0;
-  background-color: var(--neutral-light);
+  background-color: #f8f9fa;
 }
 
 .main-content {
-  margin-left: 280px; /* Default sidebar width */
-  transition: margin-left 0.3s ease;
+  margin-left: 180px;     
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   min-width: 0;
 }
 
-.main-content.sidebar-collapsed {
-  margin-left: 80px; /* Collapsed sidebar width */
-}
-
 .content-header {
+  position: sticky;     
+  top: 0;                  
+  z-index: 999;            
   background: white;
-  height: 100px; /* Match sidebar header height */
+  height: 100px;
   padding: 0 2.5rem;
-  border-bottom: 1px solid var(--neutral-medium);
+  border-bottom: 1px solid #e9ecef;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   display: flex;
@@ -194,81 +179,36 @@ export default {
   width: 100%;
 }
 
-.content-header h1 {
-  color: var(--tertiary-dark);
-  font-size: 1.875rem;
-  font-weight: 600;
-  margin: 0;
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   flex: 1;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.datetime-display {
+  color: #6c757d;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  line-height: 1.2;
+}
+
+.content-header h1 {
+  color: #495057;
+  font-size: 1.875rem;
+  font-weight: 600;
+  margin: 0;
 }
 
 .page-content {
   flex: 1;
   padding: 2.5rem;
-  overflow-y: auto;
+  overflow-y: visible;      
   overflow-x: hidden;
   width: 100%;
   min-width: 0;
-  background-color: var(--neutral-light);
-}
-
-/* Modal styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2000;
-}
-
-.modal-content {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  max-width: 400px;
-  width: 90%;
-}
-
-.modal-content h2 {
-  margin-bottom: 1rem;
-  color: var(--tertiary-dark);
-}
-
-.profile-info {
-  margin: 1rem 0;
-}
-
-.profile-info p {
-  margin-bottom: 0.5rem;
-  color: var(--tertiary-medium);
-}
-
-.modal-content button {
-  background-color: var(--primary);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-top: 1rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.modal-content button:hover {
-  background-color: var(--primary-dark);
+  background-color: #f8f9fa;
 }
 
 /* Responsive design */
@@ -280,19 +220,18 @@ export default {
   .content-header {
     padding: 0 2rem;
   }
-  
-  .header-right {
-    gap: 0.75rem;
-  }
 }
 
 @media (max-width: 768px) {
   .main-content {
-    margin-left: 0;
+    margin-left: 0;         
   }
   
-  .main-content.sidebar-collapsed {
-    margin-left: 0;
+  .sidebar {
+    position: relative;     
+    height: auto;
+    width: 100%;
+    z-index: auto;
   }
   
   .page-content {
@@ -302,14 +241,15 @@ export default {
   .content-header {
     padding: 0 1.5rem;
     height: 80px;
+    position: relative;     
   }
   
   .content-header h1 {
     font-size: 1.5rem;
   }
   
-  .header-right {
-    gap: 0.5rem;
+  .datetime-display {
+    font-size: 0.75rem;
   }
 }
 
@@ -325,6 +265,10 @@ export default {
   
   .content-header h1 {
     font-size: 1.25rem;
+  }
+  
+  .datetime-display {
+    font-size: 0.7rem;
   }
 }
 </style>
