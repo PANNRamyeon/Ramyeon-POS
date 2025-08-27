@@ -1,4 +1,11 @@
 import { 
+  Soup,
+  CookingPot,
+  Coffee,
+  Grid3X3,
+  ShoppingBag,
+  Utensils,
+  MoreHorizontal,
   Plus, 
   Download, 
   RefreshCw, 
@@ -22,11 +29,20 @@ import {
   Filter,
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Minus,
 } from 'lucide-vue-next'
 
 export default {
   install(app) {
+    app.component('Minus', Minus)
+    app.component('Soup', Soup)
+    app.component('CookingPot', CookingPot)
+    app.component('Coffee', Coffee)
+    app.component('Grid3X3', Grid3X3)
+    app.component('ShoppingBag', ShoppingBag)
+    app.component('Utensils', Utensils)
+    app.component('MoreHorizontal', MoreHorizontal)
     app.component('Plus', Plus)
     app.component('Download', Download)
     app.component('RefreshCw', RefreshCw)

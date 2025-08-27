@@ -16,7 +16,7 @@
             <div class="datetime-display">
               {{ currentDateTime }}
             </div>
-            <h1>{{ currentPageTitle }}</h1>
+           <!--  <h1>{{ currentPageTitle }}</h1> -->
           </div>
         </div>
       </header>
@@ -46,7 +46,11 @@ export default {
     currentPageTitle() {
       const titles = {
         '/dashboard': 'Dashboard',
-        '/online-orders': 'Online Orders',
+        '/online-order': 'Online Order',
+        '/new-order': 'New Order',
+        '/history': 'History',
+        '/settings': 'Settings',
+
       }
       return titles[this.$route.path] || 'Page'
     },
@@ -177,6 +181,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  
 }
 
 .header-left {
