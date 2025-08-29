@@ -78,8 +78,8 @@
 
       <div class="cart-footer">
         <div class="cart-total">₱{{ cartTotal }}</div>
-        <button class="pay-btn">Pay →</button>
-      </div>
+          <button class="pay-btn">Pay →</button>
+        </div>
     </div>
   </div>
 </template>

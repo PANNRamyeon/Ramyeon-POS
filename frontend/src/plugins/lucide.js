@@ -1,5 +1,6 @@
 import { 
   Soup,
+  CircleX,
   CookingPot,
   Coffee,
   Grid3X3,
@@ -35,6 +36,7 @@ import {
 
 export default {
   install(app) {
+    app.component('CircleX', CircleX)
     app.component('Minus', Minus)
     app.component('Soup', Soup)
     app.component('CookingPot', CookingPot)
