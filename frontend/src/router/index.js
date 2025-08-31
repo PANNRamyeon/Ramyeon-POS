@@ -9,6 +9,7 @@ import OnlineOrder from '@/pages/OnlineOrders.vue'
 import NewOrder from '@/pages/NewOrder.vue'
 import Settings from '@/pages/Settings.vue'
 import History from '@/pages/History.vue'
+import Checkout from '@/pages/Checkout.vue'
 
 // Auth guard function
 function requireAuth(to, from, next) {
@@ -75,6 +76,11 @@ const router = createRouter({
           path: 'history',
           name: 'History',
           component: History
+        },
+        {
+          path: 'checkout',
+          name: 'Checkout',
+          component: Checkout
         },
       ]
     },
