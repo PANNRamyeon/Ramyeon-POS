@@ -20,29 +20,13 @@
               <!-- Email Field -->
               <div class="form-group">
                 <label for="email" class="form-label">Email:</label>
-                <input
-                  id="email"
-                  v-model="loginForm.email"
-                  type="email"
-                  class="form-input"
-                  placeholder="Enter your email"
-                  required
-                  :disabled="loading"
-                />
+                <input id="email"v-model="loginForm.email" type="email" class="form-input" placeholder="Enter your email" required :disabled="loading"/>
               </div>
 
               <!-- Password Field -->
               <div class="form-group">
                 <label for="password" class="form-label">Password:</label>
-                <input
-                  id="password"
-                  v-model="loginForm.password"
-                  type="password"
-                  class="form-input"
-                  placeholder="Enter your password"
-                  required
-                  :disabled="loading"
-                />
+                <input id="password" v-model="loginForm.password" type="password" class="form-input" placeholder="Enter your password" required :disabled="loading"/>
               </div>
 
               <!-- Error Message -->
@@ -56,11 +40,7 @@
               </div>
 
               <!-- Login Button -->
-              <button
-                type="submit"
-                class="login-button"
-                :disabled="loading"
-              >
+              <button type="submit" class="login-button" :disabled="loading">
                 {{ loading ? 'Signing In...' : 'Login' }}
               </button>
             </form>
@@ -103,7 +83,7 @@ export default {
       loading: false,
       error: null,
       successMessage: null,
-      // Mock user credentials for demo purposes
+      
       mockUsers: [
         {
           email: 'demo@example.com',

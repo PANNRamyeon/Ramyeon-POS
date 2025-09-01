@@ -35,6 +35,8 @@
                   <button 
                     class="action-btn view-btn" 
                     title="View Order"
+                    data-toggle="modal" 
+                    data-target="#orderModal"
                     @click="viewOrder(order.id)"
                   >
                     <Eye :size="14" />
@@ -80,9 +82,43 @@
         </div>
       </div>
     </div>
+
+    <!-- Bootstrap Modal - Moved outside the table -->
+    <div class="modal fade" id="orderModal" tabindex="-1" role="dialog" aria-labelledby="orderModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="orderModalLabel">Order Details</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div v-if="selectedOrder">
+              <div class="order-info">
+                <h6>Order Information</h6>
+                <p><strong>Order ID:</strong> {{ selectedOrder.id }}</p>
+                <p><strong>Items:</strong> {{ selectedOrder.itemCount }} items</p>
+                <p><strong>Status:</strong> 
+                  <span class="status-badge" :class="getStatusClass(selectedOrder.status)">
+                    {{ selectedOrder.status }}
+                  </span>
+                </p>
+                <p><strong>Date:</strong> {{ formatDate(selectedOrder.date) }}</p>
+                <p><strong>Payment Method:</strong> {{ selectedOrder.paymentMethod }}</p>
+                <p><strong>Sale Type:</strong> {{ selectedOrder.saleType }}</p>
+                <p><strong>Total:</strong> ₱{{ selectedOrder.total.toFixed(2) }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
-
 <script> 
 
 export default {
@@ -153,9 +189,11 @@ export default {
         day: 'numeric'
       })
     },
-    viewOrder(orderId) {
-      alert(`Viewing order #${orderId}`)
-    },
+      viewOrder(orderId) {
+        this.selectedOrder = this.orders.find(order => order.id === orderId);
+        const modal = new bootstrap.Modal(this.$refs.orderModal);
+        modal.show();
+      },
     
   }
 }

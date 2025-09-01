@@ -26,27 +26,21 @@ LOCAL_APPS = [
     'api',
     'app',  # Added based on your actual structure
     'notifications',
-    'reports',
     'kpi',  # Added based on your folder structure
-    'promotions',  # Added based on your folder structure
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # For static files in production
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Your custom middleware (if they exist in the app)
-    # 'app.middleware.ErrorHandlingMiddleware',         
-    # 'app.middleware.RequestLoggingMiddleware',        
-    # 'app.middleware.JWTAuthenticationMiddleware',     
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',    
 ]
 
 ROOT_URLCONF = 'posbackend.urls'

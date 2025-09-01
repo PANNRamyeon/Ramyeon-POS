@@ -192,8 +192,7 @@ export default {
     methods: {
         goBack() {
             // For testing, you can just show an alert or do nothing
-            alert('Going back to previous page...')
-            // this.$router.go(-1)
+            this.$router.go(-1)
         },
         clearCart() {
             if (confirm('Are you sure you want to clear your cart?')) {
