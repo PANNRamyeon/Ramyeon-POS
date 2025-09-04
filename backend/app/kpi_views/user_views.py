@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from ..services.user_service import UserService
-from ..decorators.authenticationDecorator import require_admin, require_authentication, require_permission, get_authenticated_user_from_jwt
+from ..decorators.authenticationDecorator import require_admin, require_authentication
 from ..serializers import UserCreateSerializer
 import logging
 
@@ -107,6 +107,7 @@ class UserDetailView(APIView):
                     {"error": "User not found or already deleted"}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
+            
             
             return Response(updated_user, status=status.HTTP_200_OK)
         

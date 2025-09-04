@@ -256,7 +256,7 @@ class UserService:
     def update_user(self, user_id, user_data, current_user=None):
         """Update user with audit logging"""
         try:
-            # ✅ ADD: Log who is updating the user
+            # ✅ ADD: Log who is updating the user  
             if current_user:
                 print(f"🔍 Updating user {user_id} with admin: {current_user['username']}")
             
@@ -274,8 +274,24 @@ class UserService:
             old_user = self.convert_object_id(old_user)
             
             update_data = user_data.copy()
-            if update_data.get('password'):
+            
+            # NEW: Handle password change with verification
+            if 'current_password' in update_data and 'new_password' in update_data:
+                # Verify current password
+                if not self.verify_password(update_data['current_password'], old_user['password']):
+                    raise Exception("Current password is incorrect")
+                
+                # Replace with new hashed password
+                update_data['password'] = self.hash_password(update_data['new_password'])
+                
+                # Remove verification fields so they don't get stored
+                del update_data['current_password']
+                del update_data['new_password']
+            
+            # EXISTING: Handle regular password updates (admin use - no verification needed)
+            elif update_data.get('password'):
                 update_data['password'] = self.hash_password(update_data['password'])
+            
             update_data['last_updated'] = datetime.utcnow()
 
             result = self.collection.update_one(
@@ -293,7 +309,7 @@ class UserService:
             updated_user = self.convert_object_id(updated_user)
             
             # Send notification if employee (either old or new role)
-          ##  self._notify_role_based_action('updated', updated_user, user_id, current_user) OLD
+        ##  self._notify_role_based_action('updated', updated_user, user_id, current_user) OLD
             self._send_employee_notification('updated', updated_user, user_id, old_user)
             
             # Audit logging

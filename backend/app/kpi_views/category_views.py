@@ -5,7 +5,7 @@ from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from ..services.category_service import CategoryService, CategoryDisplayService, ProductSubcategoryService
-from ..decorators.authenticationDecorator import require_authentication, require_admin, require_permission
+from ..decorators.authenticationDecorator import require_authentication, require_admin
 import logging
 import json
 from datetime import datetime

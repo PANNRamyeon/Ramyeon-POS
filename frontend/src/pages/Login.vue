@@ -52,15 +52,6 @@
               </a>
             </div>
 
-            <!-- Demo Credentials -->
-            <div class="demo-credentials">
-              <h4>Demo Credentials:</h4>
-              <p><strong>Email:</strong> demo@example.com</p>
-              <p><strong>Password:</strong> demo123</p>
-              <button type="button" @click="fillDemoCredentials" class="demo-button">
-                Use Demo Credentials
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -69,8 +60,8 @@
 </template>
 
 <script>
-// Remove the API service import since we're going frontend-only
-// import apiService from '../services/api.js'
+
+import apiService from '../services/api.js'
 
 export default {
   name: 'LoginPage',
@@ -83,27 +74,6 @@ export default {
       loading: false,
       error: null,
       successMessage: null,
-      
-      mockUsers: [
-        {
-          email: 'demo@example.com',
-          password: 'demo123',
-          userData: {
-            id: 1,
-            name: 'Demo User',
-            role: 'admin'
-          }
-        },
-        {
-          email: 'user@test.com',
-          password: 'test123',
-          userData: {
-            id: 2,
-            name: 'Test User',
-            role: 'user'
-          }
-        }
-      ]
     }
   },
   methods: {
@@ -119,25 +89,9 @@ export default {
           throw new Error('Please fill in all fields')
         }
 
-        console.log('Attempting frontend-only login...')
-
-        // Simulate API delay
-        await this.simulateDelay(1000)
-
-        // Check credentials against mock users
-        const user = this.mockUsers.find(
-          u => u.email === this.loginForm.email && u.password === this.loginForm.password
-        )
-
-        if (!user) {
-          throw new Error('Invalid email or password')
-        }
-
-        // Handle successful login - REMOVED the router push from here
-        await this.handleLoginSuccess({
-          token: this.generateMockToken(),
-          user: user.userData
-        })
+        const response = await apiService.login(this.loginForm.email, this.loginForm.password)
+       
+        await this.handleLoginSuccess(response)
 
       } catch (error) {
         console.error('Login error:', error)
@@ -151,19 +105,19 @@ export default {
       this.successMessage = 'Login successful! Redirecting...'
       
       // Store authentication data in localStorage
-      if (data.token) {
-        localStorage.setItem('authToken', data.token)
+      if (data.access_token) {
+        localStorage.setItem('authToken', data.access_token)
       }
 
       if (data.user) {
         localStorage.setItem('userData', JSON.stringify(data.user))
+        localStorage.setItem('userRole', data.user.role)
       }
 
       // Store login timestamp
       localStorage.setItem('loginTime', new Date().toISOString())
 
       console.log('Login successful:', data)
-      console.log('Stored token:', localStorage.getItem('authToken'))
 
       // Navigate to dashboard using Vue Router
       setTimeout(() => {
@@ -179,10 +133,17 @@ export default {
       }, 1500) // Show success message for a bit longer
     },
 
-    handleLogout() {
+    async handleLogout() {
+      try {
+        await apiService.logout()
+      } catch (error) {
+        console.error('Logout error:', error)
+      }
+
       // Clear stored data
       localStorage.removeItem('authToken')
       localStorage.removeItem('userData')
+      localStorage.removeItem('userRole')
       localStorage.removeItem('loginTime')
       
       // Reset form
@@ -198,47 +159,13 @@ export default {
 
     handleForgotPassword() {
       // Show available demo credentials instead of actual forgot password
-      alert('Demo Credentials:\nEmail: demo@example.com\nPassword: demo123\n\nOr:\nEmail: user@test.com\nPassword: test123')
-    },
-
-    fillDemoCredentials() {
-      this.loginForm.email = 'demo@example.com'
-      this.loginForm.password = 'demo123'
-    },
-
-    // Utility method to simulate API delay
-    simulateDelay(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms))
-    },
-
-    // Generate a mock JWT-like token
-    generateMockToken() {
-      const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
-      const payload = btoa(JSON.stringify({ 
-        sub: this.loginForm.email, 
-        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // 24 hours
-        iat: Math.floor(Date.now() / 1000)
-      }))
-      const signature = btoa("mock-signature")
-      return `${header}.${payload}.${signature}`
+      alert('Please contact your administrator to reset your password.')
     },
 
     // Method to check if user is authenticated
     isAuthenticated() {
       const token = localStorage.getItem('authToken')
-      if (!token) return false
-      
-      // In a real app, you'd verify the token properly
-      // For demo purposes, just check if it exists and hasn't "expired"
-      const loginTime = localStorage.getItem('loginTime')
-      if (!loginTime) return false
-      
-      const loginDate = new Date(loginTime)
-      const now = new Date()
-      const hoursSinceLogin = (now - loginDate) / (1000 * 60 * 60)
-      
-      // Consider token "expired" after 24 hours for demo
-      return hoursSinceLogin < 24
+      return !!token
     },
 
     // Method to get stored user data
@@ -256,14 +183,19 @@ export default {
   mounted() {
     // Check if user is already authenticated
     if (this.isAuthenticated()) {
-      console.log('User already authenticated, redirecting to dashboard')
-      this.$router.push('/dashboard')
+      const userData = this.getUserData()
+      const userRole = userData?.role?.toLowerCase()
+      
+      if (userRole === 'admin') {
+        this.$router.push('/admin/dashboard')
+      } else if (userRole === 'employee') {
+        this.$router.push('/pos/dashboard')
+      } else {
+        this.$router.push('/dashboard')
+      }
     }
     
-    // Log current configuration for debugging
-    console.log('Frontend-only login component mounted')
-    console.log('Environment: Frontend Only Mode')
-    console.log('Mock users available:', this.mockUsers.length)
+    console.log('Backend-integrated login component mounted')
   }
 }
 </script>

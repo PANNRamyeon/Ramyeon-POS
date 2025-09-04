@@ -1,8 +1,6 @@
 <template>
   <div class="history-container">
     <div class="history-contents">
-      <h2 class="page-title">Order History</h2>
-      
       <div class="table-container">
         <table class="history-table">
           <thead>

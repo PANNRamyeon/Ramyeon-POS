@@ -7,8 +7,8 @@ from ..database import db_manager
 # JWT settings
 SECRET_KEY = "your-secret-key-here-change-in-production"  #Default is your-secret-key-here-change-in-production
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
+REFRESH_TOKEN_EXPIRE_DAYS = 30 #30 days
 
 class AuthService:
     def __init__(self):
@@ -68,10 +68,14 @@ class AuthService:
         """Authenticate user and return tokens - ADMIN ONLY"""
         try:
             # Find user by email
-            user = self.user_collection.find_one({"email": email})
+            user = self.user_collection.find_one({
+                "email": email,
+                "isDeleted": {"$ne": True}  # Exclude soft-deleted users
+            })
+
             if not user:
-                raise Exception("Invalid email or password")
-            
+                raise Exception("Invalid email or password") #If no email is found
+
             # Verify password
             if not self.verify_password(password, user["password"]):
                 raise Exception("Invalid email or password")
@@ -81,21 +85,26 @@ class AuthService:
             if user_status != "active":
                 raise Exception("Account is not active")
             
-            # ADMIN-ONLY CHECK: Verify user has admin role
+            # Will allow both admin and employee
             user_role = user.get("role", "").lower()
-            if user_role != "admin":
-                # Log unauthorized access attempt
-                print(f"Non-admin login attempt blocked: {email} (role: {user_role})")
-                raise Exception("Access denied. This system is restricted to administrators only.")
+            allowed_roles = ["admin", "employee"]
+            if user_role not in allowed_roles:
+                print(f"Unauthorized login attempt: {email} (role: {user_role})")
+                raise Exception("Access denied. Invalid user role.")
             
             # Update last login 
             self.user_collection.update_one(
                 {"_id": user["_id"]},
-                {"$set": {"last_login": datetime.utcnow()}}
+                {"$set": {"last_updated": datetime.utcnow()}}  # Using your existing field name
             )
             
             # Create tokens
-            token_data = {"sub": str(user["_id"]), "email": user["email"], "role": user["role"]}
+            token_data = {
+                "sub": str(user["_id"]), 
+                "email": user["email"], 
+                "role": user["role"],
+                "username": user.get("username", "")
+            }
             access_token = self.create_access_token(token_data)
             refresh_token = self.create_refresh_token(token_data)
             
@@ -108,10 +117,10 @@ class AuthService:
                     "username": user.get("username", user["email"]),
                     "email": user["email"],
                     "branch_id": 1,  # Default branch
-                    "role": "admin"  # Explicitly mark as admin session
+                    "role": user["role"]  # Explicitly mark as admin session
                 }
                 session_service.log_login(session_user)
-                print(f"Admin login successful: {user['email']}")
+                print(f"{user_role.title()} login successful: {user['email']} ({user.get('username', 'No username')})")
             except Exception as session_error:
                 print(f"Session logging error: {session_error}")
                 # Don't fail login if session logging fails
@@ -128,10 +137,12 @@ class AuthService:
                 "user": {
                     "id": str(user["_id"]),
                     "email": user["email"],
-                    "role": user["role"],
-                    "name": user.get("full_name", ""),
                     "username": user.get("username", ""),
-                    "status": user.get("status", "active")
+                    "full_name": user.get("full_name", ""),
+                    "role": user["role"],
+                    "status": user.get("status", "active"),
+                    "date_created": user.get("date_created"),
+                    "last_updated": user.get("last_updated")
                 }
             }
             

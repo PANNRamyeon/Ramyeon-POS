@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from ..services.auth_services import AuthService
 from ..services.session_services import SessionLogService 
 import logging
+from ..decorators.authenticationDecorator import require_authentication, require_admin
 
 # ================ AUTHENTICATION VIEWS ================
 
@@ -32,55 +33,35 @@ class LoginView(APIView):
             )
 
 class LogoutView(APIView):
+    @require_authentication
     def post(self, request):
-        print("\n" + "="*50)
-        print("LOGOUT VIEW CALLED - LOOK HERE!")
-        print("="*50)
+    
         """User logout with session logging"""
         try:
             auth_service = AuthService()
             session_service = SessionLogService()  # ✅ ADD THIS
             
-            authorization = request.headers.get("Authorization")
-            if not authorization or not authorization.startswith("Bearer "):
+            current_user = request.current_user
+            user_id = current_user.get('user_id')
+            
+            if not user_id: 
                 return Response(
-                    {"error": "Missing or invalid authorization header"}, 
-                    status=status.HTTP_401_UNAUTHORIZED
+                    {"error": "Unable to identify user for logout"}, 
+                    status=status.HTTP_400_BAD_REQUEST
                 )
             
-            token = authorization.split(" ")[1]
-            
-            # ✅ NEW: Get user info from token BEFORE logout
+            # # Log session logout first
             try:
-                # Get current user from token to get user_id
-                current_user = auth_service.get_current_user(token)
-                print(f"🔍 LOGOUT: Current user from token: {current_user}")
-                
-                if current_user and current_user.get('user_id'):
-                    user_id = str(current_user.get('user_id'))
-                    print(f"🔍 LOGOUT: Extracted user_id: {user_id}")
-                    
-                    # ✅ NEW: Log session logout BEFORE auth logout
-                    try:
-                        print(f"🔍 LOGOUT: About to call session_service.log_logout({user_id})")
-                        session_result = session_service.log_logout(user_id)
-                        print(f"✅ LOGOUT: Session logout result: {session_result}")
-                    except Exception as session_error:
-                        print(f"❌ LOGOUT: Session logout failed: {session_error}")
-                        # Continue with auth logout even if session logout fails
-                else:
-                    print(f"⚠️ LOGOUT: Could not extract user_id from token")
-                    
-            except Exception as user_error:
-                print(f"❌ LOGOUT: Could not get current user: {user_error}")
-                # Continue with auth logout even if we can't get user info
-            
-            # Do the original auth logout
+                session_service.log_logout(user_id)
+            except Exception as session_error:
+                # Log the error but don't fail the logout
+                print(f"Session logout failed: {session_error}")
+
+            token = request.headers.get("Authorization", "").replace("Bearer ", "")
             result = auth_service.logout(token)
             return Response(result, status=status.HTTP_200_OK)
         
         except Exception as e:
-            print(f"❌ LOGOUT: Auth logout failed: {str(e)}")
             return Response(
                 {"error": str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -171,6 +152,80 @@ class VerifyTokenView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+class ChangePasswordView(APIView):
+    def patch(self, request):
+        """Change user password - partial update of user resource"""
+        try:
+            auth_service = AuthService()
+            
+            # Get token from header
+            authorization = request.headers.get("Authorization")
+            if not authorization or not authorization.startswith("Bearer "):
+                return Response(
+                    {"error": "Missing or invalid authorization header"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            token = authorization.split(" ")[1]
+            
+            # Verify token and get user
+            payload = auth_service.verify_token(token)
+            if not payload or payload.get("type") != "access":
+                return Response(
+                    {"error": "Invalid token"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            user_id = payload["sub"]
+            user = auth_service.user_collection.find_one({"_id": ObjectId(user_id)})
+            
+            if not user:
+                return Response(
+                    {"error": "User not found"}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Get password data from request
+            current_password = request.data.get('current_password')
+            new_password = request.data.get('new_password')
+            
+            if not current_password or not new_password:
+                return Response(
+                    {"error": "Current password and new password are required"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Verify current password
+            if not auth_service.verify_password(current_password, user["password"]):
+                return Response(
+                    {"error": "Current password is incorrect"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Hash new password and update user
+            hashed_new_password = auth_service.hash_password(new_password)
+            
+            auth_service.user_collection.update_one(
+                {"_id": ObjectId(user_id)},
+                {
+                    "$set": {
+                        "password": hashed_new_password,
+                        "last_updated": datetime.utcnow()
+                    }
+                }
+            )
+            
+            return Response(
+                {"message": "Password updated successfully"}, 
+                status=status.HTTP_200_OK
+            )
+            
         except Exception as e:
             return Response(
                 {"error": str(e)}, 
