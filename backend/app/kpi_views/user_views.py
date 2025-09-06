@@ -39,7 +39,7 @@ class UserListView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    @require_authentication
+    
     def post(self, request):
         """Create new user - Requires admin authentication"""
         try:

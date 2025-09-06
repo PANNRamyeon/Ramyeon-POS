@@ -61,31 +61,49 @@ def get_authenticated_user_from_jwt(request):
 # ================================================================
 
 def require_authentication(view_func):
-    """Decorator for any authenticated user (admin or employee)"""
-    @wraps(view_func)
-    def wrapper(*args, **kwargs):
-        if len(args) >= 2:
-            request = args[1]
-        elif len(args) == 1:
-            request = args[0]
-        else:
-            request = kwargs.get('request')
+    def wrapper(self, request, *args, **kwargs):
+        try:
+            auth_service = AuthService()
             
-        if not request or not hasattr(request, 'headers'):
+            authorization = request.headers.get("Authorization")
+            if not authorization or not authorization.startswith("Bearer "):
+                return Response(
+                    {"error": "Missing or invalid authorization header"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            token = authorization.split(" ")[1]
+            payload = auth_service.verify_token(token)
+            
+            if not payload or payload.get("type") != "access":
+                return Response(
+                    {"error": "Invalid token"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # ADD THIS: Get user info and attach to request
+            user_id = payload["sub"]
+            user = auth_service.user_collection.find_one({"_id": ObjectId(user_id)})
+            
+            if user:
+                request.current_user = {
+                    "user_id": str(user["_id"]),
+                    "username": user.get("username", ""),
+                    "email": user["email"],
+                    "role": user["role"]
+                }
+            else:
+                return Response(
+                    {"error": "User not found"}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            return view_func(self, request, *args, **kwargs)
+        except Exception as e:
             return Response(
-                {"error": "Invalid request"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        current_user = get_authenticated_user_from_jwt(request)
-        if not current_user:
-            return Response(
-                {"error": "Authentication required"}, 
+                {"error": str(e)}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
-        
-        request.current_user = current_user
-        return view_func(*args, **kwargs)
     return wrapper
 
 def require_admin(view_func):

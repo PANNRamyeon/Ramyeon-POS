@@ -72,7 +72,7 @@ class AuthService:
                 "email": email,
                 "isDeleted": {"$ne": True}  # Exclude soft-deleted users
             })
-
+        
             if not user:
                 raise Exception("Invalid email or password") #If no email is found
 

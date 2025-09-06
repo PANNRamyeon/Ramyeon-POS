@@ -5,8 +5,8 @@
       <div class="no-contents">
         <!-- Header Section -->
         <div class="no-header">
-          <div v-if="viewMode === 'products'" class="category-search">
-            <input type="text" v-model="categorySearch" placeholder="Search in category..." class="search-input"/>
+          <div class="category-search">
+            <input type="text" v-model="categorySearch" placeholder="search" class="search-input"/>
           </div>
           
           <!-- Categories -->
@@ -292,49 +292,54 @@
 </template>
 
 <script>
+import categoriesAPI from '@/services/apiCategory.js';
+
 export default {
   name: 'NewOrder',
   components: {
-
+    // Add your icon components here
   },
   data() {
     return {
-      showCart: false, 
-      activeCategory: 'noodles',
-      cartItems: [],
-      showCategoryModal: false,
-      showItemModal: false,
-      showProductSelectorModal: false, // New modal for selecting existing products
-      nextCategoryId: 100,
-      nextProductId: 1000,
+      // Loading and error states
+      loading: false,
+      error: null,
       
-      // Product selection state
-      selectedSourceCategory: 'noodles',
-      selectedProducts: [],
-      productSearchQuery: '',
+      // Categories (backend + custom)
+      backendCategories: [],
+      customCategories: [],
+      activeCategory: null,
+      
+      // Cart functionality
+      showCart: false,
+      cartItems: [],
+      
+      // Modal states
+      showCategoryModal: false,
+      showProductSelectorModal: false,
       
       // Navigation state
-      viewMode: 'products', // Initialize all categories to show products by default
+      viewMode: 'products',
       currentSubcategory: null,
       currentPage: 1,
       itemsPerPage: 12,
       categorySearch: '',
-      
-      // Breadcrumb navigation
       breadcrumbs: [],
       
+      // Custom category creation
+      nextCategoryId: 100,
+      nextProductId: 1000,
       newCategory: {
         name: '',
         icon: 'Package'
       },
       
-      newItem: {
-        name: '',
-        description: '',
-        price: 0,
-        image: ''
-      },
+      // Product selection for custom categories
+      selectedSourceCategory: null,
+      selectedProducts: [],
+      productSearchQuery: '',
       
+      // Icon options for custom categories
       iconOptions: [
         { name: 'Package' },
         { name: 'Coffee' },
@@ -348,415 +353,331 @@ export default {
         { name: 'Utensils' }
       ],
       
-      categories: [
-        { id: 'noodles', name: 'Noodles', icon: 'Soup', isCustom: false },
-        { id: 'toppings', name: 'Toppings', icon: 'Package', isCustom: false },
-        { id: 'drinks', name: 'Drinks', icon: 'Coffee', isCustom: false },
-        { id: 'others', name: 'Others', icon: 'Grid3X3', isCustom: false },
-        { id: 'placeholder1', name: 'Snacks', icon: 'ShoppingBag', isCustom: false },
-        { id: 'placeholder2', name: 'Desserts', icon: 'Utensils', isCustom: false },
-        { id: 'placeholder3', name: 'Combo', icon: 'MoreHorizontal', isCustom: false }
-      ],
-      
+      // Static products (will be replaced with API later)
       products: [
         { id: 1, name: 'Chicken Ramen', description: 'Rich chicken broth with noodles', price: 150, category: 'noodles', image: 'https://via.placeholder.com/200x150/ff6b6b/white?text=Chicken+Ramen' },
         { id: 2, name: 'Pork Ramen', description: 'Savory pork broth ramen', price: 160, category: 'noodles', image: 'https://via.placeholder.com/200x150/4ecdc4/white?text=Pork+Ramen' },
-        { id: 3, name: 'Beef Ramen', description: 'Hearty beef broth noodles', price: 180, category: 'noodles', image: 'https://via.placeholder.com/200x150/45b7d1/white?text=Beef+Ramen' },
-        { id: 4, name: 'Veggie Ramen', description: 'Fresh vegetable ramen', price: 140, category: 'noodles', image: 'https://via.placeholder.com/200x150/f9ca24/white?text=Veggie+Ramen' },
-        { id: 5, name: 'Spicy Ramen', description: 'Hot and spicy noodles', price: 170, category: 'noodles', image: 'https://via.placeholder.com/200x150/6c5ce7/white?text=Spicy+Ramen' },
-        { id: 6, name: 'Seafood Ramen', description: 'Fresh seafood broth', price: 200, category: 'noodles', image: 'https://via.placeholder.com/200x150/a55eea/white?text=Seafood+Ramen' },
-        { id: 7, name: 'Extra Egg', description: 'Soft-boiled egg topping', price: 25, category: 'toppings', image: 'https://via.placeholder.com/200x150/26de81/white?text=Extra+Egg' },
-        { id: 8, name: 'Green Onions', description: 'Fresh green onion garnish', price: 15, category: 'toppings', image: 'https://via.placeholder.com/200x150/fd79a8/white?text=Green+Onions' },
-        { id: 9, name: 'Coke', description: 'Ice cold Coca Cola', price: 45, category: 'drinks', image: 'https://via.placeholder.com/200x150/fdcb6e/white?text=Coke' },
-        { id: 10, name: 'Iced Tea', description: 'Refreshing iced tea', price: 40, category: 'drinks', image: 'https://via.placeholder.com/200x150/ff7675/white?text=Iced+Tea' }
+        // Add more static products as needed for testing
       ]
     }
   },
+
+  async mounted() {
+    await this.loadCategories();
+  },
+
   computed: {
+    // Combine backend and custom categories
+    categories() {
+      return [...this.backendCategories, ...this.customCategories];
+    },
+
     filteredProducts() {
-      let products = []
-      
-      if (this.viewMode === 'subcategories' && this.activeCategory === 'drinks') {
-        // Only show subcategories for drinks category
-        const mockCategory = this.simulateBackendCategory(this.activeCategory)
-        return mockCategory.sub_categories.map(sub => ({
-          id: `sub_${sub.id}`,
-          name: sub.name,
-          description: `${sub.products.length} items available`,
-          price: '', // No price for subcategories
-          image: `https://via.placeholder.com/200x150/9b59b6/white?text=${encodeURIComponent(sub.name)}`,
-          isSubcategory: true,
-          subcategoryData: sub
-        }))
-      } else if (this.viewMode === 'products') {
-        if (this.currentSubcategory && this.activeCategory === 'drinks') {
-          // Show products from selected subcategory (for drinks)
-          products = this.currentSubcategory.products
-        } else {
-          // Show regular products for all other categories
-          products = this.products.filter(product => product.category === this.activeCategory)
+      if (this.viewMode === 'subcategories') {
+        // Show subcategories as product cards
+        const category = this.categories.find(cat => cat.id === this.activeCategory);
+        if (category && category.subcategories) {
+          return category.subcategories.map(sub => ({
+            id: sub.id,
+            name: sub.name,
+            description: `${sub.productCount} items available`,
+            price: '',
+            image: this.generateSubcategoryImage(sub.name),
+            isSubcategory: true,
+            subcategoryData: sub
+          }));
         }
-        
-        // Apply search filter
-        if (this.categorySearch.trim()) {
-          products = products.filter(product => 
-            product.name.toLowerCase().includes(this.categorySearch.toLowerCase())
-          )
-        }
+        return [];
       }
       
-      return products
+      // Show products
+      let products = this.products.filter(product => product.category === this.activeCategory);
+      
+      // Apply search filter
+      if (this.categorySearch.trim()) {
+        products = products.filter(product => 
+          product.name.toLowerCase().includes(this.categorySearch.toLowerCase())
+        );
+      }
+      
+      return products;
     },
-    
+
     paginatedProducts() {
       if (this.viewMode === 'subcategories') {
-        return this.filteredProducts // Don't paginate subcategories
+        return this.filteredProducts;
       }
       
-      const start = (this.currentPage - 1) * this.itemsPerPage
-      const end = start + this.itemsPerPage
-      return this.filteredProducts.slice(start, end)
+      const start = (this.currentPage - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return this.filteredProducts.slice(start, end);
     },
-    
+
     totalPages() {
-      if (this.viewMode === 'subcategories') {
-        return 1 // Subcategories don't need pagination
-      }
-      return Math.ceil(this.filteredProducts.length / this.itemsPerPage)
+      if (this.viewMode === 'subcategories') return 1;
+      return Math.ceil(this.filteredProducts.length / this.itemsPerPage);
     },
-    
+
     cartTotal() {
-      return this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
+      return this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
     },
+
     totalItems() {
-      return this.cartItems.reduce((total, item) => total + item.quantity, 0)
+      return this.cartItems.reduce((total, item) => total + item.quantity, 0);
     },
+
     isCustomCategory() {
-      const category = this.categories.find(cat => cat.id === this.activeCategory)
-      return category && category.isCustom
+      const category = this.categories.find(cat => cat.id === this.activeCategory);
+      return category && category.isCustom;
     },
+
     customCategoryItems() {
-      // Only return items for non-drinks categories or when in products view
-      if (this.activeCategory === 'drinks' && this.viewMode === 'subcategories') {
-        return [] // No custom items when showing subcategories
-      }
-      return this.filteredProducts
+      return this.filteredProducts;
     },
-    isValidItem() {
-      return this.newItem.name.trim() && this.newItem.price > 0
-    },
-    shouldShowSubcategories() {
-      // Only drinks category should show subcategories
-      return this.activeCategory === 'drinks'
-    },
-    
-    // Product selection computed properties
+
     availableSourceCategories() {
-      return this.categories.filter(cat => !cat.isCustom && cat.id !== this.activeCategory)
+      return this.backendCategories.filter(cat => cat.id !== this.activeCategory);
     },
-    
+
     availableProductsForSelection() {
-      let products = this.products.filter(product => product.category === this.selectedSourceCategory)
+      let products = this.products.filter(product => product.category === this.selectedSourceCategory);
       
       if (this.productSearchQuery.trim()) {
         products = products.filter(product => 
-          product.name.toLowerCase().includes(this.productSearchQuery.toLowerCase()) ||
-          product.description.toLowerCase().includes(this.productSearchQuery.toLowerCase())
-        )
+          product.name.toLowerCase().includes(this.productSearchQuery.toLowerCase())
+        );
       }
       
-      return products
+      return products;
     },
-    
+
     allAvailableProductsCount() {
-      return this.products.filter(product => 
-        this.categories.some(cat => !cat.isCustom && cat.id === product.category)
-      ).length
-    },
-    cartTotal() {
-      return this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
-    },
-    totalItems() {
-      return this.cartItems.reduce((total, item) => total + item.quantity, 0)
-    },
-    isCustomCategory() {
-      const category = this.categories.find(cat => cat.id === this.activeCategory)
-      return category && category.isCustom
-    },
-    customCategoryItems() {
-      return this.filteredProducts
-    },
-    isValidItem() {
-      return this.newItem.name.trim() && this.newItem.price > 0
+      return this.products.length;
     }
   },
+
   methods: {
-    // Category Management
-    createCategory() {
-      if (!this.newCategory.name.trim()) return
+    // Categories API integration
+    async loadCategories() {
+      try {
+        this.loading = true;
+        this.error = null;
+        
+        this.backendCategories = await categoriesAPI.getActiveCategories();
+        
+        console.log('Loaded categories:', this.backendCategories);
+        
+        // Set first category as active
+        if (this.backendCategories.length > 0 && !this.activeCategory) {
+          this.activeCategory = this.backendCategories[0].id;
+          await this.selectCategory(this.backendCategories[0].id);
+        }
+        
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+        this.error = error.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async selectCategory(categoryId) {
+      this.activeCategory = categoryId;
+      this.currentPage = 1;
+      this.categorySearch = '';
+      this.breadcrumbs = [];
+      this.currentSubcategory = null;
       
-      const categoryId = `custom_${this.nextCategoryId++}`
+      const category = this.categories.find(cat => cat.id === categoryId);
+      
+      if (category && !category.isCustom && category.hasSubcategories) {
+        this.viewMode = 'subcategories';
+        this.breadcrumbs = [
+          { name: category.name, type: 'categories' }
+        ];
+      } else {
+        this.viewMode = 'products';
+        // Here you would load products from API
+        // await this.loadProducts(categoryId);
+      }
+    },
+
+    generateSubcategoryImage(subcategoryName) {
+      return `https://via.placeholder.com/200x150/9b59b6/white?text=${encodeURIComponent(subcategoryName)}`;
+    },
+
+    // Custom category management
+    createCategory() {
+      if (!this.newCategory.name.trim()) return;
+      
+      const categoryId = `custom_${this.nextCategoryId++}`;
       const category = {
         id: categoryId,
         name: this.newCategory.name.trim(),
         icon: this.newCategory.icon,
-        isCustom: true
-      }
+        isCustom: true,
+        hasSubcategories: false,
+        subcategories: []
+      };
       
-      this.categories.push(category)
-      this.closeCategoryModal()
-      this.selectCategory(categoryId)
-      
-      console.log('Created category:', category)
+      this.customCategories.push(category);
+      this.closeCategoryModal();
+      this.selectCategory(categoryId);
     },
-    
+
     deleteCategory(categoryId) {
       if (confirm('Are you sure you want to delete this category and all its items?')) {
-        // Remove category
-        this.categories = this.categories.filter(cat => cat.id !== categoryId)
+        this.customCategories = this.customCategories.filter(cat => cat.id !== categoryId);
+        this.products = this.products.filter(product => product.category !== categoryId);
         
-        // Remove all products in this category
-        this.products = this.products.filter(product => product.category !== categoryId)
-        
-        // Switch to first category if current category was deleted
         if (this.activeCategory === categoryId) {
-          this.activeCategory = this.categories[0]?.id || 'noodles'
+          this.activeCategory = this.categories[0]?.id;
         }
-        
-        console.log('Deleted category:', categoryId)
       }
     },
-    
+
     closeCategoryModal() {
-      this.showCategoryModal = false
-      this.newCategory = { name: '', icon: 'Package' }
+      this.showCategoryModal = false;
+      this.newCategory = { name: '', icon: 'Package' };
     },
-    
-    // Item Management
-    addItemToCategory() {
-      if (!this.isValidItem || this.customCategoryItems.length >= 8) return
-      
-      const item = {
-        id: this.nextProductId++,
-        name: this.newItem.name.trim(),
-        description: this.newItem.description.trim() || 'No description',
-        price: parseFloat(this.newItem.price),
-        category: this.activeCategory,
-        image: this.newItem.image || `https://via.placeholder.com/200x150/6f42c1/white?text=${encodeURIComponent(this.newItem.name.trim())}`
-      }
-      
-      this.products.push(item)
-      this.closeItemModal()
-      
-      console.log('Added item:', item)
-    },
-    
-    removeFromCategory(productId) {
-      if (confirm('Are you sure you want to remove this item?')) {
-        this.products = this.products.filter(product => product.id !== productId)
-        console.log('Removed item:', productId)
-      }
-    },
-    
-    closeItemModal() {
-      this.showItemModal = false
-      this.newItem = { name: '', description: '', price: 0, image: '' }
-    },
-    
+
     getCurrentCategoryName() {
-      const category = this.categories.find(cat => cat.id === this.activeCategory)
-      return category ? category.name : 'Category'
+      const category = this.categories.find(cat => cat.id === this.activeCategory);
+      return category ? category.name : 'Category';
     },
-    
-    // Product selection methods
+
+    // Product selection for custom categories
     closeProductSelectorModal() {
-      this.showProductSelectorModal = false
-      this.selectedProducts = []
-      this.productSearchQuery = ''
-      this.selectedSourceCategory = 'noodles'
+      this.showProductSelectorModal = false;
+      this.selectedProducts = [];
+      this.productSearchQuery = '';
+      this.selectedSourceCategory = null;
     },
-    
+
     toggleProductSelection(product) {
-      if (this.isProductAlreadyInCategory(product.id)) {
-        return // Don't allow selecting products already in category
-      }
+      if (this.isProductAlreadyInCategory(product.id)) return;
       
-      const index = this.selectedProducts.indexOf(product.id)
+      const index = this.selectedProducts.indexOf(product.id);
       if (index > -1) {
-        this.selectedProducts.splice(index, 1)
+        this.selectedProducts.splice(index, 1);
       } else {
-        // Check if adding this product would exceed the 8 item limit
         if (this.customCategoryItems.length + this.selectedProducts.length < 8) {
-          this.selectedProducts.push(product.id)
+          this.selectedProducts.push(product.id);
         }
       }
     },
-    
+
     isProductAlreadyInCategory(productId) {
       return this.products.some(product => 
         product.id === productId && product.category === this.activeCategory
-      )
+      );
     },
-    
+
     getProductCountForCategory(categoryId) {
-      return this.products.filter(product => product.category === categoryId).length
+      return this.products.filter(product => product.category === categoryId).length;
     },
-    
+
     addSelectedProductsToCategory() {
-      // Create copies of selected products and assign them to the current custom category
       const selectedProductData = this.products.filter(product => 
         this.selectedProducts.includes(product.id)
-      )
+      );
       
       selectedProductData.forEach(product => {
         const newProduct = {
           ...product,
-          id: this.nextProductId++, // Give it a new ID so it's independent
+          id: this.nextProductId++,
           category: this.activeCategory,
-          isReference: true, // Mark as reference to original
-          originalId: product.id // Keep reference to original
-        }
-        this.products.push(newProduct)
-      })
+          isReference: true,
+          originalId: product.id
+        };
+        this.products.push(newProduct);
+      });
       
-      console.log(`Added ${selectedProductData.length} products to ${this.getCurrentCategoryName()}`)
-      this.closeProductSelectorModal()
+      this.closeProductSelectorModal();
     },
-    
+
+    // Navigation
     handleProductClick(product) {
       if (product.isSubcategory) {
-        // Navigate to subcategory
-        this.selectSubcategory(product.subcategoryData)
+        this.selectSubcategory(product.subcategoryData);
       } else {
-        // Add regular product to cart
-        this.addToCart(product)
-      }
-    },
-    navigateTo(crumb) {
-      this.viewMode = crumb.type
-      if (crumb.type === 'subcategories') {
-        this.currentSubcategory = null
-        this.breadcrumbs = this.breadcrumbs.slice(0, 1) // Keep only category
-      } else if (crumb.type === 'categories') {
-        this.breadcrumbs = []
-        this.currentSubcategory = null
+        this.addToCart(product);
       }
     },
 
-    selectSubcategory(subcategory) {
-      this.currentSubcategory = subcategory
-      this.viewMode = 'products'
+    selectSubcategory(subcategoryData) {
+      console.log('Subcategory data:', subcategoryData); 
+      this.currentSubcategory = subcategoryData;
+      this.viewMode = 'products';
       this.breadcrumbs.push({
-        name: subcategory.name,
+        name: subcategoryData.name,
         type: 'products',
-        data: subcategory
-      })
-      console.log('Selected subcategory:', subcategory.name)
+        data: subcategoryData
+      });
+      console.log('Breadcrumbs after push:', this.breadcrumbs);
+      // Here you would load subcategory products from API
+    },
+
+    navigateTo(crumb) {
+      this.viewMode = crumb.type;
+      if (crumb.type === 'subcategories') {
+        this.currentSubcategory = null;
+        this.breadcrumbs = this.breadcrumbs.slice(0, 1);
+      } else if (crumb.type === 'categories') {
+        this.breadcrumbs = [];
+        this.currentSubcategory = null;
+      }
     },
 
     goToPage(page) {
       if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
+        this.currentPage = page;
       }
     },
 
-    // Mock data simulation methods (remove when connecting to backend)
-    simulateBackendCategory(categoryId) {
-      // Simulate the backend structure you showed
-      const mockData = {
-        id: categoryId,
-        name: this.getCurrentCategoryName(),
-        sub_categories: [
-          {
-            id: 1,
-            name: "Non Alcoholic Drinks",
-            products: Array(51).fill().map((_, i) => ({
-              id: i + 1000,
-              name: `Drink Item ${i + 1}`,
-              description: `Description for drink ${i + 1}`,
-              price: 45 + (i * 5),
-              image: `https://via.placeholder.com/200x150/3498db/white?text=Drink+${i+1}`
-            }))
-          },
-          {
-            id: 2,
-            name: "Assorted Drinks",
-            products: Array(4).fill().map((_, i) => ({
-              id: i + 2000,
-              name: `Special Drink ${i + 1}`,
-              description: `Special description ${i + 1}`,
-              price: 85 + (i * 10),
-              image: `https://via.placeholder.com/200x150/e74c3c/white?text=Special+${i+1}`
-            }))
-          }
-        ]
-      }
-      return mockData
-    },
-
-    // Existing methods
-    checkout() {
-      if (this.cartItems.length === 0) {
-        alert('Your cart is empty!')
-        return
-      }
-      console.log('Checkout clicked - Cart Items:', this.cartItems)
-      this.$router.push('/Checkout')
-    },
-
-    selectCategory(categoryId) {
-      this.activeCategory = categoryId
-      this.currentPage = 1
-      this.categorySearch = ''
-      this.breadcrumbs = []
-      this.currentSubcategory = null
-      
-      // Only apply subcategory logic to 'drinks' category for demo
-      if (categoryId === 'drinks') {
-        this.viewMode = 'subcategories'
-        this.breadcrumbs = [
-          { name: this.getCurrentCategoryName(), type: 'categories' }
-        ]
-      } else {
-        // Show products directly for all other categories
-        this.viewMode = 'products'
-      }
-    },
-    
+    // Cart functionality
     closeCart() {
-      this.showCart = false 
+      this.showCart = false;
     },
-    
+
     openCart() {
-      this.showCart = true 
+      this.showCart = true;
     },
-    
+
     addToCart(product) {
-      const existingItem = this.cartItems.find(item => item.id === product.id)
+      const existingItem = this.cartItems.find(item => item.id === product.id);
       if (existingItem) {
-        existingItem.quantity++
+        existingItem.quantity++;
       } else {
-        this.cartItems.push({ ...product, quantity: 1 })
+        this.cartItems.push({ ...product, quantity: 1 });
       }
-      this.showCart = true
-      console.log('Added to cart:', product.name, 'Total items:', this.cartItems.length)
+      this.showCart = true;
     },
-    
+
     removeFromCart(item) {
-      const index = this.cartItems.findIndex(cartItem => cartItem.id === item.id)
+      const index = this.cartItems.findIndex(cartItem => cartItem.id === item.id);
       if (index > -1) {
-        this.cartItems.splice(index, 1)
+        this.cartItems.splice(index, 1);
       }
     },
-    
+
     increaseQuantity(item) {
-      item.quantity++
+      item.quantity++;
     },
-    
+
     decreaseQuantity(item) {
       if (item.quantity > 1) {
-        item.quantity--
+        item.quantity--;
       }
+    },
+
+    checkout() {
+      if (this.cartItems.length === 0) {
+        alert('Your cart is empty!');
+        return;
+      }
+      console.log('Checkout clicked - Cart Items:', this.cartItems);
+      this.$router.push('/Checkout');
     }
   }
 }
@@ -1144,6 +1065,12 @@ export default {
 
 .breadcrumb-item:hover {
   background-color: #e9ecef;
+}
+
+/* Remove any CSS that might be adding "/" */
+.breadcrumb-item::before,
+.breadcrumb-item::after {
+  content: none; /* Make sure no content is being added */
 }
 
 .category-search {
@@ -1700,6 +1627,29 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.breadcrumb-separator {
+  margin: 0 0.5rem;
+  color: #6c757d;
+  font-weight: normal;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: #6f42c1;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s;
+}
+
+.breadcrumb-item:hover {
+  background-color: #e9ecef;
 }
 
 /* Responsive */

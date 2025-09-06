@@ -1,7 +1,26 @@
 <template>
   <div class="history-container">
     <div class="history-contents">
-      <div class="table-container">
+      <h2 class="page-title">Order History</h2>
+      
+      <!-- Loading state -->
+      <div v-if="loading" class="loading-state">
+        <p>Loading transactions...</p>
+      </div>
+
+      <!-- Error state -->
+      <div v-else-if="error" class="error-state">
+        <p>Error: {{ error }}</p>
+        <button @click="refreshData()" class="retry-btn">Retry</button>
+      </div>
+
+      <!-- No data state -->
+      <div v-else-if="orders.length === 0" class="no-data-state">
+        <p>No transactions found.</p>
+      </div>
+
+      <!-- Table -->
+      <div v-else class="table-container">
         <table class="history-table">
           <thead>
             <tr>
@@ -16,7 +35,8 @@
             </tr>
           </thead>
           <tbody class="table-group-divider">
-            <tr v-for="order in paginatedOrders" :key="order.id">
+            <!-- Use orders directly, not paginatedOrders -->
+            <tr v-for="order in orders" :key="order.id">
               <th scope="row">{{ order.id }}</th>
               <td>{{ order.itemCount }} items</td>
               <td>
@@ -33,11 +53,9 @@
                   <button 
                     class="action-btn view-btn" 
                     title="View Order"
-                    data-toggle="modal" 
-                    data-target="#orderModal"
                     @click="viewOrder(order.id)"
                   >
-                    <Eye :size="14" />
+                    👁️
                   </button>
                 </div>
               </td>
@@ -57,7 +75,7 @@
             :disabled="currentPage === 1"
             @click="goToPage(currentPage - 1)"
           >
-            <ChevronLeft :size="16" />
+            ←
           </button>
           
           <button 
@@ -75,100 +93,138 @@
             :disabled="currentPage === totalPages"
             @click="goToPage(currentPage + 1)"
           >
-            <ChevronRight :size="16" />
+            →
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Bootstrap Modal - Moved outside the table -->
+    <!-- Modal -->
     <div class="modal fade" id="orderModal" tabindex="-1" role="dialog" aria-labelledby="orderModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="orderModalLabel">Order Details</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
+            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true"><CircleX/></span>
             </button>
           </div>
           <div class="modal-body">
             <div v-if="selectedOrder">
               <div class="order-info">
-                <h6>Order Information</h6>
+                <!--<h6>Order Information</h6>-->
                 <p><strong>Order ID:</strong> {{ selectedOrder.id }}</p>
-                <p><strong>Items:</strong> {{ selectedOrder.itemCount }} items</p>
                 <p><strong>Status:</strong> 
                   <span class="status-badge" :class="getStatusClass(selectedOrder.status)">
-                    {{ selectedOrder.status }}
+                     {{ selectedOrder.status }}
                   </span>
                 </p>
                 <p><strong>Date:</strong> {{ formatDate(selectedOrder.date) }}</p>
                 <p><strong>Payment Method:</strong> {{ selectedOrder.paymentMethod }}</p>
                 <p><strong>Sale Type:</strong> {{ selectedOrder.saleType }}</p>
-                <p><strong>Total:</strong> ₱{{ selectedOrder.total.toFixed(2) }}</p>
+              </div>
+
+              <!-- Items Details Section -->
+              <div v-if="selectedOrder.originalData?.items" class="items-section">
+                <h6>Items Ordered</h6>
+                <div class="items-grid">
+                  <div 
+                    v-for="item in selectedOrder.originalData.items" 
+                    :key="item.product_id"
+                    class="item-tag"
+                  >
+                    {{ item.product_name }}
+                    <span class="item-qty">({{ item.quantity }})</span>
+                  </div>
+                </div>
+                
+                <!-- Items Summary -->
+                <div class="items-summary">
+                  <div class="summary-row">
+                    <span>Total Items:</span>
+                    <strong>{{ getTotalItems(selectedOrder.originalData.items) }}</strong>
+                  </div>
+                  <div class="summary-row">
+                    <span>Total Amount:</span>
+                    <strong>₱{{ selectedOrder.total.toFixed(2) }}</strong>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-<script> 
+
+<script>
+import historyAPIService from '@/services/apiHistory.js';
 
 export default {
   name: 'History',
-  components: {
-  
-  },
   data() {
     return {
       currentPage: 1,
       itemsPerPage: 8,
-      orders: [
-        { id: 1, itemCount: 3, status: 'Completed', date: '2024-03-15', paymentMethod: 'Cash', saleType: 'Dine In', total: 450.00 },
-        { id: 2, itemCount: 2, status: 'Pending', date: '2024-03-14', paymentMethod: 'Card', saleType: 'Take Out', total: 320.00 },
-        { id: 3, itemCount: 5, status: 'Cancelled', date: '2024-03-13', paymentMethod: 'GCash', saleType: 'Delivery', total: 680.00 },
-        { id: 4, itemCount: 1, status: 'Completed', date: '2024-03-12', paymentMethod: 'Cash', saleType: 'Dine In', total: 150.00 },
-        { id: 5, itemCount: 4, status: 'Processing', date: '2024-03-11', paymentMethod: 'Card', saleType: 'Take Out', total: 520.00 },
-        { id: 6, itemCount: 2, status: 'Completed', date: '2024-03-10', paymentMethod: 'GCash', saleType: 'Delivery', total: 280.00 },
-        { id: 7, itemCount: 3, status: 'Completed', date: '2024-03-09', paymentMethod: 'Cash', saleType: 'Dine In', total: 390.00 },
-        { id: 8, itemCount: 6, status: 'Refunded', date: '2024-03-08', paymentMethod: 'Card', saleType: 'Take Out', total: 720.00 },
-        { id: 9, itemCount: 2, status: 'Completed', date: '2024-03-07', paymentMethod: 'GCash', saleType: 'Delivery', total: 240.00 },
-        { id: 10, itemCount: 1, status: 'Completed', date: '2024-03-06', paymentMethod: 'Cash', saleType: 'Dine In', total: 180.00 },
-        { id: 11, itemCount: 4, status: 'Processing', date: '2024-03-05', paymentMethod: 'Card', saleType: 'Take Out', total: 480.00 },
-        { id: 12, itemCount: 3, status: 'Completed', date: '2024-03-04', paymentMethod: 'GCash', saleType: 'Delivery', total: 360.00 }
-      ]
+      orders: [],
+      selectedOrder: null,
+      loading: false,
+      error: null,
+      totalOrders: 0,
+      totalPages: 0
     }
   },
   computed: {
-    totalOrders() {
-      return this.orders.length
-    },
-    totalPages() {
-      return Math.ceil(this.totalOrders / this.itemsPerPage)
-    },
     startItem() {
       return (this.currentPage - 1) * this.itemsPerPage + 1
     },
     endItem() {
       return Math.min(this.currentPage * this.itemsPerPage, this.totalOrders)
-    },
-    paginatedOrders() {
-      const start = (this.currentPage - 1) * this.itemsPerPage
-      const end = start + this.itemsPerPage
-      return this.orders.slice(start, end)
     }
   },
+  async mounted() {
+    await this.fetchHistory()
+  },
   methods: {
-    goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
+    async fetchHistory() {
+      try {
+        this.loading = true
+        this.error = null
+
+        console.log('Fetching history...') // Debug log
+
+        const result = await historyAPIService.loadHistory({
+          page: this.currentPage,
+          pageSize: this.itemsPerPage
+        })
+
+        console.log('API Result:', result) // Debug log
+
+        this.orders = result.transactions
+        this.totalOrders = result.totalCount
+        this.totalPages = result.totalPages
+
+        console.log('Orders set:', this.orders) // Debug log
+
+      } catch (error) {
+        console.error('Error loading history:', error)
+        this.error = error.message
+      } finally {
+        this.loading = false
       }
     },
+
+    async goToPage(page) {
+      if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+        this.currentPage = page
+        await this.fetchHistory()
+      }
+    },
+
     getStatusClass(status) {
       const classes = {
         'Completed': 'status-completed',
@@ -179,6 +235,7 @@ export default {
       }
       return classes[status] || 'status-default'
     },
+
     formatDate(dateString) {
       const date = new Date(dateString)
       return date.toLocaleDateString('en-US', {
@@ -187,12 +244,33 @@ export default {
         day: 'numeric'
       })
     },
-      viewOrder(orderId) {
-        this.selectedOrder = this.orders.find(order => order.id === orderId);
-        const modal = new bootstrap.Modal(this.$refs.orderModal);
-        modal.show();
-      },
-    
+
+    viewOrder(orderId) {
+      this.selectedOrder = this.orders.find(order => order.id === orderId)
+      const modalElement = document.getElementById('orderModal')
+      if (modalElement && window.bootstrap) {
+        const modal = new bootstrap.Modal(modalElement)
+        modal.show()
+      }
+    },
+
+    async refreshData() {
+      await this.fetchHistory()
+    },
+
+    getTotalItems(items) {
+      return items.reduce((sum, item) => sum + item.quantity, 0)
+    },
+
+    viewOrder(orderId) {
+      this.selectedOrder = this.orders.find(order => order.id === orderId)
+      console.log('Selected order with items:', this.selectedOrder) // Debug log
+      const modalElement = document.getElementById('orderModal')
+      if (modalElement && window.bootstrap) {
+        const modal = new bootstrap.Modal(modalElement)
+        modal.show()
+      }
+    }
   }
 }
 </script>
@@ -220,6 +298,23 @@ export default {
   border-bottom: 2px solid #e2e8f0;
 }
 
+/* Loading, Error, No Data States */
+.loading-state, .error-state, .no-data-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+.retry-btn {
+  background: #567cdc;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
 .table-container {
   background: white;
   border-radius: 0.75rem;
@@ -243,7 +338,6 @@ export default {
   text-align: left;
   font-weight: 600;
   font-size: 0.875rem;
-  letter-spacing: 0.025em;
   border: none;
 }
 
@@ -255,10 +349,6 @@ export default {
 
 .history-table tbody tr:hover {
   background-color: #f7fafc;
-}
-
-.history-table tbody tr:last-child td {
-  border-bottom: none;
 }
 
 /* Status badges */
@@ -314,44 +404,15 @@ export default {
   align-items: center;
   justify-content: center;
   border-radius: 0.375rem;
-  border: 1px solid;
+  border: 1px solid #3b82f6;
   background: white;
+  color: #3b82f6;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .action-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.view-btn {
-  border-color: #3b82f6;
-  color: #3b82f6;
-}
-
-.view-btn:hover {
   background-color: #3b82f6;
-  color: white;
-}
-
-.edit-btn {
-  border-color: #10b981;
-  color: #10b981;
-}
-
-.edit-btn:hover {
-  background-color: #10b981;
-  color: white;
-}
-
-.delete-btn {
-  border-color: #ef4444;
-  color: #ef4444;
-}
-
-.delete-btn:hover {
-  background-color: #ef4444;
   color: white;
 }
 
@@ -404,6 +465,130 @@ export default {
   cursor: not-allowed;
 }
 
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6c757d;
+  padding: 0.25rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  margin-left: auto; /* This pushes it to the right */
+}
+
+.close:hover {
+  background-color: #f8f9fa;
+  color: #495057;
+}
+
+/* Items section styling */
+.items-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.items-section h6 {
+  margin-bottom: 1rem;
+  color: #2d3748;
+  font-weight: 600;
+}
+
+/* Grid layout for items - max 5 per row */
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+  max-width: 100%;
+}
+
+/* Individual item styling */
+.item-tag {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #495057;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+}
+
+.item-tag:hover {
+  background: #e9ecef;
+  border-color: #567cdc;
+}
+
+.item-qty {
+  background: #567cdc;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+/* Items summary */
+.items-summary {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  border-left: 4px solid #567cdc;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.summary-row:last-child {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #dee2e6;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .items-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.5rem;
+  }
+  
+  .item-tag {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 0.25rem;
+  }
+  
+  .item-qty {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .items-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .history-container {
@@ -412,17 +597,6 @@ export default {
   
   .history-contents {
     padding: 1rem;
-  }
-  
-  .history-table th,
-  .history-table td {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.8125rem;
-  }
-  
-  .action-btn {
-    width: 24px;
-    height: 24px;
   }
   
   .pagination-container {
