@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "migrate": "node migration.js",
+    "verify-migration": "node verify-migration.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "mongoose": "^8.18.0"
+  }
+}

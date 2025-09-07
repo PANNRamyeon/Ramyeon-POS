@@ -49,6 +49,7 @@ class CategoryAPIService {
         name: category.category_name,
         description: category.description,
         icon: this.mapCategoryIcon(category.category_name),
+        image: category.image_url || null,
         isCustom: false,
         hasSubcategories: this.hasValidSubcategories(category.sub_categories),
         subcategories: this.transformSubcategories(category.sub_categories || []),
@@ -111,7 +112,6 @@ class CategoryAPIService {
 
 }
 
-// Create and export singleton instance
 const categoryAPIService = new CategoryAPIService();
 
 export default categoryAPIService;

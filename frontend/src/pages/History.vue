@@ -55,7 +55,7 @@
                     title="View Order"
                     @click="viewOrder(order.id)"
                   >
-                    👁️
+                    <Eye :size="14" />
                   </button>
                 </div>
               </td>
