@@ -13,20 +13,21 @@ export const useTable = (options = {}) => {
 
   // Core reactive state
   const state = reactive({
-    data: ref([]),
-    loading: ref(false),
-    error: ref(null),
-    currentPage: ref(1),
-    searchQuery: ref(''),
-    sortField: ref(''),
-    sortDirection: ref('asc'), // 'asc' | 'desc'
-    selectedItems: ref([]),
-    filters: ref({})
+    data: [],
+    loading: false,
+    error: null,
+    currentPage: 1,
+    searchQuery: '',
+    sortField: '',
+    sortDirection: 'asc',
+    selectedItems: [],
+    filters: {},
+    totalCount: 0
   })
-
+  
   // Computed properties
   const filteredData = computed(() => {
-    let result = [...state.data]
+    let result = state.data.slice() // FIXED: Use slice() instead of spread
 
     // Apply search filter
     if (state.searchQuery && config.filterable) {
@@ -66,12 +67,16 @@ export const useTable = (options = {}) => {
     return result
   })
 
+  const setTotalCount = (count) => {
+    state.totalCount = count
+  }
+
   const sortedData = computed(() => {
     if (!state.sortField || !config.sortable) {
       return filteredData.value
     }
 
-    return [...filteredData.value].sort((a, b) => {
+    return filteredData.value.slice().sort((a, b) => {
       const aValue = a[state.sortField]
       const bValue = b[state.sortField]
 
@@ -100,7 +105,12 @@ export const useTable = (options = {}) => {
     return sortedData.value.slice(start, end)
   })
 
-  const totalItems = computed(() => filteredData.value.length)
+  const totalItems = computed(() => {
+    console.log('Computing totalItems - totalCount:', state.totalCount, 'filteredLength:', filteredData.value.length)
+    // Use totalCount if available (server-side pagination), otherwise use filtered data length
+    return state.totalCount > 0 ? state.totalCount : filteredData.value.length
+  })
+
   const totalPages = computed(() => Math.ceil(totalItems.value / config.itemsPerPage))
 
   const paginationInfo = computed(() => {
@@ -127,13 +137,24 @@ export const useTable = (options = {}) => {
 
   // Methods
   const setData = (data) => {
-    state.data = Array.isArray(data) ? data : []
-    state.currentPage = 1 // Reset to first page when data changes
-    clearSelection()
+    console.log('setData called with:', data) // DEBUG
+    console.log('data is array:', Array.isArray(data)) // DEBUG
+    
+    if (Array.isArray(data)) {
+      state.data = data.slice() // FIXED: Use slice() instead of spread
+    } else {
+      state.data = []
+    }
+    
+    state.currentPage = 1
+    state.selectedItems = [] // Direct assignment instead of clearSelection()
+    
+    console.log('state.data after assignment:', state.data) // DEBUG
+    console.log('state.data length:', state.data.length) // DEBUG
   }
 
   const updateData = (newData) => {
-    state.data = [...state.data, ...newData]
+    state.data = state.data.slice().concat(newData.slice()) // FIXED: Use slice() and concat instead of spread
   }
 
   const setLoading = (loading) => {
@@ -169,13 +190,13 @@ export const useTable = (options = {}) => {
 
   const setItemsPerPage = (itemsPerPage) => {
     config.itemsPerPage = itemsPerPage
-    state.currentPage = 1 // Reset to first page
+    state.currentPage = 1
   }
 
   // Search methods
   const setSearchQuery = (query) => {
     state.searchQuery = query
-    state.currentPage = 1 // Reset to first page when searching
+    state.currentPage = 1
   }
 
   const clearSearch = () => {
@@ -185,14 +206,12 @@ export const useTable = (options = {}) => {
   // Sort methods
   const sortBy = (field) => {
     if (state.sortField === field) {
-      // Toggle direction if same field
       state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc'
     } else {
-      // New field, default to ascending
       state.sortField = field
       state.sortDirection = 'asc'
     }
-    state.currentPage = 1 // Reset to first page when sorting
+    state.currentPage = 1
   }
 
   const clearSort = () => {
@@ -207,7 +226,7 @@ export const useTable = (options = {}) => {
     } else {
       state.filters[key] = value
     }
-    state.currentPage = 1 // Reset to first page when filtering
+    state.currentPage = 1
   }
 
   const clearFilter = (key) => {
@@ -273,7 +292,6 @@ export const useTable = (options = {}) => {
 
   // Utility methods
   const refresh = () => {
-    // Reset all state except data
     state.currentPage = 1
     state.searchQuery = ''
     state.sortField = ''
@@ -284,7 +302,6 @@ export const useTable = (options = {}) => {
   }
 
   const reset = () => {
-    // Reset everything including data
     refresh()
     state.data = []
     state.loading = false
@@ -299,7 +316,7 @@ export const useTable = (options = {}) => {
 
   // Return all the reactive state and methods
   return {
-    // State
+    // State - using spread since we fixed the reactive issue
     ...state,
     config,
     
@@ -320,6 +337,7 @@ export const useTable = (options = {}) => {
     setLoading,
     setError,
     clearError,
+    setTotalCount,
     
     // Pagination methods
     goToPage,

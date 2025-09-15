@@ -1,127 +1,184 @@
 <template>
   <div class="history-container">
     <div class="history-contents">
-      <h2 class="page-title">Order History</h2>
-      
+      <div class="page-header">
+        <h2 class="page-title">Order History</h2>
+        
+        <!-- Inline action controls -->
+        <div class="header-controls">
+          <!-- Search -->
+          <div class="search-box">
+            <Search :size="16" />
+            <input
+              type="text"
+              v-model="table.searchQuery"
+              @input="table.setSearchQuery($event.target.value)"
+              placeholder="Search orders..."
+              class="form-control"
+            />
+          </div>
+
+          <!-- Filters -->
+          <select 
+            class="form-select"
+            @change="table.setFilter('status', $event.target.value)"
+          >
+            <option value="">All Status</option>
+            <option value="Completed">Completed</option>
+            <option value="Pending">Pending</option>
+            <option value="Processing">Processing</option>
+            <option value="Cancelled">Cancelled</option>
+            <option value="Refunded">Refunded</option>
+          </select>
+
+          <select 
+            class="form-select"
+            @change="table.setFilter('paymentMethod', $event.target.value)"
+          >
+            <option value="">All Payment Methods</option>
+            <option value="Cash">Cash</option>
+            <option value="Card">Card</option>
+            <option value="GCash">GCash</option>
+          </select>
+
+          <!-- Refresh button -->
+          <button class="btn btn-outline-secondary" @click="refreshData">
+            <RefreshCw :size="16" />
+            Refresh
+          </button>
+        </div>
+      </div>
+
       <!-- Loading state -->
-      <div v-if="loading" class="loading-state">
+      <div v-if="table.loading" class="loading-state">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
         <p>Loading transactions...</p>
       </div>
 
       <!-- Error state -->
-      <div v-else-if="error" class="error-state">
-        <p>Error: {{ error }}</p>
-        <button @click="refreshData()" class="retry-btn">Retry</button>
+      <div v-else-if="table.error" class="error-state">
+        <div class="alert alert-danger">
+          <strong>Error:</strong> {{ table.error }}
+          <button @click="refreshData()" class="btn btn-sm btn-outline-danger ms-2">
+            Retry
+          </button>
+        </div>
       </div>
 
       <!-- No data state -->
-      <div v-else-if="orders.length === 0" class="no-data-state">
-        <p>No transactions found.</p>
-      </div>
-
-      <!-- Table -->
-      <div v-else class="table-container">
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th scope="col">ID</th>
-              <th scope="col">Items</th>
-              <th scope="col">Status</th>
-              <th scope="col">Date</th>
-              <th scope="col">Payment Method</th>
-              <th scope="col">Sale Type</th>
-              <th scope="col">Total</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="table-group-divider">
-            <!-- Use orders directly, not paginatedOrders -->
-            <tr v-for="order in orders" :key="order.id">
-              <th scope="row">{{ order.id }}</th>
-              <td>{{ order.itemCount }} items</td>
-              <td>
-                <span class="status-badge" :class="getStatusClass(order.status)">
-                  {{ order.status }}
-                </span>
-              </td>
-              <td>{{ formatDate(order.date) }}</td>
-              <td>{{ order.paymentMethod }}</td>
-              <td>{{ order.saleType }}</td>
-              <td class="total-amount">₱{{ order.total.toFixed(2) }}</td>
-              <td>
-                <div class="action-buttons">
-                  <button 
-                    class="action-btn view-btn" 
-                    title="View Order"
-                    @click="viewOrder(order.id)"
-                  >
-                    <Eye :size="14" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination -->
-      <div class="pagination-container" v-if="totalPages > 1">
-        <div class="pagination-info">
-          <small>Showing {{ startItem }}-{{ endItem }} of {{ totalOrders }} orders</small>
-        </div>
-        <div class="pagination-controls">
-          <button 
-            class="page-btn" 
-            :disabled="currentPage === 1"
-            @click="goToPage(currentPage - 1)"
-          >
-            ←
-          </button>
-          
-          <button 
-            v-for="page in totalPages" 
-            :key="page"
-            class="page-btn"
-            :class="{ active: page === currentPage }"
-            @click="goToPage(page)"
-          >
-            {{ page }}
-          </button>
-          
-          <button 
-            class="page-btn" 
-            :disabled="currentPage === totalPages"
-            @click="goToPage(currentPage + 1)"
-          >
-            →
-          </button>
+      <div v-else-if="!table.data || table.data.length === 0" class="no-data-state">
+        <div class="empty-state">
+          <ShoppingBag :size="48" class="text-muted mb-3" />
+          <h5>No transactions found</h5>
+          <p class="text-muted">Try adjusting your search or filters</p>
         </div>
       </div>
+
+      <!-- Data Table -->
+      <TableTemplate
+        v-else
+        :current-page="table.currentPage"
+        :items-per-page="table.config.itemsPerPage"
+        :total-items="table.totalItems"
+        :show-pagination="true"
+        @page-changed="table.goToPage"
+      >
+        <template #header>
+          <tr>
+            <th scope="col" @click="table.sortBy('id')" class="sortable">
+              ID
+              <span v-if="table.sortField === 'id'">
+                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              </span>
+            </th>
+            <th scope="col">Items</th>
+            <th scope="col" @click="table.sortBy('status')" class="sortable">
+              Status
+              <span v-if="table.sortField === 'status'">
+                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              </span>
+            </th>
+            <th scope="col" @click="table.sortBy('date')" class="sortable">
+              Date
+              <span v-if="table.sortField === 'date'">
+                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              </span>
+            </th>
+            <th scope="col" @click="table.sortBy('paymentMethod')" class="sortable">
+              Payment Method
+              <span v-if="table.sortField === 'paymentMethod'">
+                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              </span>
+            </th>
+            <th scope="col">Sale Type</th>
+            <th scope="col" @click="table.sortBy('total')" class="sortable">
+              Total
+              <span v-if="table.sortField === 'total'">
+                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              </span>
+            </th>
+            <th scope="col">Actions</th>
+          </tr>
+        </template>
+
+        <template #body>
+          <tr v-for="order in table.paginatedData" :key="order.id">
+            <th scope="row">{{ order.id }}</th>
+            <td>{{ order.itemCount }} items</td>
+            <td>
+              <span class="badge" :class="getStatusClass(order.status)">
+                {{ order.status }}
+              </span>
+            </td>
+            <td>{{ formatDate(order.date) }}</td>
+            <td>{{ order.paymentMethod }}</td>
+            <td>{{ order.saleType }}</td>
+            <td class="text-end fw-bold">₱{{ order.total?.toFixed(2) || '0.00' }}</td>
+            <td>
+              <div class="d-flex gap-1">
+                <button 
+                  class="btn btn-sm btn-outline-primary action-btn action-btn-view" 
+                  title="View Order"
+                  @click="viewOrder(order.id)"
+                >
+                  <Eye :size="14" />
+                </button>
+              </div>
+            </td>
+          </tr>
+        </template>
+      </TableTemplate>
     </div>
 
-    <!-- Modal -->
+    <!-- Order Details Modal -->
     <div class="modal fade" id="orderModal" tabindex="-1" role="dialog" aria-labelledby="orderModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="orderModalLabel">Order Details</h5>
-            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true"><CircleX/></span>
-            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <div v-if="selectedOrder">
               <div class="order-info">
-                <!--<h6>Order Information</h6>-->
-                <p><strong>Order ID:</strong> {{ selectedOrder.id }}</p>
-                <p><strong>Status:</strong> 
-                  <span class="status-badge" :class="getStatusClass(selectedOrder.status)">
-                     {{ selectedOrder.status }}
-                  </span>
-                </p>
-                <p><strong>Date:</strong> {{ formatDate(selectedOrder.date) }}</p>
-                <p><strong>Payment Method:</strong> {{ selectedOrder.paymentMethod }}</p>
-                <p><strong>Sale Type:</strong> {{ selectedOrder.saleType }}</p>
+                <div class="row">
+                  <div class="col-md-6">
+                    <p><strong>Order ID:</strong> {{ selectedOrder.id }}</p>
+                    <p><strong>Date:</strong> {{ formatDate(selectedOrder.date) }}</p>
+                    <p><strong>Payment Method:</strong> {{ selectedOrder.paymentMethod }}</p>
+                  </div>
+                  <div class="col-md-6">
+                    <p><strong>Status:</strong> 
+                      <span class="badge" :class="getStatusClass(selectedOrder.status)">
+                        {{ selectedOrder.status }}
+                      </span>
+                    </p>
+                    <p><strong>Sale Type:</strong> {{ selectedOrder.saleType }}</p>
+                    <p><strong>Total:</strong> <span class="fw-bold">₱{{ selectedOrder.total?.toFixed(2) || '0.00' }}</span></p>
+                  </div>
+                </div>
               </div>
 
               <!-- Items Details Section -->
@@ -131,29 +188,30 @@
                   <div 
                     v-for="item in selectedOrder.originalData.items" 
                     :key="item.product_id"
-                    class="item-tag"
+                    class="item-card"
                   >
-                    {{ item.product_name }}
-                    <span class="item-qty">({{ item.quantity }})</span>
+                    <div class="item-name">{{ item.product_name }}</div>
+                    <span class="badge bg-secondary">{{ item.quantity }}</span>
                   </div>
                 </div>
                 
                 <!-- Items Summary -->
                 <div class="items-summary">
-                  <div class="summary-row">
+                  <div class="d-flex justify-content-between">
                     <span>Total Items:</span>
                     <strong>{{ getTotalItems(selectedOrder.originalData.items) }}</strong>
                   </div>
-                  <div class="summary-row">
+                  <hr>
+                  <div class="d-flex justify-content-between">
                     <span>Total Amount:</span>
-                    <strong>₱{{ selectedOrder.total.toFixed(2) }}</strong>
+                    <strong>₱{{ selectedOrder.total?.toFixed(2) || '0.00'}}</strong>
                   </div>
                 </div>
               </div>
             </div>
           </div>
           <div class="modal-footer">
-           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
       </div>
@@ -162,446 +220,331 @@
 </template>
 
 <script>
-import historyAPIService from '@/services/apiHistory.js';
+import { onMounted, ref } from 'vue'
+import { useTable } from '@/composables/ui/useTable.js'
+import historyAPIService from '@/services/apiHistory.js'
+import TableTemplate from '@/components/common/TableTemplate.vue'
 
 export default {
   name: 'History',
-  data() {
-    return {
-      currentPage: 1,
+  components: {
+    TableTemplate
+  },
+  setup() {
+    // Initialize table
+    const table = useTable({
       itemsPerPage: 8,
-      orders: [],
-      selectedOrder: null,
-      loading: false,
-      error: null,
-      totalOrders: 0,
-      totalPages: 0
-    }
-  },
-  computed: {
-    startItem() {
-      return (this.currentPage - 1) * this.itemsPerPage + 1
-    },
-    endItem() {
-      return Math.min(this.currentPage * this.itemsPerPage, this.totalOrders)
-    }
-  },
-  async mounted() {
-    await this.fetchHistory()
-  },
-  methods: {
-    async fetchHistory() {
-      try {
-        this.loading = true
-        this.error = null
+      sortable: true,
+      filterable: true,
+      selectable: false
+    })
 
-        console.log('Fetching history...') // Debug log
+    const selectedOrder = ref(null)
+
+    // Load data
+    const fetchHistory = async () => {
+      try {
+        table.setLoading(true)
+        table.clearError()
 
         const result = await historyAPIService.loadHistory({
-          page: this.currentPage,
-          pageSize: this.itemsPerPage
+          page: table.currentPage,
+          pageSize: table.config.itemsPerPage
         })
 
-        console.log('API Result:', result) // Debug log
+        // Transform the raw transaction data
+        const transformedTransactions = (result.transactions || []).map(transaction => ({
+          id: transaction.id,
+          itemCount: transaction.originalData?.items?.length || 0,
+          status: transaction.status || 'Unknown',
+          date: transaction.transaction_date || transaction.date,
+          paymentMethod: transaction.paymentMethod || 'Unknown',
+          saleType: transaction.saleType || 'In Store',
+          total: parseFloat(transaction.total_amount || transaction.total || 0),
+          originalData: transaction // Keep reference to original data for modal
+        }))
 
-        this.orders = result.transactions
-        this.totalOrders = result.totalCount
-        this.totalPages = result.totalPages
-
-        console.log('Orders set:', this.orders) // Debug log
-
+        console.log('Transformed transactions:', transformedTransactions)
+        
+        table.setData(transformedTransactions)
+        table.setTotalCount(result.totalCount || transformedTransactions.length)
+        
       } catch (error) {
         console.error('Error loading history:', error)
-        this.error = error.message
+        table.setError(error.message)
       } finally {
-        this.loading = false
+        table.setLoading(false)
       }
-    },
+    }
 
-    async goToPage(page) {
-      if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
-        this.currentPage = page
-        await this.fetchHistory()
-      }
-    },
+    const refreshData = async () => {
+      await fetchHistory()
+    }
 
-    getStatusClass(status) {
+    const getStatusClass = (status) => {
       const classes = {
-        'Completed': 'status-completed',
-        'Pending': 'status-pending',
-        'Processing': 'status-processing',
-        'Cancelled': 'status-cancelled',
-        'Refunded': 'status-refunded'
+        'Completed': 'bg-success',
+        'Pending': 'bg-warning text-dark',
+        'Processing': 'bg-info',
+        'Cancelled': 'bg-danger',
+        'Refunded': 'bg-secondary'
       }
-      return classes[status] || 'status-default'
-    },
+      return classes[status] || 'bg-light text-dark'
+    }
 
-    formatDate(dateString) {
+    const formatDate = (dateString) => {
       const date = new Date(dateString)
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       })
-    },
+    }
 
-    viewOrder(orderId) {
-      this.selectedOrder = this.orders.find(order => order.id === orderId)
-      const modalElement = document.getElementById('orderModal')
-      if (modalElement && window.bootstrap) {
-        const modal = new bootstrap.Modal(modalElement)
-        modal.show()
-      }
-    },
-
-    async refreshData() {
-      await this.fetchHistory()
-    },
-
-    getTotalItems(items) {
-      return items.reduce((sum, item) => sum + item.quantity, 0)
-    },
-
-    viewOrder(orderId) {
-      this.selectedOrder = this.orders.find(order => order.id === orderId)
-      console.log('Selected order with items:', this.selectedOrder) // Debug log
+    const viewOrder = (orderId) => {
+      selectedOrder.value = table.data.find(order => order.id === orderId)
       const modalElement = document.getElementById('orderModal')
       if (modalElement && window.bootstrap) {
         const modal = new bootstrap.Modal(modalElement)
         modal.show()
       }
     }
+
+    const getTotalItems = (items) => {
+    return items ? items.reduce((total, item) => total + (item.quantity || 0), 0) : 0
+  }
+
+    onMounted(async () => {
+      await fetchHistory()
+    })
+
+    return {
+      table,
+      selectedOrder,
+      fetchHistory,
+      refreshData,
+      getStatusClass,
+      formatDate,
+      viewOrder,
+      getTotalItems
+    }
   }
 }
 </script>
 
+<!-- YOUR EXISTING STYLES - UNCHANGED -->
 <style scoped>
 .history-container {
   padding: 1.5rem;
-  background-color: #f8f9fa;
+  background-color: var(--surface-tertiary);
   min-height: 100vh;
 }
 
 .history-contents {
-  background: white;
+  background: var(--surface-primary);
   border-radius: 0.75rem;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--border-secondary);
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .page-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #2d3748;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid #e2e8f0;
+  color: var(--text-primary);
+  margin: 0;
 }
 
-/* Loading, Error, No Data States */
-.loading-state, .error-state, .no-data-state {
-  text-align: center;
-  padding: 2rem;
-  color: #6b7280;
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.retry-btn {
-  background: #567cdc;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  margin-top: 1rem;
+.search-box {
+  position: relative;
+  min-width: 250px;
 }
 
-.table-container {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+.search-box svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  z-index: 2;
+}
+
+.search-box input {
+  padding-left: 2.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-secondary);
+  background: var(--surface-primary);
+}
+
+.form-select {
+  min-width: 140px;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-secondary);
+  background: var(--surface-primary);
+}
+
+/* States */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: var(--text-secondary);
+}
+
+.loading-state .spinner-border {
   margin-bottom: 1rem;
+  color: var(--primary);
 }
 
-.history-table {
-  width: 100%;
-  border-collapse: collapse;
+.error-state {
+  padding: 2rem;
 }
 
-.history-table thead {
-  background-color: #567cdc;
-  color: white;
+.no-data-state {
+  padding: 4rem 2rem;
 }
 
-.history-table th {
-  padding: 1rem;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.875rem;
-  border: none;
+.empty-state {
+  text-align: center;
+  color: var(--text-secondary);
 }
 
-.history-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #e2e8f0;
-  font-size: 0.875rem;
+/* Sortable headers */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 1.5rem !important;
+  transition: background-color 0.2s ease;
 }
 
-.history-table tbody tr:hover {
-  background-color: #f7fafc;
+.sortable:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Status badges */
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.375rem;
+.sortable span {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
 }
 
-.status-completed {
-  background-color: #10b981;
-  color: white;
-}
-
-.status-pending {
-  background-color: #f59e0b;
-  color: white;
-}
-
-.status-processing {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.status-cancelled {
-  background-color: #ef4444;
-  color: white;
-}
-
-.status-refunded {
-  background-color: #6b7280;
-  color: white;
-}
-
-.total-amount {
-  font-weight: 600;
-  color: #2d3748;
-  text-align: right;
-}
-
-/* Action buttons */
-.action-buttons {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.action-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.375rem;
-  border: 1px solid #3b82f6;
-  background: white;
-  color: #3b82f6;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.action-btn:hover {
-  background-color: #3b82f6;
-  color: white;
-}
-
-/* Pagination */
-.pagination-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  border-top: 1px solid #e2e8f0;
-}
-
-.pagination-info {
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-
-.pagination-controls {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.page-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #d1d5db;
-  background: white;
-  color: #374151;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.page-btn:hover:not(:disabled) {
-  background-color: #f9fafb;
-  border-color: #9ca3af;
-}
-
-.page-btn.active {
-  background-color: #567cdc;
-  border-color: #567cdc;
-  color: white;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #6c757d;
-  padding: 0.25rem;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-  margin-left: auto; /* This pushes it to the right */
-}
-
-.close:hover {
-  background-color: #f8f9fa;
-  color: #495057;
-}
-
-/* Items section styling */
+/* Items section in modal */
 .items-section {
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-secondary);
 }
 
 .items-section h6 {
   margin-bottom: 1rem;
-  color: #2d3748;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
-/* Grid layout for items - max 5 per row */
 .items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 0.75rem;
   margin: 1rem 0;
-  max-width: 100%;
 }
 
-/* Individual item styling */
-.item-tag {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  color: #495057;
+.item-card {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 0.5rem;
   transition: all 0.2s ease;
 }
 
-.item-tag:hover {
-  background: #e9ecef;
-  border-color: #567cdc;
+.item-card:hover {
+  background: var(--state-hover);
+  border-color: var(--primary);
 }
 
-.item-qty {
-  background: #567cdc;
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-left: 0.5rem;
+.item-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  margin-right: 0.5rem;
 }
 
-/* Items summary */
 .items-summary {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--surface-secondary);
   border-radius: 0.5rem;
-  border-left: 4px solid #567cdc;
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.25rem 0;
-  font-size: 0.9rem;
-}
-
-.summary-row:last-child {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid #dee2e6;
-  font-weight: 600;
-  color: #2d3748;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .items-grid {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.5rem;
-  }
-  
-  .item-tag {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.8rem;
-    flex-direction: column;
-    text-align: center;
-    gap: 0.25rem;
-  }
-  
-  .item-qty {
-    margin-left: 0;
-  }
-}
-
-@media (max-width: 480px) {
-  .items-grid {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  }
+  border-left: 4px solid var(--primary);
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .header-controls {
+    justify-content: center;
+  }
+}
+
 @media (max-width: 768px) {
   .history-container {
     padding: 1rem;
   }
   
-  .history-contents {
-    padding: 1rem;
+  .page-header {
+    padding: 1.5rem;
   }
   
-  .pagination-container {
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .header-controls {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
+  }
+  
+  .search-box {
+    min-width: 100%;
+  }
+  
+  .form-select {
+    min-width: 100%;
+  }
+  
+  .items-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header {
+    padding: 1rem;
   }
 }
 </style>

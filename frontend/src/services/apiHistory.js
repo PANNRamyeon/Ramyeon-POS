@@ -17,17 +17,19 @@ class HistoryAPIService {
 
 // Transform transaction data to match frontend component structure
   transformTransaction(transaction) {
-    return {
+    console.log('Transforming:', transaction) // DEBUG
+    const transformed = {
       id: transaction._id,
-      itemCount: transaction.items.reduce((sum, item) => sum + item.quantity, 0),
-      status: transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1),
+      itemCount: transaction.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
+      status: transaction.status?.charAt(0).toUpperCase() + transaction.status?.slice(1) || 'Unknown',
       date: transaction.transaction_date,
-      paymentMethod: transaction.payment_method.charAt(0).toUpperCase() + transaction.payment_method.slice(1),
-      saleType: 'In Store', // Default since not in API
-      total: transaction.total_amount,
-      // Keep original data for modal details
+      paymentMethod: transaction.payment_method?.charAt(0).toUpperCase() + transaction.payment_method?.slice(1) || 'Unknown',
+      saleType: 'In Store',
+      total: transaction.total_amount || 0,
       originalData: transaction
     };
+    console.log('Transformed to:', transformed) // DEBUG
+    return transformed;
   }
 
   // Load transaction history with optional filters and pagination
