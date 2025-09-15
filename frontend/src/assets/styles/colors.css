@@ -53,6 +53,38 @@
   --bg-muted: #E0E0E0;
   --bg-dark: #2C3E50;
   --bg-light: #FAFAFA;
+
+  --surface-primary: var(--bg-secondary);
+  --surface-secondary: var(--bg-primary);
+  --surface-tertiary: var(--bg-muted);
+  --surface-elevated: var(--bg-light);
+  
+  --text-primary: var(--tertiary-dark);
+  --text-secondary: var(--tertiary-medium);
+  --text-tertiary: var(--tertiary);
+  --text-accent: var(--primary);
+  --text-inverse: #ffffff;
+  
+  --border-primary: var(--neutral);
+  --border-secondary: var(--neutral-medium);
+  --border-accent: var(--primary);
+  
+  --button-bg: var(--bg-secondary);
+  --button-border: var(--border-primary);
+  --button-text: var(--text-primary);
+  
+  --input-bg: var(--bg-secondary);
+  --input-border: var(--border-primary);
+  --input-text: var(--text-primary);
+  --input-placeholder: var(--text-tertiary);
+  
+  --state-hover: rgba(115, 146, 226, 0.1);
+  --state-active: rgba(115, 146, 226, 0.2);
+  --state-selected: rgba(115, 146, 226, 0.15);
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 /* Dark theme variables */
@@ -62,4 +94,36 @@
   --bg-muted: #3a3a3a;
   --bg-dark: #0d1117;
   --bg-light: #2d2d2d;
+
+  --surface-primary: var(--bg-secondary);
+  --surface-secondary: var(--bg-primary);
+  --surface-tertiary: var(--bg-muted);
+  --surface-elevated: #404040;
+  
+  --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e0;
+  --text-tertiary: #a0aec0;
+  --text-accent: var(--primary-light);
+  --text-inverse: #1a202c;
+  
+  --border-primary: #4a5568;
+  --border-secondary: #2d3748;
+  --border-accent: var(--primary-light);
+  
+  --button-bg: var(--bg-primary);
+  --button-border: var(--border-primary);
+  --button-text: var(--text-primary);
+  
+  --input-bg: var(--bg-primary);
+  --input-border: var(--border-primary);
+  --input-text: var(--text-primary);
+  --input-placeholder: var(--text-tertiary);
+  
+  --state-hover: rgba(255, 255, 255, 0.1);
+  --state-active: rgba(255, 255, 255, 0.2);
+  --state-selected: rgba(115, 146, 226, 0.3);
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 }

@@ -9,6 +9,7 @@ import * as bootstrap from 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './assets/styles/colors.css'
 import './assets/styles/buttons.css'
 import './assets/styles/global.css'
+import './assets/styles/theme_utilities.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
@@ -17,7 +18,6 @@ import App from './App.vue'
 import router from './router'
 import lucidePlugin from './plugins/lucide.js'
 
-// Make Bootstrap available globally
 window.bootstrap = bootstrap
 
 const app = createApp(App)

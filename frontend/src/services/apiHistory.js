@@ -17,7 +17,6 @@ class HistoryAPIService {
 
 // Transform transaction data to match frontend component structure
   transformTransaction(transaction) {
-    console.log('Transforming:', transaction) // DEBUG
     const transformed = {
       id: transaction._id,
       itemCount: transaction.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
@@ -28,7 +27,6 @@ class HistoryAPIService {
       total: transaction.total_amount || 0,
       originalData: transaction
     };
-    console.log('Transformed to:', transformed) // DEBUG
     return transformed;
   }
 

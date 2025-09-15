@@ -4,25 +4,19 @@
       <div class="page-header">
         <h2 class="page-title">Order History</h2>
         
-        <!-- Inline action controls -->
         <div class="header-controls">
-          <!-- Search -->
           <div class="search-box">
             <Search :size="16" />
             <input
               type="text"
-              v-model="table.searchQuery"
-              @input="table.setSearchQuery($event.target.value)"
+              v-model="searchQuery"
+              @input="handleSearch"
               placeholder="Search orders..."
               class="form-control"
             />
           </div>
 
-          <!-- Filters -->
-          <select 
-            class="form-select"
-            @change="table.setFilter('status', $event.target.value)"
-          >
+          <select class="form-select" v-model="statusFilter" @change="handleFilter">
             <option value="">All Status</option>
             <option value="Completed">Completed</option>
             <option value="Pending">Pending</option>
@@ -31,17 +25,13 @@
             <option value="Refunded">Refunded</option>
           </select>
 
-          <select 
-            class="form-select"
-            @change="table.setFilter('paymentMethod', $event.target.value)"
-          >
+          <select class="form-select" v-model="paymentFilter" @change="handleFilter">
             <option value="">All Payment Methods</option>
             <option value="Cash">Cash</option>
             <option value="Card">Card</option>
             <option value="GCash">GCash</option>
           </select>
 
-          <!-- Refresh button -->
           <button class="btn btn-outline-secondary" @click="refreshData">
             <RefreshCw :size="16" />
             Refresh
@@ -50,7 +40,7 @@
       </div>
 
       <!-- Loading state -->
-      <div v-if="table.loading" class="loading-state">
+      <div v-if="loading" class="loading-state">
         <div class="spinner-border" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
@@ -58,9 +48,9 @@
       </div>
 
       <!-- Error state -->
-      <div v-else-if="table.error" class="error-state">
+      <div v-else-if="error" class="error-state">
         <div class="alert alert-danger">
-          <strong>Error:</strong> {{ table.error }}
+          <strong>Error:</strong> {{ error }}
           <button @click="refreshData()" class="btn btn-sm btn-outline-danger ms-2">
             Retry
           </button>
@@ -68,7 +58,7 @@
       </div>
 
       <!-- No data state -->
-      <div v-else-if="!table.data || table.data.length === 0" class="no-data-state">
+      <div v-else-if="filteredOrders.length === 0" class="no-data-state">
         <div class="empty-state">
           <ShoppingBag :size="48" class="text-muted mb-3" />
           <h5>No transactions found</h5>
@@ -76,47 +66,46 @@
         </div>
       </div>
 
-      <!-- Data Table -->
+      <!-- Data Table using TableTemplate -->
       <TableTemplate
         v-else
-        :current-page="table.currentPage"
-        :items-per-page="table.config.itemsPerPage"
-        :total-items="table.totalItems"
-        :show-pagination="true"
-        @page-changed="table.goToPage"
+        :current-page="currentPage"
+        :items-per-page="itemsPerPage"
+        :total-items="sortedOrders.length"
+        :show-pagination="false"
       >
         <template #header>
           <tr>
-            <th scope="col" @click="table.sortBy('id')" class="sortable">
+            <th scope="col" @click="sortBy('id')" class="sortable">
               ID
-              <span v-if="table.sortField === 'id'">
-                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              <span v-if="sortField === 'id'">
+                {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
             <th scope="col">Items</th>
-            <th scope="col" @click="table.sortBy('status')" class="sortable">
+            <th scope="col" @click="sortBy('status')" class="sortable">
               Status
-              <span v-if="table.sortField === 'status'">
-                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              <span v-if="sortField === 'status'">
+                {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
-            <th scope="col" @click="table.sortBy('date')" class="sortable">
+            <th scope="col" @click="sortBy('date')" class="sortable">
               Date
-              <span v-if="table.sortField === 'date'">
-                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              <span v-if="sortField === 'date'">
+                {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
-            <th scope="col" @click="table.sortBy('paymentMethod')" class="sortable">
+            <th scope="col" @click="sortBy('paymentMethod')" class="sortable">
               Payment Method
-              <span v-if="table.sortField === 'paymentMethod'">
-                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              <span v-if="sortField === 'paymentMethod'">
+                {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
             <th scope="col">Sale Type</th>
-            <th scope="col" @click="table.sortBy('total')" class="sortable">
+            <th scope="col" @click="sortBy('total')" class="sortable">
               Total
-              <span v-if="table.sortField === 'total'">
-                {{ table.sortDirection === 'asc' ? '↑' : '↓' }}
+              <span v-if="sortField === 'total'">
+                {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
             <th scope="col">Actions</th>
@@ -124,7 +113,7 @@
         </template>
 
         <template #body>
-          <tr v-for="order in table.paginatedData" :key="order.id">
+          <tr v-for="order in currentPageOrders" :key="order.id">
             <th scope="row">{{ order.id }}</th>
             <td>{{ order.itemCount }} items</td>
             <td>
@@ -150,6 +139,23 @@
           </tr>
         </template>
       </TableTemplate>
+
+      <!-- Custom Pagination using PaginationControls -->
+      <PaginationControls
+        v-if="paginationInfo.totalPages > 1"
+        :current-page="paginationInfo.currentPage"
+        :total-pages="paginationInfo.totalPages"
+        :start="paginationInfo.start"
+        :end="paginationInfo.end"
+        :total="paginationInfo.total"
+        :visible-pages="paginationControls.pages"
+        :has-next="paginationControls.hasNext"
+        :has-previous="paginationControls.hasPrevious"
+        :next-page="paginationControls.nextPage"
+        :previous-page="paginationControls.previousPage"
+        item-name="orders"
+        @page-changed="goToPage"
+      />
     </div>
 
     <!-- Order Details Modal -->
@@ -220,60 +226,143 @@
 </template>
 
 <script>
-import { onMounted, ref } from 'vue'
-import { useTable } from '@/composables/ui/useTable.js'
+import { ref, computed, onMounted } from 'vue'
+import { tablePagination } from '@/helpers/pagination.js'
 import historyAPIService from '@/services/apiHistory.js'
 import TableTemplate from '@/components/common/TableTemplate.vue'
+import PaginationControls from '@/components/common/PaginationControls.vue'
 
 export default {
   name: 'History',
   components: {
-    TableTemplate
+    TableTemplate,
+    PaginationControls
   },
   setup() {
-    // Initialize table
-    const table = useTable({
-      itemsPerPage: 8,
-      sortable: true,
-      filterable: true,
-      selectable: false
+    // State
+    const orders = ref([])
+    const loading = ref(false)
+    const error = ref(null)
+    const selectedOrder = ref(null)
+    const currentPage = ref(1)
+    const itemsPerPage = ref(8)
+    
+    // Filters
+    const searchQuery = ref('')
+    const statusFilter = ref('')
+    const paymentFilter = ref('')
+    
+    // Sorting
+    const sortField = ref('')
+    const sortDirection = ref('asc')
+
+    // Computed: Apply filters and sorting
+    const filteredOrders = computed(() => {
+      let result = orders.value
+
+      if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase()
+        result = result.filter(order => 
+          order.id.toLowerCase().includes(query) ||
+          order.status.toLowerCase().includes(query) ||
+          order.paymentMethod.toLowerCase().includes(query)
+        )
+      }
+
+      if (statusFilter.value) {
+        result = result.filter(order => order.status === statusFilter.value)
+      }
+
+      if (paymentFilter.value) {
+        result = result.filter(order => order.paymentMethod === paymentFilter.value)
+      }
+
+      return result
     })
 
-    const selectedOrder = ref(null)
+    const sortedOrders = computed(() => {
+      if (!sortField.value) return filteredOrders.value
 
-    // Load data
+      return [...filteredOrders.value].sort((a, b) => {
+        const aValue = a[sortField.value]
+        const bValue = b[sortField.value]
+
+        let comparison = 0
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          comparison = aValue - bValue
+        } else {
+          comparison = String(aValue).localeCompare(String(bValue))
+        }
+
+        return sortDirection.value === 'desc' ? -comparison : comparison
+      })
+    })
+
+    // Pagination using helper
+    const currentPageOrders = computed(() => {
+      return tablePagination.getPaginatedItems(
+        sortedOrders.value, 
+        currentPage.value, 
+        itemsPerPage.value
+      )
+    })
+
+    const paginationInfo = computed(() => {
+      return tablePagination.getPaginationInfo(
+        currentPage.value,
+        sortedOrders.value.length,
+        itemsPerPage.value
+      )
+    })
+
+    const paginationControls = computed(() => {
+      return tablePagination.getPaginationControls(
+        currentPage.value,
+        paginationInfo.value.totalPages
+      )
+    })
+
+    // Methods
     const fetchHistory = async () => {
       try {
-        table.setLoading(true)
-        table.clearError()
+        loading.value = true
+        error.value = null
 
         const result = await historyAPIService.loadHistory({
-          page: table.currentPage,
-          pageSize: table.config.itemsPerPage
+          page: 1,
+          pageSize: 1000
         })
 
-        // Transform the raw transaction data
-        const transformedTransactions = (result.transactions || []).map(transaction => ({
-          id: transaction.id,
-          itemCount: transaction.originalData?.items?.length || 0,
-          status: transaction.status || 'Unknown',
-          date: transaction.transaction_date || transaction.date,
-          paymentMethod: transaction.paymentMethod || 'Unknown',
-          saleType: transaction.saleType || 'In Store',
-          total: parseFloat(transaction.total_amount || transaction.total || 0),
-          originalData: transaction // Keep reference to original data for modal
-        }))
-
-        console.log('Transformed transactions:', transformedTransactions)
+        orders.value = result.transactions || []
         
-        table.setData(transformedTransactions)
-        table.setTotalCount(result.totalCount || transformedTransactions.length)
-        
-      } catch (error) {
-        console.error('Error loading history:', error)
-        table.setError(error.message)
+      } catch (err) {
+        error.value = err.message
       } finally {
-        table.setLoading(false)
+        loading.value = false
+      }
+    }
+
+    const goToPage = (page) => {
+      const normalizedPage = tablePagination.normalizePage(page, paginationInfo.value.totalPages)
+      if (normalizedPage !== currentPage.value) {
+        currentPage.value = normalizedPage
+      }
+    }
+
+    const handleSearch = () => {
+      currentPage.value = 1
+    }
+
+    const handleFilter = () => {
+      currentPage.value = 1
+    }
+
+    const sortBy = (field) => {
+      if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+      } else {
+        sortField.value = field
+        sortDirection.value = 'asc'
       }
     }
 
@@ -302,7 +391,7 @@ export default {
     }
 
     const viewOrder = (orderId) => {
-      selectedOrder.value = table.data.find(order => order.id === orderId)
+      selectedOrder.value = orders.value.find(order => order.id === orderId)
       const modalElement = document.getElementById('orderModal')
       if (modalElement && window.bootstrap) {
         const modal = new bootstrap.Modal(modalElement)
@@ -311,17 +400,40 @@ export default {
     }
 
     const getTotalItems = (items) => {
-    return items ? items.reduce((total, item) => total + (item.quantity || 0), 0) : 0
-  }
+      return items ? items.reduce((total, item) => total + (item.quantity || 0), 0) : 0
+    }
 
     onMounted(async () => {
       await fetchHistory()
     })
 
     return {
-      table,
+      // State
+      orders,
+      loading,
+      error,
       selectedOrder,
+      currentPage,
+      itemsPerPage,
+      searchQuery,
+      statusFilter,
+      paymentFilter,
+      sortField,
+      sortDirection,
+      
+      // Computed
+      filteredOrders,
+      sortedOrders,
+      currentPageOrders,
+      paginationInfo,
+      paginationControls,
+      
+      // Methods
       fetchHistory,
+      goToPage,
+      handleSearch,
+      handleFilter,
+      sortBy,
       refreshData,
       getStatusClass,
       formatDate,
@@ -332,7 +444,6 @@ export default {
 }
 </script>
 
-<!-- YOUR EXISTING STYLES - UNCHANGED -->
 <style scoped>
 .history-container {
   padding: 1.5rem;
