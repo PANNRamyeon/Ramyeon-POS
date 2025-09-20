@@ -8,6 +8,7 @@ import * as bootstrap from 'bootstrap/dist/js/bootstrap.bundle.min.js'
 // Custom Global Styling - Import in this specific order
 import './assets/styles/colors.css'
 import './assets/styles/buttons.css'
+import './assets/styles/badge.css'
 import './assets/styles/global.css'
 import './assets/styles/theme_utilities.css'
 

@@ -1,22 +1,22 @@
 <template>
-  <div class="history-container">
-    <div class="history-contents">
-      <div class="page-header">
-        <h2 class="page-title">Order History</h2>
+  <div class="history-container surface-secondary transition-theme">
+    <div class="history-contents surface-primary border-theme shadow-lg transition-theme">
+      <div class="page-header border-bottom-theme">
+        <h2 class="page-title text-primary">Order History</h2>
         
         <div class="header-controls">
           <div class="search-box">
-            <Search :size="16" />
+            <Search :size="16" class="text-tertiary" />
             <input
               type="text"
               v-model="searchQuery"
               @input="handleSearch"
               placeholder="Search orders..."
-              class="form-control"
+              class="form-control input-complete focus-theme transition-theme"
             />
           </div>
 
-          <select class="form-select" v-model="statusFilter" @change="handleFilter">
+          <select class="form-select input-complete focus-theme transition-theme" v-model="statusFilter" @change="handleFilter">
             <option value="">All Status</option>
             <option value="Completed">Completed</option>
             <option value="Pending">Pending</option>
@@ -25,14 +25,14 @@
             <option value="Refunded">Refunded</option>
           </select>
 
-          <select class="form-select" v-model="paymentFilter" @change="handleFilter">
+          <select class="form-select input-complete focus-theme transition-theme" v-model="paymentFilter" @change="handleFilter">
             <option value="">All Payment Methods</option>
             <option value="Cash">Cash</option>
             <option value="Card">Card</option>
             <option value="GCash">GCash</option>
           </select>
 
-          <button class="btn btn-outline-secondary" @click="refreshData">
+          <button class="btn btn-refresh btn-with-icon transition-theme-fast hover-lift">
             <RefreshCw :size="16" />
             Refresh
           </button>
@@ -41,17 +41,17 @@
 
       <!-- Loading state -->
       <div v-if="loading" class="loading-state">
-        <div class="spinner-border" role="status">
+        <div class="spinner-border text-accent" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
-        <p>Loading transactions...</p>
+        <p class="text-secondary">Loading transactions...</p>
       </div>
 
       <!-- Error state -->
       <div v-else-if="error" class="error-state">
-        <div class="alert alert-danger">
-          <strong>Error:</strong> {{ error }}
-          <button @click="refreshData()" class="btn btn-sm btn-outline-danger ms-2">
+        <div class="alert status-error border-error">
+          <strong class="text-error">Error:</strong> <span class="text-primary">{{ error }}</span>
+          <button @click="refreshData()" class="btn btn-sm btn-outline-danger ms-2 transition-theme-fast">
             Retry
           </button>
         </div>
@@ -60,9 +60,9 @@
       <!-- No data state -->
       <div v-else-if="filteredOrders.length === 0" class="no-data-state">
         <div class="empty-state">
-          <ShoppingBag :size="48" class="text-muted mb-3" />
-          <h5>No transactions found</h5>
-          <p class="text-muted">Try adjusting your search or filters</p>
+          <ShoppingBag :size="48" class="text-tertiary mb-3" />
+          <h5 class="text-primary">No transactions found</h5>
+          <p class="text-secondary">Try adjusting your search or filters</p>
         </div>
       </div>
 
@@ -73,62 +73,63 @@
         :items-per-page="itemsPerPage"
         :total-items="sortedOrders.length"
         :show-pagination="false"
+        class="table-theme"
       >
         <template #header>
-          <tr>
-            <th scope="col" @click="sortBy('id')" class="sortable">
+          <tr class="surface-secondary">
+            <th scope="col" @click="sortBy('id')" class="sortable text-primary hover-accent transition-theme-fast">
               ID
-              <span v-if="sortField === 'id'">
+              <span v-if="sortField === 'id'" class="text-accent">
                 {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
-            <th scope="col">Items</th>
-            <th scope="col" @click="sortBy('status')" class="sortable">
+            <th scope="col" class="text-primary">Items</th>
+            <th scope="col" @click="sortBy('status')" class="sortable text-primary hover-accent transition-theme-fast">
               Status
-              <span v-if="sortField === 'status'">
+              <span v-if="sortField === 'status'" class="text-accent">
                 {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
-            <th scope="col" @click="sortBy('date')" class="sortable">
+            <th scope="col" @click="sortBy('date')" class="sortable text-primary hover-accent transition-theme-fast">
               Date
-              <span v-if="sortField === 'date'">
+              <span v-if="sortField === 'date'" class="text-accent">
                 {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
-            <th scope="col" @click="sortBy('paymentMethod')" class="sortable">
+            <th scope="col" @click="sortBy('paymentMethod')" class="sortable text-primary hover-accent transition-theme-fast">
               Payment Method
-              <span v-if="sortField === 'paymentMethod'">
+              <span v-if="sortField === 'paymentMethod'" class="text-accent">
                 {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
-            <th scope="col">Sale Type</th>
-            <th scope="col" @click="sortBy('total')" class="sortable">
+            <th scope="col" class="text-primary">Sale Type</th>
+            <th scope="col" @click="sortBy('total')" class="sortable text-primary hover-accent transition-theme-fast">
               Total
-              <span v-if="sortField === 'total'">
+              <span v-if="sortField === 'total'" class="text-accent">
                 {{ sortDirection === 'asc' ? '↑' : '↓' }}
               </span>
             </th>
-            <th scope="col">Actions</th>
+            <th scope="col" class="text-primary">Actions</th>
           </tr>
         </template>
 
         <template #body>
-          <tr v-for="order in currentPageOrders" :key="order.id">
-            <th scope="row">{{ order.id }}</th>
-            <td>{{ order.itemCount }} items</td>
+          <tr v-for="order in currentPageOrders" :key="order.id" class="hover-surface transition-theme-fast">
+            <th scope="row" class="text-primary">{{ order.id }}</th>
+            <td class="text-secondary">{{ order.itemCount }} items</td>
             <td>
               <span class="badge" :class="getStatusClass(order.status)">
                 {{ order.status }}
               </span>
             </td>
-            <td>{{ formatDate(order.date) }}</td>
-            <td>{{ order.paymentMethod }}</td>
-            <td>{{ order.saleType }}</td>
-            <td class="text-end fw-bold">₱{{ order.total?.toFixed(2) || '0.00' }}</td>
+            <td class="text-secondary">{{ formatDate(order.date) }}</td>
+            <td class="text-secondary">{{ order.paymentMethod }}</td>
+            <td class="text-secondary">{{ order.saleType }}</td>
+            <td class="text-end text-primary fw-bold">₱{{ order.total?.toFixed(2) || '0.00' }}</td>
             <td>
               <div class="d-flex gap-1">
                 <button 
-                  class="btn btn-sm btn-outline-primary action-btn action-btn-view" 
+                  class="btn btn-sm btn-view btn-with-icon transition-theme-fast hover-lift" 
                   title="View Order"
                   @click="viewOrder(order.id)"
                 >
@@ -155,69 +156,70 @@
         :previous-page="paginationControls.previousPage"
         item-name="orders"
         @page-changed="goToPage"
+        class="border-top-theme"
       />
     </div>
 
     <!-- Order Details Modal -->
     <div class="modal fade" id="orderModal" tabindex="-1" role="dialog" aria-labelledby="orderModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="orderModalLabel">Order Details</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content surface-elevated border-theme shadow-2xl transition-theme">
+          <div class="modal-header border-bottom-theme">
+            <h5 class="modal-title text-primary" id="orderModalLabel">Order Details</h5>
+            <button type="button" class="btn-close hover-accent transition-theme-fast" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body surface-primary">
             <div v-if="selectedOrder">
               <div class="order-info">
                 <div class="row">
                   <div class="col-md-6">
-                    <p><strong>Order ID:</strong> {{ selectedOrder.id }}</p>
-                    <p><strong>Date:</strong> {{ formatDate(selectedOrder.date) }}</p>
-                    <p><strong>Payment Method:</strong> {{ selectedOrder.paymentMethod }}</p>
+                    <p class="text-secondary"><strong class="text-primary">Order ID:</strong> {{ selectedOrder.id }}</p>
+                    <p class="text-secondary"><strong class="text-primary">Date:</strong> {{ formatDate(selectedOrder.date) }}</p>
+                    <p class="text-secondary"><strong class="text-primary">Payment Method:</strong> {{ selectedOrder.paymentMethod }}</p>
                   </div>
                   <div class="col-md-6">
-                    <p><strong>Status:</strong> 
+                    <p class="text-secondary"><strong class="text-primary">Status:</strong> 
                       <span class="badge" :class="getStatusClass(selectedOrder.status)">
                         {{ selectedOrder.status }}
                       </span>
                     </p>
-                    <p><strong>Sale Type:</strong> {{ selectedOrder.saleType }}</p>
-                    <p><strong>Total:</strong> <span class="fw-bold">₱{{ selectedOrder.total?.toFixed(2) || '0.00' }}</span></p>
+                    <p class="text-secondary"><strong class="text-primary">Sale Type:</strong> {{ selectedOrder.saleType }}</p>
+                    <p class="text-secondary"><strong class="text-primary">Total:</strong> <span class="fw-bold text-primary">₱{{ selectedOrder.total?.toFixed(2) || '0.00' }}</span></p>
                   </div>
                 </div>
               </div>
 
               <!-- Items Details Section -->
-              <div v-if="selectedOrder.originalData?.items" class="items-section">
-                <h6>Items Ordered</h6>
+              <div v-if="selectedOrder.originalData?.items" class="items-section border-top-theme">
+                <h6 class="text-primary">Items Ordered</h6>
                 <div class="items-grid">
                   <div 
                     v-for="item in selectedOrder.originalData.items" 
                     :key="item.product_id"
-                    class="item-card"
+                    class="item-card surface-secondary border-theme-subtle hover-lift transition-theme"
                   >
-                    <div class="item-name">{{ item.product_name }}</div>
-                    <span class="badge bg-secondary">{{ item.quantity }}</span>
+                    <div class="item-name text-primary">{{ item.product_name }}</div>
+                    <span class="badge badge-secondary">{{ item.quantity }}</span>
                   </div>
                 </div>
                 
                 <!-- Items Summary -->
-                <div class="items-summary">
+                <div class="items-summary surface-secondary border-theme border-left-accent">
                   <div class="d-flex justify-content-between">
-                    <span>Total Items:</span>
-                    <strong>{{ getTotalItems(selectedOrder.originalData.items) }}</strong>
+                    <span class="text-secondary">Total Items:</span>
+                    <strong class="text-primary">{{ getTotalItems(selectedOrder.originalData.items) }}</strong>
                   </div>
-                  <hr>
+                  <hr class="border-theme-subtle">
                   <div class="d-flex justify-content-between">
-                    <span>Total Amount:</span>
-                    <strong>₱{{ selectedOrder.total?.toFixed(2) || '0.00'}}</strong>
+                    <span class="text-secondary">Total Amount:</span>
+                    <strong class="text-primary">₱{{ selectedOrder.total?.toFixed(2) || '0.00'}}</strong>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <div class="modal-footer border-top-theme surface-secondary">
+            <button type="button" class="btn btn-cancel transition-theme-fast" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
       </div>
@@ -372,13 +374,13 @@ export default {
 
     const getStatusClass = (status) => {
       const classes = {
-        'Completed': 'bg-success',
-        'Pending': 'bg-warning text-dark',
-        'Processing': 'bg-info',
-        'Cancelled': 'bg-danger',
-        'Refunded': 'bg-secondary'
+        'Completed': 'badge-complete',
+        'Pending': 'badge-pending',
+        'Processing': 'badge-processing',
+        'Cancelled': 'badge-cancelled',
+        'Refunded': 'badge-refunded'
       }
-      return classes[status] || 'bg-light text-dark'
+      return classes[status] || 'badge-inactive'
     }
 
     const formatDate = (dateString) => {
@@ -447,23 +449,19 @@ export default {
 <style scoped>
 .history-container {
   padding: 1.5rem;
-  background-color: var(--surface-tertiary);
   min-height: 100vh;
 }
 
 .history-contents {
-  background: var(--surface-primary);
   border-radius: 0.75rem;
-  box-shadow: var(--shadow-lg);
   overflow: hidden;
+  padding: 0 2rem 2rem 2rem; /* Add padding: top right bottom left */
 }
-
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 2rem;
-  border-bottom: 1px solid var(--border-secondary);
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -471,7 +469,6 @@ export default {
 .page-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: var(--text-primary);
   margin: 0;
 }
 
@@ -492,22 +489,17 @@ export default {
   left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-tertiary);
   z-index: 2;
 }
 
 .search-box input {
   padding-left: 2.5rem;
   border-radius: 0.5rem;
-  border: 1px solid var(--border-secondary);
-  background: var(--surface-primary);
 }
 
 .form-select {
   min-width: 140px;
   border-radius: 0.5rem;
-  border: 1px solid var(--border-secondary);
-  background: var(--surface-primary);
 }
 
 /* States */
@@ -517,12 +509,10 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 4rem 2rem;
-  color: var(--text-secondary);
 }
 
 .loading-state .spinner-border {
   margin-bottom: 1rem;
-  color: var(--primary);
 }
 
 .error-state {
@@ -535,7 +525,6 @@ export default {
 
 .empty-state {
   text-align: center;
-  color: var(--text-secondary);
 }
 
 /* Sortable headers */
@@ -544,11 +533,10 @@ export default {
   user-select: none;
   position: relative;
   padding-right: 1.5rem !important;
-  transition: background-color 0.2s ease;
 }
 
 .sortable:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: var(--state-hover) !important;
 }
 
 .sortable span {
@@ -563,12 +551,10 @@ export default {
 .items-section {
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--border-secondary);
 }
 
 .items-section h6 {
   margin-bottom: 1rem;
-  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -584,20 +570,15 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem;
-  background: var(--surface-secondary);
-  border: 1px solid var(--border-secondary);
   border-radius: 0.5rem;
-  transition: all 0.2s ease;
 }
 
 .item-card:hover {
-  background: var(--state-hover);
-  border-color: var(--primary);
+  border-color: var(--border-accent) !important;
 }
 
 .item-name {
   font-weight: 500;
-  color: var(--text-primary);
   flex: 1;
   margin-right: 0.5rem;
 }
@@ -605,9 +586,13 @@ export default {
 .items-summary {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: var(--surface-secondary);
   border-radius: 0.5rem;
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--border-accent) !important;
+}
+
+/* Custom border utility for left accent */
+.border-left-accent {
+  border-left: 4px solid var(--primary) !important;
 }
 
 /* Responsive */
