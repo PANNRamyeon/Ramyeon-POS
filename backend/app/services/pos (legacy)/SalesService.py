@@ -11,8 +11,8 @@ class SalesService:
     """
     def __init__(self):
         self.db = db_manager.get_database()
-        self.sales_collection = self.db.sales  
-        self.sales_log_collection = self.db.sales_log  
+        self.sales_collection = self.db.sales  # POS transactions
+        self.sales_log_collection = self.db.sales_log  # Imported/manual sales
         self.products_collection = self.db.products
         self.promotions_collection = self.db.promotions
         self.promo_connection = PromoConnection()
