@@ -392,6 +392,10 @@ class CartService:
                 'cart_id': cart_id  # Reference to original cart
             }
             
+            # Add promotion ID if promotion was applied
+            if cart.get('discount_type') == 'promotion':
+                sale_data['promotion_id'] = cart['discount_details'].get('promotion_id')
+            
             return sale_data
             
         except Exception as e:
@@ -426,23 +430,64 @@ class CartService:
             raise Exception(f"Error cleaning up old carts: {str(e)}")
     
     def apply_promotion(self, cart_id, promotion_id=None):
-        """Apply promotion discount to cart"""
+        """
+        Apply promotion discount to cart
+        
+        Args:
+            cart_id: Cart ID
+            promotion_id: Optional specific promotion ID, otherwise auto-selects best
+        
+        Returns:
+            Updated cart with promotion applied
+        """
         try:
             cart = self.get_cart(cart_id)
             
-            result = self.promotion_service.calculate_discount(
-                cart['items'], 
-                promotion_id
-            )
+            # Check if cart has items
+            if not cart['items']:
+                raise ValueError("Cannot apply promotion to empty cart")
             
-            if result['discount_amount'] > 0:
+            # Apply promotion
+            if promotion_id:
+                # Apply specific promotion
+                promotion = self.promotion_service.collection.find_one({
+                    'promotion_id': promotion_id,
+                    'is_active': True,
+                    'status': 'active'
+                })
+                
+                if not promotion:
+                    raise ValueError(f"Promotion {promotion_id} not found or inactive")
+                
+                result = self.promotion_service.calculate_promotion_discount(
+                    promotion, 
+                    cart['items']
+                )
+            else:
+                # Auto-select best promotion
+                result = self.promotion_service.apply_best_promotion_to_cart(
+                    cart['items']
+                )
+            
+            # Check result
+            if not result.get('success', True):
+                raise ValueError(result.get('message', 'Failed to apply promotion'))
+            
+            # Apply discount if found
+            if result.get('discount_amount', 0) > 0:
+                promotion_data = result.get('promotion_applied')
+                
+                if not promotion_data:
+                    raise ValueError("No promotion data returned")
+                
                 update_data = {
                     'discount_type': 'promotion',
-                    'discount_amount': result['discount_amount'],
+                    'discount_amount': round(result['discount_amount'], 2),
                     'discount_details': {
-                        'promotion_id': result['promotion_applied'],
-                        'promotion_name': result['promotion_name'],
-                        'affected_items': result['affected_items']
+                        'promotion_id': promotion_data['promotion_id'],
+                        'promotion_name': promotion_data['name'],
+                        'promotion_type': promotion_data['type'],
+                        'affected_items': result.get('affected_items', [])
                     },
                     'last_updated': datetime.utcnow()
                 }
@@ -453,8 +498,52 @@ class CartService:
                 )
                 
                 return self._recalculate_cart(cart_id)
-            
-            return cart
+            else:
+                # No applicable promotion or discount is 0
+                return cart
             
         except Exception as e:
             raise Exception(f"Error applying promotion: {str(e)}")
+
+    def remove_promotion(self, cart_id):
+        """Remove promotion discount (alias for remove_discount)"""
+        return self.remove_discount(cart_id)
+
+    def get_available_promotions_for_cart(self, cart_id):
+        """Get list of promotions applicable to current cart"""
+        try:
+            cart = self.get_cart(cart_id)
+            
+            if not cart['items']:
+                return []
+            
+            # Get all active promotions
+            active_result = self.promotion_service.get_active_promotions()
+            
+            if not active_result['success']:
+                return []
+            
+            # Test each promotion
+            applicable = []
+            for promotion in active_result.get('promotions', []):
+                result = self.promotion_service.calculate_promotion_discount(
+                    promotion,
+                    cart['items']
+                )
+                
+                if result.get('discount_amount', 0) > 0:
+                    applicable.append({
+                        'promotion_id': promotion['promotion_id'],
+                        'name': promotion['name'],
+                        'type': promotion['type'],
+                        'potential_discount': result['discount_amount'],
+                        'affected_items_count': len(result.get('affected_items', []))
+                    })
+            
+            # Sort by discount amount (best first)
+            applicable.sort(key=lambda x: x['potential_discount'], reverse=True)
+            
+            return applicable
+            
+        except Exception as e:
+            raise Exception(f"Error getting available promotions: {str(e)}")

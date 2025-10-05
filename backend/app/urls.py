@@ -168,8 +168,28 @@ from .kpi_views.POS.cart_views import (
     CartScanProductView
 )
 
+from .kpi_views.POS.promotion_pos_views import (
+    PromotionActiveListView,
+    PromotionCalculateView,
+    PromotionBestForCartView,
+    CartPromotionAvailableView,
+    CartPromotionView
+)
+
+from .kpi_views.POS.shift_views import ShiftActiveView
+
 from .views import (
     APIDocumentationView,
+)
+
+from .kpi_views.Backoffice.sales_log_views import (
+    SalesLogCreateView,
+    SalesLogListView,
+    SalesLogDetailView,
+    SalesLogUpdateView,
+    SalesLogImportCSVView,
+    SalesLogExportCSVView,
+    SalesLogSummaryView
 )
 
 urlpatterns = [
@@ -357,5 +377,33 @@ urlpatterns = [
     path('pos/carts/<str:cart_id>/items/<str:product_id>/', CartItemView.as_view()),
     path('pos/carts/<str:cart_id>/discount/', CartDiscountView.as_view()),
     path('pos/carts/<str:cart_id>/', CartView.as_view()),
+
+    # ================================================================
+    # PROMOTIONS ENDPOINTS
+    # ================================================================
+    path('pos/promotions/active/', PromotionActiveListView.as_view()),
+    path('pos/promotions/calculate/', PromotionCalculateView.as_view()),
+    path('pos/promotions/best-for-cart/', PromotionBestForCartView.as_view()),
+    
+    # Cart-specific promotion endpoints
+    path('pos/carts/<str:cart_id>/promotions/available/', CartPromotionAvailableView.as_view()),
+    path('pos/carts/<str:cart_id>/promotion/', CartPromotionView.as_view()), 
+
+    # ================================================================
+    # SHIFT ENDPOINTS
+    # ================================================================
+    path('pos/shifts/active/', ShiftActiveView.as_view()),
+
+    # ============================================
+    # SALES LOG ENDPOINTS
+    # ============================================
+    
+    path('saleslogs/', SalesLogListView.as_view()),
+    path('saleslogs/create/', SalesLogCreateView.as_view()),
+    path('saleslogs/import-csv/', SalesLogImportCSVView.as_view()),
+    path('saleslogs/export-csv/', SalesLogExportCSVView.as_view()),
+    path('saleslogs/summary/', SalesLogSummaryView.as_view()),
+    path('saleslogs/<str:log_id>/', SalesLogDetailView.as_view()),  # GET & DELETE
+    path('saleslogs/<str:log_id>/update/', SalesLogUpdateView.as_view()),
 
   ]

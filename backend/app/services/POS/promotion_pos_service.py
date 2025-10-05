@@ -1,4 +1,3 @@
-# backend/services/pos/promotion_service.py
 
 from datetime import datetime
 from ...database import db_manager
@@ -6,149 +5,265 @@ from ..Backoffice.product_service import ProductService
 
 class PromotionService:
     """
-    Handles promotion/discount logic for POS
-    Calculates discounts based on categories and products
+    POS-specific promotion service
+    READ-ONLY: Applies promotions created by back office
     """
     
     def __init__(self):
         self.db = db_manager.get_database()
-        self.promotions_collection = self.db.promotions
-        self.categories_collection = self.db.categories
+        self.collection = self.db.promotions
         self.product_service = ProductService()
     
-    def generate_promotion_id(self):
-        """Generate PROMO-##### ID"""
-        pipeline = [
-            {'$match': {'_id': {'$regex': '^PROMO-'}}},
-            {'$project': {'numericPart': {'$toInt': {'$substr': ['$_id', 6, -1]}}}},
-            {'$sort': {'numericPart': -1}},
-            {'$limit': 1}
-        ]
-        result = list(self.promotions_collection.aggregate(pipeline))
-        next_number = result[0]['numericPart'] + 1 if result else 1
-        return f"PROMO-{next_number:05d}"
+    # ============================================
+    # CORE POS METHODS (Keep these)
+    # ============================================
     
     def get_active_promotions(self):
-        """Get all currently active promotions"""
+        """Get all currently active promotions for POS"""
         try:
             now = datetime.utcnow()
-            promotions = list(self.promotions_collection.find({
+            promotions = list(self.collection.find({
+                'is_active': True,
                 'status': 'active',
                 'start_date': {'$lte': now},
-                'end_date': {'$gte': now},
-                'isDeleted': {'$ne': True}
+                'end_date': {'$gte': now}
             }))
-            return promotions
-        except Exception as e:
-            raise Exception(f"Error getting active promotions: {str(e)}")
-    
-    def calculate_discount(self, cart_items, promotion_id=None):
-        """
-        Calculate discount for cart based on promotion
-        
-        Args:
-            cart_items: List of items from cart
-            promotion_id: Optional specific promotion to apply
-        
-        Returns:
-            {
-                'discount_amount': float,
-                'promotion_applied': str,
-                'affected_items': list
+            return {
+                'success': True,
+                'promotions': promotions
             }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Error getting active promotions: {str(e)}'
+            }
+    
+    def apply_best_promotion_to_cart(self, cart_items):
+        """
+        Find and apply the best promotion for cart items
+        Returns promotion details and discount amount
         """
         try:
-            if not promotion_id:
-                # Auto-detect best promotion
-                promotion = self._find_best_promotion(cart_items)
-            else:
-                promotion = self.promotions_collection.find_one({
-                    '_id': promotion_id,
-                    'status': 'active'
-                })
-            
-            if not promotion:
+            active_result = self.get_active_promotions()
+            if not active_result['success'] or not active_result['promotions']:
                 return {
+                    'success': True,
                     'discount_amount': 0,
                     'promotion_applied': None,
                     'affected_items': []
                 }
             
-            # Get affected categories/products
-            affected_categories = self._get_affected_categories(promotion)
+            best_promotion = None
+            best_discount = 0
+            best_affected_items = []
             
-            total_discount = 0
-            affected_items = []
-            
-            for item in cart_items:
-                product = self.product_service.get_product_by_id(item['product_id'])
+            # Test each active promotion
+            for promotion in active_result['promotions']:
+                result = self.calculate_promotion_discount(promotion, cart_items)
                 
-                if not product:
-                    continue
-                
-                # Check if product is in promotion
-                if self._is_product_in_promotion(product, affected_categories):
-                    item_total = item['unit_price'] * item['quantity']
-                    
-                    # Calculate discount
-                    if promotion['discount_type'] == 'percentage':
-                        discount = item_total * (promotion['discount_value'] / 100)
-                    elif promotion['discount_type'] == 'fixed':
-                        discount = min(promotion['discount_value'], item_total)
-                    else:
-                        discount = 0
-                    
-                    total_discount += discount
-                    affected_items.append({
-                        'product_id': item['product_id'],
-                        'product_name': product['product_name'],
-                        'discount_applied': discount
-                    })
+                if result['discount_amount'] > best_discount:
+                    best_discount = result['discount_amount']
+                    best_promotion = promotion
+                    best_affected_items = result['affected_items']
             
             return {
-                'discount_amount': round(total_discount, 2),
-                'promotion_applied': promotion['_id'],
-                'promotion_name': promotion['promotion_name'],
-                'affected_items': affected_items
+                'success': True,
+                'discount_amount': best_discount,
+                'promotion_applied': best_promotion,
+                'affected_items': best_affected_items
             }
             
         except Exception as e:
-            raise Exception(f"Error calculating discount: {str(e)}")
+            return {
+                'success': False,
+                'message': f'Error applying promotion: {str(e)}'
+            }
     
-    def _get_affected_categories(self, promotion):
-        """Get all categories/subcategories affected by promotion"""
-        applicable_products = promotion.get('applicable_products', [])
-        affected = []
+    def calculate_promotion_discount(self, promotion, cart_items):
+        """
+        Calculate discount for specific promotion
         
-        for category_name in applicable_products:
-            category = self.categories_collection.find_one({
-                'category_name': category_name,
-                'isDeleted': {'$ne': True}
-            })
+        Args:
+            promotion: Promotion document from database
+            cart_items: List of items from cart with product_id, quantity, unit_price
+        
+        Returns:
+            {
+                'discount_amount': float,
+                'affected_items': list,
+                'promotion_details': dict
+            }
+        """
+        try:
+            if not self._check_usage_limit(promotion):
+                return {
+                    'discount_amount': 0,
+                    'affected_items': [],
+                    'message': 'Promotion usage limit reached'
+                }
             
-            if category:
-                # Add all subcategories
-                for subcat in category.get('sub_categories', []):
-                    affected.append(subcat.get('sub_category_name'))
-        
-        return affected
+            # Get eligible items
+            eligible_items = self._get_eligible_items(promotion, cart_items)
+            
+            if not eligible_items:
+                return {
+                    'discount_amount': 0,
+                    'affected_items': []
+                }
+            
+            # Calculate discount based on type
+            if promotion['type'] == 'percentage':
+                discount = self._calculate_percentage_discount(
+                    promotion, eligible_items
+                )
+            elif promotion['type'] == 'fixed_amount':
+                discount = self._calculate_fixed_discount(
+                    promotion, eligible_items
+                )
+            elif promotion['type'] == 'buy_x_get_y':
+                discount = self._calculate_bxgy_discount(
+                    promotion, eligible_items
+                )
+            else:
+                discount = 0
+            
+            return {
+                'discount_amount': round(discount, 2),
+                'affected_items': eligible_items,
+                'promotion_details': {
+                    'id': promotion['promotion_id'],
+                    'name': promotion['name'],
+                    'type': promotion['type']
+                }
+            }
+            
+        except Exception as e:
+            return {
+                'discount_amount': 0,
+                'affected_items': [],
+                'error': str(e)
+            }
     
-    def _is_product_in_promotion(self, product, affected_categories):
-        """Check if product is in any of the affected categories"""
-        product_subcat = product.get('subcategory_name')
-        return product_subcat in affected_categories
+    # ============================================
+    # HELPER METHODS (Keep these)
+    # ============================================
     
-    def _find_best_promotion(self, cart_items):
-        """Find promotion that gives maximum discount"""
-        active_promotions = self.get_active_promotions()
+    def _get_eligible_items(self, promotion, cart_items):
+        """Determine which cart items qualify for promotion"""
+        eligible = []
         
-        best_promotion = None
-        max_discount = 0
+        target_type = promotion['target_type']
+        target_ids = promotion.get('target_ids', [])
         
-        for promo in active_promotions:
-            result = self.calculate_discount(cart_items, promo['_id'])
-            if result['discount_amount'] > max_discount:
-                max_discount = result['discount_amount']
-                best_promotion = promo
+        for item in cart_items:
+            product = self.product_service.get_product_by_id(item['product_id'])
+            if not product or not product.get('success'):
+                continue
+            
+            product_data = product['product']
+            is_eligible = False
+            
+            if target_type == 'all':
+                is_eligible = True
+            elif target_type == 'products':
+                is_eligible = item['product_id'] in target_ids
+            elif target_type == 'categories':
+                # Check if product's category matches
+                product_category = product_data.get('category_id')
+                is_eligible = product_category in target_ids
+            
+            if is_eligible:
+                eligible.append({
+                    'product_id': item['product_id'],
+                    'product_name': product_data.get('product_name', 'Unknown'),
+                    'quantity': item['quantity'],
+                    'unit_price': item['unit_price'],
+                    'subtotal': item['quantity'] * item['unit_price']
+                })
         
-        return best_promotion
+        return eligible
+    
+    def _calculate_percentage_discount(self, promotion, eligible_items):
+        """Calculate percentage-based discount"""
+        total_eligible = sum(item['subtotal'] for item in eligible_items)
+        discount_percent = promotion['discount_value']
+        return total_eligible * (discount_percent / 100)
+    
+    def _calculate_fixed_discount(self, promotion, eligible_items):
+        """Calculate fixed amount discount"""
+        total_eligible = sum(item['subtotal'] for item in eligible_items)
+        fixed_amount = promotion['discount_value']
+        return min(fixed_amount, total_eligible)
+    
+    def _calculate_bxgy_discount(self, promotion, eligible_items):
+        """Calculate Buy X Get Y discount"""
+        discount_config = promotion.get('discount_config', {})
+        buy_qty = discount_config.get('buy_quantity', 2)
+        get_qty = discount_config.get('get_quantity', 1)
+        
+        # Flatten items to individual units
+        all_units = []
+        for item in eligible_items:
+            for _ in range(item['quantity']):
+                all_units.append(item['unit_price'])
+        
+        if len(all_units) < buy_qty:
+            return 0
+        
+        # Sort by price (cheapest first)
+        all_units.sort()
+        
+        # Calculate free items
+        sets = len(all_units) // (buy_qty + get_qty)
+        free_items_count = sets * get_qty
+        
+        # Sum cheapest items that become free
+        return sum(all_units[:free_items_count])
+    
+    def _check_usage_limit(self, promotion):
+        """Check if promotion can still be used"""
+        usage_limit = promotion.get('usage_limit')
+        if not usage_limit:
+            return True
+        
+        current_usage = promotion.get('current_usage', 0)
+        return current_usage < usage_limit
+    
+    # ============================================
+    # TRACKING METHOD (For usage statistics)
+    # ============================================
+    
+    def record_promotion_usage(self, promotion_id, sale_data):
+        """
+        Record that promotion was used in a sale
+        Called AFTER sale is completed in POSSalesService
+        """
+        try:
+            discount_amount = sale_data.get('discount_amount', 0)
+            
+            self.collection.update_one(
+                {'promotion_id': promotion_id},
+                {
+                    '$inc': {
+                        'current_usage': 1,
+                        'total_revenue_impact': discount_amount
+                    },
+                    '$push': {
+                        'usage_history': {
+                            'sale_id': sale_data.get('sale_id'),
+                            'customer_id': sale_data.get('customer_id'),
+                            'discount_amount': discount_amount,
+                            'used_at': datetime.utcnow()
+                        }
+                    },
+                    '$set': {
+                        'last_used_at': datetime.utcnow()
+                    }
+                }
+            )
+            
+            return {'success': True}
+            
+        except Exception as e:
+            # Log but don't fail the sale
+            return {'success': False, 'error': str(e)}

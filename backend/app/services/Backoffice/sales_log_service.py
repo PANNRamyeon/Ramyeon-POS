@@ -1,7 +1,7 @@
 from datetime import datetime
 from ...database import db_manager
-from ..Backoffice.customer_service import CustomerService
-from ..Backoffice.user_service import UserService
+from .customer_service import CustomerService
+from .user_service import UserService
 from notifications.services import notification_service
 
 class SalesLogService:
