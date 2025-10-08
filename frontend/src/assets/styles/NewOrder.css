@@ -464,6 +464,9 @@
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
 }
 
 .product-card:hover {
@@ -516,20 +519,58 @@
 }
 
 .product-image {
+  position: relative;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  overflow: hidden;
   width: 100%;
   height: 150px;
-  overflow: hidden;
 }
 
 .product-image img {
   width: 100%;
-  height: 100%;
+  height: 150px;
   object-fit: cover;
+  transition: opacity 0.3s ease;
+  position: relative;
+  z-index: 2; /* Ensure image is above background */
+}
+
+/* Loading state - only show when image is actually loading */
+.product-image.loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  z-index: 1;
+}
+
+/* Remove loading state when image loads */
+.product-image img:not(.placeholder-set) {
+  opacity: 1;
+}
+
+.product-image img.placeholder-set {
+  opacity: 1;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .product-info {
   padding: 1rem;
   text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .product-name {
@@ -537,6 +578,11 @@
   font-weight: 600;
   margin: 0 0 0.5rem 0;
   color: #495057;
+
+  /* Truncation for single line */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .product-description {
@@ -544,6 +590,12 @@
   color: #6c757d;
   margin: 0 0 0.75rem 0;
   line-height: 1.4;
+
+  /* Multi-line truncation */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .product-price {
@@ -773,6 +825,8 @@
 .cart-item-info {
   flex: 1;
   min-width: 0;
+  width: 140px; /* Slightly wider container */
+  overflow: hidden;
 }
 
 .cart-item-info h4 {
@@ -780,6 +834,36 @@
   font-size: 0.875rem;
   color: #495057;
   font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+  width: fit-content; /* Let text determine its natural width */
+  min-width: 100%;
+}
+
+.cart-item-info h4.scrolling-text:hover {
+  animation-play-state: paused;
+}
+
+.cart-item-info h4.scrolling-text-precise {
+  animation: precise-scroll var(--animation-duration, 8s) linear infinite;
+  animation-delay: var(--animation-delay, 2s);
+}
+
+@keyframes precise-scroll {
+  0% { 
+    transform: translateX(0); 
+  }
+  20% { 
+    transform: translateX(0); 
+  }
+  80% { 
+    transform: translateX(calc(-1 * var(--scroll-distance, 50px))); 
+  }
+  100% { 
+    transform: translateX(calc(-1 * var(--scroll-distance, 50px))); 
+  }
 }
 
 .cart-item-info p {
@@ -1037,6 +1121,79 @@
 .no-products-state small {
   font-size: 0.875rem;
   opacity: 0.8;
+}
+
+.product-image {
+  position: relative;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.product-image img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.product-image img.loading {
+  opacity: 0;
+}
+
+.product-image img:not(.loading) {
+  opacity: 1;
+}
+
+.product-image img.placeholder-image {
+  opacity: 1;
+  background-color: #7392E2;
+}
+
+/* Loading animation for images */
+.product-image::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  z-index: 1;
+}
+
+.product-image img[src] + ::before {
+  display: none;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Cart item images */
+.cart-item-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+}
+
+/* Product selection modal images */
+.product-image-small {
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.product-image-small img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
 }
 
 /* Responsive */

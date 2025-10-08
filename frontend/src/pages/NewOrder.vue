@@ -45,10 +45,21 @@
         <div class="products-grid">
           <div v-for="product in paginatedProducts" :key="product.id"class="product-card"@click="handleProductClick(product)">
             <div class="product-image">
-              <img :src="product.image" :alt="product.name" loading="lazy" />
+              <img 
+                :src="product.image" 
+                :alt="product.name" 
+                loading="lazy"
+                @error="handleImageError($event, product)"
+                @load="handleImageLoad($event)"
+              />
             </div>
             <div class="product-info">
-              <h3 class="product-name">{{ product.name }}</h3>
+              <h3 
+                class="product-name" 
+                @mouseenter="showTooltip($event, product.name)"
+              >
+                {{ product.name }}
+              </h3>
               <p class="product-description">{{ product.description }}</p>
               <div v-if="!product.isSubcategory" class="product-price">
                 ₱{{ product.price }}
@@ -192,7 +203,12 @@
               @click="toggleProductSelection(product)"
             >
               <div class="product-image-small">
-                <img :src="product.image" :alt="product.name" loading="lazy" />
+                <img 
+                  :src="product.image" 
+                  :alt="product.name" 
+                  loading="lazy"
+                  @error="handleImageError($event, product)"
+                />
               </div>
               <div class="product-details">
                 <h4>{{ product.name }}</h4>
@@ -245,9 +261,16 @@
           <p>Add items to get started!</p>
         </div>
         <div v-for="item in cartItems" :key="item.id" class="cart-item">
-          <img :src="item.image" :alt="item.name" class="cart-item-image" />
+          <img 
+            :src="item.image" 
+            :alt="item.name" 
+            class="cart-item-image"
+            @error="handleImageError($event, item)"
+          />
           <div class="cart-item-info">
-            <h4>{{ item.name }}</h4>
+            <h4 :class="getCartItemNameClass(item.name)">
+              {{ item.name }}
+            </h4>
             <p>{{ item.description }}</p>
           </div>
           <div class="cart-item-price">₱{{ item.price }}</div>
@@ -355,6 +378,7 @@ export default {
       ],
       
       // Static products (will be replaced with API later)
+      allProducts: [],
       products: [],
       productsLoading: false,
     }
@@ -508,6 +532,71 @@ export default {
       }
     },
 
+    showTooltip(event, productName) {
+      // Only show tooltip if text is truncated
+      const element = event.target;
+      if (element.scrollWidth > element.clientWidth || 
+          element.scrollHeight > element.clientHeight) {
+        element.title = productName;
+      }
+    },
+
+    shouldScroll(text, maxWidth = 120) {
+      // Create a temporary span to measure actual text width
+      const tempSpan = document.createElement('span');
+      tempSpan.style.font = '0.875rem Arial';
+      tempSpan.style.fontWeight = '600';
+      tempSpan.style.visibility = 'hidden';
+      tempSpan.style.position = 'absolute';
+      tempSpan.style.whiteSpace = 'nowrap';
+      tempSpan.textContent = text;
+      
+      document.body.appendChild(tempSpan);
+      const textWidth = tempSpan.offsetWidth;
+      document.body.removeChild(tempSpan);
+      
+      return textWidth > maxWidth;
+    },
+
+    // Enhanced method to get proper CSS class
+    getCartItemNameClass(itemName) {
+      if (this.shouldScroll(itemName, 140)) {
+        setTimeout(() => {
+          const elements = document.querySelectorAll('.cart-item-info h4');
+          elements.forEach(element => {
+            if (element.textContent.trim() === itemName) {
+              // Get the actual rendered text width
+              const textWidth = element.scrollWidth;
+              const containerWidth = element.parentElement.offsetWidth || 140;
+              
+              // Calculate scroll distance to show ALL text
+              // We need to scroll the difference plus some padding
+              const scrollDistance = textWidth - containerWidth + 30; // Increased padding
+              
+              // Ensure we don't have negative scroll distance
+              const finalScrollDistance = Math.max(0, scrollDistance);
+              
+              // Dynamic timing based on text length
+              const delay = Math.max(2, itemName.length * 0.08); // Slightly reduced multiplier
+              const duration = Math.max(8, itemName.length * 0.2); // Increased duration multiplier
+              
+              console.log(`Item: "${itemName}"`);
+              console.log(`Text width: ${textWidth}px, Container: ${containerWidth}px`);
+              console.log(`Scroll distance: ${finalScrollDistance}px`);
+              console.log(`Delay: ${delay}s, Duration: ${duration}s`);
+              
+              element.style.setProperty('--scroll-distance', `${finalScrollDistance}px`);
+              element.style.setProperty('--animation-delay', `${delay}s`);
+              element.style.setProperty('--animation-duration', `${duration}s`);
+            }
+          });
+        }, 400); // Increased delay for better measurement
+        
+        return 'scrolling-text-precise';
+      }
+      return '';
+    },
+
     generateSubcategoryImage(subcategoryName) {
       return `https://via.placeholder.com/200x150/9b59b6/white?text=${encodeURIComponent(subcategoryName)}`;
     },
@@ -602,6 +691,113 @@ export default {
       this.closeProductSelectorModal();
     },
 
+    // Image handling methods
+    handleImageError(event, product) {
+      // Remove loading class from parent container
+      const container = event.target.closest('.product-image');
+      if (container) {
+        container.classList.remove('loading');
+      }
+      
+      // Prevent infinite loops
+      if (event.target.classList.contains('placeholder-set')) {
+        return;
+      }
+      
+      console.warn(`Failed to load image for product: ${product.name}`);
+      
+      // Mark as placeholder and set fallback
+      event.target.classList.add('placeholder-set');
+      event.target.src = this.generateDataURLPlaceholder(product.name);
+      event.target.style.opacity = '1';
+    },
+
+    handleImageLoad(event) {
+      // Remove loading class from parent container
+      const container = event.target.closest('.product-image');
+      if (container) {
+        container.classList.remove('loading');
+      }
+      
+      if (!event.target.classList.contains('placeholder-set')) {
+        console.log(`Successfully loaded image: ${event.target.src}`);
+      }
+      event.target.style.opacity = '1';
+    },
+
+    // Generate a data URL placeholder that won't make HTTP requests
+    generateDataURLPlaceholder(productName) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 200;
+      canvas.height = 150;
+      const ctx = canvas.getContext('2d');
+      
+      // Fill with your app's primary color
+      ctx.fillStyle = '#7392E2';
+      ctx.fillRect(0, 0, 200, 150);
+      
+      // Add white text
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // Smart text wrapping for long names
+      const maxWidth = 180; // Leave some margin
+      const lineHeight = 18;
+      const maxLines = 4;
+      
+      const words = productName.split(' ');
+      const lines = [];
+      let currentLine = '';
+      
+      // Word wrapping algorithm
+      for (let word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const metrics = ctx.measureText(testLine);
+        
+        if (metrics.width > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+        
+        if (lines.length >= maxLines - 1) break;
+      }
+      
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+      
+      // Truncate if still too many lines
+      if (lines.length > maxLines) {
+        lines[maxLines - 1] = lines[maxLines - 1].substring(0, 15) + '...';
+        lines.splice(maxLines);
+      }
+      
+      // Draw the lines
+      const startY = 75 - ((lines.length - 1) * lineHeight / 2);
+      lines.forEach((line, index) => {
+        // Truncate individual lines if still too long
+        if (ctx.measureText(line).width > maxWidth) {
+          while (ctx.measureText(line + '...').width > maxWidth && line.length > 1) {
+            line = line.slice(0, -1);
+          }
+          line += '...';
+        }
+        
+        ctx.fillText(line, 100, startY + (index * lineHeight));
+      });
+      
+      return canvas.toDataURL();
+    },
+
+    // Simpler fallback that doesn't make HTTP requests
+    generateFallbackImage(productName) {
+      return this.generateDataURLPlaceholder(productName);
+    },
+
     // Navigation
     handleProductClick(product) {
       if (product.isSubcategory) {
@@ -689,19 +885,53 @@ export default {
     async loadProducts(categoryId, subcategoryName = null) {
       try {
         this.productsLoading = true;
+        this.error = null;
         
         if (this.isCustomCategory) {
-          // Handle custom categories (keep existing logic)
           return;
         }
         
-        const products = await productsAPI.getProductsByCategory(categoryId, subcategoryName);
-        this.products = products;
+        console.log(`Loading products for category: ${categoryId}, subcategory: ${subcategoryName}`);
         
-        console.log('Loaded products:', products);
+        let products = [];
+        
+        try {
+          // Try the primary method first
+          products = await productsAPI.getProductsByCategory(categoryId, subcategoryName);
+        } catch (primaryError) {
+          console.warn('Primary method failed, trying POS catalog:', primaryError.message);
+          
+          try {
+            // Try POS catalog as fallback
+            products = await productsAPI.getProductsByPOSCatalog(categoryId);
+          } catch (secondaryError) {
+            console.warn('POS catalog failed, trying all products:', secondaryError.message);
+            
+            // Last resort: get all products and filter
+            const allProducts = await productsAPI.getAllProducts();
+            products = allProducts.filter(product => 
+              product.category === categoryId || product.category_id === categoryId
+            );
+          }
+        }
+        
+        console.log('Final products:', products);
+        
+        // Update products based on context
+        if (subcategoryName) {
+          this.products = this.products.filter(p => 
+            !(p.category === categoryId && p.subcategory === subcategoryName)
+          );
+          this.products.push(...products);
+        } else {
+          this.products = this.products.filter(p => p.category !== categoryId);
+          this.products.push(...products);
+        }
+        
         
       } catch (error) {
         console.error('Failed to load products:', error);
+        this.error = `Failed to load products: ${error.message}`;
         this.products = [];
       } finally {
         this.productsLoading = false;
