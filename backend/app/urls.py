@@ -116,6 +116,7 @@ from .kpi_views.Backoffice.category_pos_views import (
     POSStockCheckView,
     POSLowStockView,
     POSSubcategoryProductsView,  
+    POSCategoryProductsView,
 )
 
 # Display/Export Operations
@@ -123,6 +124,7 @@ from .kpi_views.Backoffice.category_display_views import (
     CategoryDataView,
     CategoryExportView,
     CategoryStatsView,
+    
 )
 
 from .kpi_views.Backoffice.promotion_views import (
@@ -329,6 +331,7 @@ urlpatterns = [
     path('pos/stock/check/', POSStockCheckView.as_view(), name='pos-stock-check'),
     path('pos/stock/low/', POSLowStockView.as_view(), name='pos-low-stock'),
     path('pos/category/<str:category_id>/subcategory/<str:subcategory_name>/products/', POSSubcategoryProductsView.as_view(), name='pos-subcategory-products'),
+    path('pos/category/<str:category_id>/products/', POSCategoryProductsView.as_view()),
 
     # ========== PRODUCT-CATEGORY RELATIONSHIPS ==========
     path('product/subcategory/update/', ProductSubcategoryUpdateView.as_view(), name='product-subcategory-update'),

@@ -131,18 +131,24 @@ class ApiService {
   }
 
   // AUTH METHODS
-  async login(email, password) {
+  async login(email, password, opening_cash = 0) {
     try {
-      const response = await api.post('/auth/login/', { email, password });
+      const response = await api.post('/auth/login/', { 
+        email, 
+        password,
+        opening_cash: opening_cash || 0
+      });
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
     }
   }
 
-  async logout() {
+  async logout(closing_cash = 0) {
     try {
-      const response = await api.post('/auth/logout/');
+      const response = await api.post('/auth/logout/', {
+        closing_cash: closing_cash || 0
+      });
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -344,6 +350,40 @@ class ApiService {
       this.handleError(error);
     }
   }
+
+  // SHIFT METHODS
+  async startShift(cashierId, openingCash) {
+    try {
+      const response = await api.post('/pos/shifts/start/', {
+        cashier_id: cashierId,
+        opening_cash: openingCash
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  async getActiveShift(cashierId) {
+    try {
+      const response = await api.get(`/pos/shifts/active/?cashier_id=${cashierId}`);
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  async endShift(shiftId, closingCash) {
+    try {
+      const response = await api.post(`/pos/shifts/${shiftId}/end/`, {
+        closing_cash: closingCash
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
 }
 
 // Create and export singleton instance

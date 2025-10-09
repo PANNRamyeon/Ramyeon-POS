@@ -357,3 +357,63 @@ class POSCategoryService:
         except Exception as e:
             logger.error(f"POS quick access products failed: {e}")
             raise Exception(f"Failed to get quick access products: {str(e)}")
+    
+    def get_products_by_category_for_pos(self, category_id):
+        """
+        Get all products in a category (all subcategories combined)
+        NEW: For category-level product browsing in POS
+        
+        Args:
+            category_id: Category ID (e.g., 'CAT-001', 'UNCTGRY-001')
+            
+        Returns:
+            List of products in POS format
+        """
+        try:
+            from .product_service import ProductService
+            product_service = ProductService()
+            
+            # Verify category exists
+            category = self.category_collection.find_one({
+                '_id': category_id,
+                'is_deleted': False
+            })
+            
+            if not category:
+                raise ValueError(f"Category {category_id} not found")
+            
+            # Get all products in this category (in stock only)
+            query = {
+                'category_id': category_id,
+                'is_deleted': False,
+                'stock': {'$gt': 0}  # Only in-stock products for POS
+            }
+            
+            products = list(self.product_collection.find(query).sort('name', 1))
+            
+            if not products:
+                return []
+            
+            # Format for POS display
+            pos_products = []
+            for product in products:
+                pos_products.append({
+                    'product_id': product['_id'],
+                    'name': product['name'],
+                    'price': product.get('price', 0),
+                    'stock': product.get('stock', 0),
+                    'category_id': product.get('category_id'),
+                    'subcategory': product.get('subcategory'),
+                    'barcode': product.get('barcode'),
+                    'unit': product.get('unit', 'pcs'),
+                    'image_url': product.get('image_url'),
+                    'description': product.get('description', '')
+                })
+            
+            return pos_products
+            
+        except ValueError as e:
+            # Re-raise ValueError for 404 handling
+            raise
+        except Exception as e:
+            raise Exception(f"Error fetching products by category: {str(e)}")   

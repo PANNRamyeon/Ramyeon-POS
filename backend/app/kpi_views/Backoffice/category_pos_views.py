@@ -206,3 +206,36 @@ class POSSubcategoryProductsView(APIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+class POSCategoryProductsView(APIView):
+    """a
+    Get all products in a category (all subcategories combined)
+    NEW: Fixes /pos/category/{category_id}/products/ endpoint
+    """
+    
+    def get(self, request, category_id):
+        """Get all products in a category for POS"""
+        try:
+            pos_service = POSCategoryService()
+            
+            # Get all products in this category
+            products = pos_service.get_products_by_category_for_pos(category_id)
+            
+            return Response({
+                "message": "Category products retrieved successfully",
+                "category_id": category_id,
+                "products": products,
+                "count": len(products)
+            }, status=status.HTTP_200_OK)
+            
+        except ValueError as e:
+            logger.error(f"Category not found: {e}")
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+        except Exception as e:
+            logger.error(f"Error getting category products: {e}")
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

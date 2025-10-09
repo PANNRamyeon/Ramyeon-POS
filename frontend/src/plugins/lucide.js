@@ -1,6 +1,7 @@
 import { 
   Plus, 
-  X, 
+  X,
+  ArchiveX,
   Minus, 
   Trash2, 
   ShoppingCart, 
@@ -37,13 +38,15 @@ import {
   Search, 
   Filter, 
   Settings, 
-  ChevronLeft 
+  ChevronLeft, 
+  Archive
 } from 'lucide-vue-next'
 
 export default {
   install(app) {
     app.component('AlertTriangle', AlertTriangle)
     app.component('Cake', Cake)
+    app.component('ArchiveX', ArchiveX)
     app.component('Calendar', Calendar)
     app.component('Check', Check)
     app.component('CheckCircle', CheckCircle)

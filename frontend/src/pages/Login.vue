@@ -20,13 +20,47 @@
               <!-- Email Field -->
               <div class="form-group">
                 <label for="email" class="form-label">Email:</label>
-                <input id="email"v-model="loginForm.email" type="email" class="form-input" placeholder="Enter your email" required :disabled="loading"/>
+                <input 
+                  id="email"
+                  v-model="loginForm.email" 
+                  type="email" 
+                  class="form-input" 
+                  placeholder="Enter your email" 
+                  required 
+                  :disabled="loading"
+                />
               </div>
 
               <!-- Password Field -->
               <div class="form-group">
                 <label for="password" class="form-label">Password:</label>
-                <input id="password" v-model="loginForm.password" type="password" class="form-input" placeholder="Enter your password" required :disabled="loading"/>
+                <input 
+                  id="password" 
+                  v-model="loginForm.password" 
+                  type="password" 
+                  class="form-input" 
+                  placeholder="Enter your password" 
+                  required 
+                  :disabled="loading"
+                />
+              </div>
+
+              <!-- Opening Cash Field - ALWAYS SHOW -->
+              <div class="form-group">
+                <label for="openingCash" class="form-label">
+                  Opening Cash:
+                  <span class="optional-text">(For Cashiers/Employees only)</span>
+                </label>
+                <input 
+                  id="openingCash"
+                  v-model.number="loginForm.openingCash" 
+                  type="number" 
+                  step="0.01"
+                  min="0"
+                  class="form-input" 
+                  placeholder="Enter opening cash (leave 0 if admin)" 
+                  :disabled="loading"
+                />
               </div>
 
               <!-- Error Message -->
@@ -56,11 +90,53 @@
         </div>
       </div>
     </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div v-if="showLogoutModal" class="modal-overlay" @click="closeLogoutModal">
+      <div class="modal-content" @click.stop>
+        <h3>End Shift & Logout</h3>
+        <p class="text-muted mb-3">Please enter the closing cash amount for your shift.</p>
+        
+        <div class="form-group">
+          <label for="closingCash" class="form-label">Closing Cash:</label>
+          <input 
+            id="closingCash"
+            v-model.number="closingCash" 
+            type="number" 
+            step="0.01"
+            min="0"
+            class="form-input" 
+            placeholder="Enter closing cash amount"
+            required
+          />
+        </div>
+        
+        <div v-if="logoutError" class="error-message mb-3">
+          {{ logoutError }}
+        </div>
+        
+        <div class="modal-actions">
+          <button 
+            @click="confirmLogout" 
+            class="btn-confirm"
+            :disabled="logoutLoading"
+          >
+            {{ logoutLoading ? 'Ending Shift...' : 'End Shift & Logout' }}
+          </button>
+          <button 
+            @click="closeLogoutModal" 
+            class="btn-cancel"
+            :disabled="logoutLoading"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-
 import apiService from '../services/api.js'
 
 export default {
@@ -69,11 +145,16 @@ export default {
     return {
       loginForm: {
         email: '',
-        password: ''
+        password: '',
+        openingCash: 0
       },
       loading: false,
       error: null,
       successMessage: null,
+      showLogoutModal: false,
+      closingCash: 0,
+      logoutLoading: false,
+      logoutError: null
     }
   },
   methods: {
@@ -89,7 +170,12 @@ export default {
           throw new Error('Please fill in all fields')
         }
 
-        const response = await apiService.login(this.loginForm.email, this.loginForm.password)
+        // Send login request WITH opening_cash
+        const response = await apiService.login(
+          this.loginForm.email, 
+          this.loginForm.password,
+          this.loginForm.openingCash || 0  // Default to 0 if not provided
+        )
        
         await this.handleLoginSuccess(response)
 
@@ -102,9 +188,7 @@ export default {
     },
 
     async handleLoginSuccess(data) {
-      this.successMessage = 'Login successful! Redirecting...'
-      
-      // Store authentication data in localStorage
+      // Store authentication data
       if (data.access_token) {
         localStorage.setItem('authToken', data.access_token)
       }
@@ -114,42 +198,113 @@ export default {
         localStorage.setItem('userRole', data.user.role)
       }
 
+      // Store shift data if available
+      if (data.shift && data.shift.shift_id) {
+        localStorage.setItem('activeShiftId', data.shift.shift_id)
+        localStorage.setItem('shiftStartTime', data.shift.start_time)
+        localStorage.setItem('openingCash', data.shift.opening_cash)
+        console.log('✅ Shift data stored:', data.shift)
+        this.successMessage = 'Login successful! Shift started. Redirecting...'
+      } else if (data.shift && data.shift.error) {
+        console.warn('⚠️ Shift could not be started:', data.shift.error)
+        this.successMessage = 'Login successful! (Warning: Shift could not be started) Redirecting...'
+      } else {
+        this.successMessage = 'Login successful! Redirecting...'
+      }
+
       // Store login timestamp
       localStorage.setItem('loginTime', new Date().toISOString())
 
       console.log('Login successful:', data)
 
-      // Navigate to dashboard using Vue Router
+      // Navigate to dashboard
       setTimeout(() => {
-        this.$router.push('/dashboard')  // THIS IS WHERE THE NAVIGATION HAPPENS
-          .then(() => {
-            console.log('Successfully navigated to dashboard')
-          })
-          .catch((error) => {
-            console.error('Navigation error:', error)
-            // Fallback: try to navigate to home
-            this.$router.push('/home')
-          })
-      }, 1500) // Show success message for a bit longer
+        this.navigateToDashboard(data.user.role)
+      }, 1500)
+    },
+
+    navigateToDashboard(userRole) {
+      let route = '/dashboard'
+
+      if (userRole === 'admin') {
+        route = '/dashboard'
+      } else if (userRole === 'cashier' || userRole === 'employee') {
+        route = '/dashboard'
+      }
+
+      this.$router.push(route)
+        .then(() => {
+          console.log(`Successfully navigated to ${route}`)
+        })
+        .catch((error) => {
+          console.error('Navigation error:', error)
+          this.$router.push('/dashboard')
+        })
     },
 
     async handleLogout() {
-      try {
-        await apiService.logout()
-      } catch (error) {
-        console.error('Logout error:', error)
+      const userRole = localStorage.getItem('userRole')?.toLowerCase()
+      const activeShiftId = localStorage.getItem('activeShiftId')
+
+      // If user has an active shift, show modal to enter closing cash
+      if ((userRole === 'cashier' || userRole === 'employee') && activeShiftId) {
+        this.showLogoutModal = true
+        // Pre-fill with opening cash as default
+        const openingCash = localStorage.getItem('openingCash')
+        this.closingCash = openingCash ? parseFloat(openingCash) : 0
+        return
       }
 
-      // Clear stored data
+      // Otherwise, proceed with normal logout
+      await this.performLogout()
+    },
+
+    async confirmLogout() {
+      this.logoutError = null
+      this.logoutLoading = true
+
+      try {
+        // Validate closing cash
+        if (this.closingCash < 0) {
+          throw new Error('Closing cash cannot be negative')
+        }
+
+        // Perform logout with closing cash
+        const response = await apiService.logout(this.closingCash)
+        
+        console.log('Logout response:', response)
+        
+        this.showLogoutModal = false
+        await this.performLogout()
+        
+      } catch (error) {
+        console.error('Error during logout:', error)
+        this.logoutError = error.message || 'Failed to end shift. Please try again.'
+      } finally {
+        this.logoutLoading = false
+      }
+    },
+
+    async performLogout() {
+      // Clear all stored data
       localStorage.removeItem('authToken')
       localStorage.removeItem('userData')
       localStorage.removeItem('userRole')
       localStorage.removeItem('loginTime')
+      localStorage.removeItem('activeShiftId')
+      localStorage.removeItem('shiftStartTime')
+      localStorage.removeItem('openingCash')
       
       // Reset form
-      this.loginForm = { email: '', password: '' }
+      this.loginForm = { 
+        email: '', 
+        password: '',
+        openingCash: 0
+      }
       this.error = null
       this.successMessage = null
+      this.closingCash = 0
+      this.logoutError = null
       
       // Navigate back to login
       this.$router.push('/login')
@@ -157,24 +312,28 @@ export default {
       console.log('User logged out successfully')
     },
 
+    closeLogoutModal() {
+      if (!this.logoutLoading) {
+        this.showLogoutModal = false
+        this.closingCash = 0
+        this.logoutError = null
+      }
+    },
+
     handleForgotPassword() {
-      // Show available demo credentials instead of actual forgot password
       alert('Please contact your administrator to reset your password.')
     },
 
-    // Method to check if user is authenticated
     isAuthenticated() {
       const token = localStorage.getItem('authToken')
       return !!token
     },
 
-    // Method to get stored user data
     getUserData() {
       const userData = localStorage.getItem('userData')
       return userData ? JSON.parse(userData) : null
     },
 
-    // Method to get auth token
     getAuthToken() {
       return localStorage.getItem('authToken')
     }
@@ -186,21 +345,107 @@ export default {
       const userData = this.getUserData()
       const userRole = userData?.role?.toLowerCase()
       
-      if (userRole === 'admin') {
-        this.$router.push('/admin/dashboard')
-      } else if (userRole === 'employee') {
-        this.$router.push('/pos/dashboard')
-      } else {
-        this.$router.push('/dashboard')
-      }
+      this.$router.push('/dashboard')
     }
     
-    console.log('Backend-integrated login component mounted')
+    console.log('Backend-integrated login component with shift management mounted')
   }
 }
 </script>
 
 <style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-content h3 {
+  margin: 0 0 0.5rem 0;
+  color: #1f2937;
+  font-size: 1.5rem;
+}
+
+.text-muted {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.mb-3 {
+  margin-bottom: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.btn-confirm,
+.btn-cancel {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: #d1d5db;
+}
+
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.optional-text {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #9ca3af;
+  font-style: italic;
+  margin-left: 0.25rem;
+}
+
+/* Keep all previous styles */
 .login-page {
   min-height: 100vh;
   background-color: #9ca3af;
@@ -384,43 +629,6 @@ export default {
 .forgot-password:hover {
   color: #764ba2;
   text-decoration: underline;
-}
-
-/* Demo Credentials Section */
-.demo-credentials {
-  margin-top: 2rem;
-  padding: 1rem;
-  background-color: #f8fafc;
-  border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
-  font-size: 0.875rem;
-  color: #64748b;
-  text-align: center;
-}
-
-.demo-credentials h4 {
-  margin: 0 0 0.5rem 0;
-  color: #374151;
-}
-
-.demo-credentials p {
-  margin: 0.25rem 0;
-}
-
-.demo-button {
-  background-color: #10b981;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  cursor: pointer;
-  margin-top: 0.5rem;
-  transition: background-color 0.2s ease;
-}
-
-.demo-button:hover {
-  background-color: #059669;
 }
 
 /* Animation */
