@@ -539,7 +539,7 @@ export default {
     // ================================================================
     
     async initializeSession() {
-      try {
+       try {
         console.log('🔄 Initializing session...');
         
         // Get cashier ID from auth token/localStorage
@@ -552,6 +552,15 @@ export default {
           throw new Error('No cashier ID found. Please log in again.');
         }
         
+        // ✅ Get active shift (CRITICAL)
+        this.shiftId = localStorage.getItem('activeShiftId') || null;
+        console.log('⏰ Shift ID:', this.shiftId);
+        
+        // ✅ Warn if no shift
+        if (!this.shiftId) {
+          console.warn('⚠️ No active shift found. Sale will be created without shift tracking.');
+        }
+            
         // Get active shift (if exists)
         this.shiftId = localStorage.getItem('activeShiftId') || null;
         console.log('⏰ Shift ID:', this.shiftId);
@@ -1043,49 +1052,32 @@ export default {
         console.log('   Cart ID:', this.cartId);
         console.log('   Items:', this.cartItems.length);
         
-        // Validate cart ID exists
         if (!this.cartId) {
           throw new Error('No active cart found. Please refresh the page and try again.');
         }
         
         this.checkoutProcessing = true;
         
-        // Prepare checkout with backend validation
         console.log('📋 Preparing checkout for cart:', this.cartId);
         const saleData = await cartAPI.prepareCheckout(this.cartId);
         
         console.log('✅ Checkout prepared:', saleData);
         
-        // Validate sale data
         if (!saleData || typeof saleData.total_amount === 'undefined') {
           throw new Error('Invalid checkout data received from server');
         }
         
-        // Navigate to checkout page with cart data
-        this.$router.push({
-          name: 'Checkout',
-          params: { 
-            cartId: this.cartId 
-          },
-          query: {
-            subtotal: saleData.subtotal || 0,
-            tax: saleData.tax_amount || 0,
-            discount: saleData.discount_amount || 0,
-            total: saleData.total_amount || 0
-          }
-        });
+        // ✅✅✅ CRITICAL: Use path with cartId, NOT name with params
+        this.$router.push(`/checkout/${this.cartId}`);
         
       } catch (error) {
         console.error('❌ Checkout failed:', error);
         
-        // Show detailed error to user
         let errorMessage = error.message || 'Unknown error occurred';
         
-        // Check for specific error types
         if (errorMessage.includes('not found')) {
           errorMessage = 'Cart session expired. Creating a new cart...';
           
-          // Try to recover by creating new cart
           try {
             localStorage.removeItem('currentCartId');
             await this.createNewCart();

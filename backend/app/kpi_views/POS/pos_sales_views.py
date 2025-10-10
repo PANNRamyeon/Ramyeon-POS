@@ -331,64 +331,92 @@ class POSSalesShiftSummaryView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class POSSalesCashierPerformanceView(APIView):
+class POSSalesCreateView(APIView):
     """
-    GET /api/pos/sales/cashier-performance/
-    Get performance metrics for a cashier
-    
-    Query Parameters:
-    - cashier_id: Cashier to analyze (required)
-    - start_date: Start date (YYYY-MM-DD, required)
-    - end_date: End date (YYYY-MM-DD, required)
-    """
-    
-    def get(self, request):
+    POST /api/pos/sales/
+    Create a new POS sale transaction
+    """ 
+    def post(self, request):
         try:
             pos_service = POSSalesService()
             
-            # Validate required parameters
-            cashier_id = request.query_params.get('cashier_id')
-            start_date_str = request.query_params.get('start_date')
-            end_date_str = request.query_params.get('end_date')
+            # ✅ FIX: Get cashier_id from request data (sent by frontend)
+            # The frontend should send this from authenticated user data
+            cashier_id = request.data.get('cashier_id')
             
+            # If not provided, try to get from authenticated user
             if not cashier_id:
+                # Try different authentication methods
+                if hasattr(request, 'current_user'):
+                    cashier_id = request.current_user.get('_id') or request.current_user.get('user_id')
+                elif hasattr(request.user, 'username'):
+                    cashier_id = request.user.username
+                else:
+                    return Response({
+                        'success': False,
+                        'error': 'Cashier ID is required'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validate required fields
+            required_fields = ['items', 'total_amount', 'payment_method']
+            for field in required_fields:
+                if field not in request.data:
+                    return Response({
+                        'success': False,
+                        'error': f'Missing required field: {field}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validate items array
+            if not request.data['items'] or len(request.data['items']) == 0:
                 return Response({
                     'success': False,
-                    'error': 'cashier_id is required'
+                    'error': 'Sale must contain at least one item'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            if not start_date_str or not end_date_str:
-                return Response({
-                    'success': False,
-                    'error': 'start_date and end_date are required'
-                }, status=status.HTTP_400_BAD_REQUEST)
+            # Validate each item has required fields
+            for item in request.data['items']:
+                item_required = ['product_id', 'quantity', 'unit_price', 'subtotal']
+                for field in item_required:
+                    if field not in item:
+                        return Response({
+                            'success': False,
+                            'error': f'Item missing required field: {field}'
+                        }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Parse dates
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+            # ✅ Prepare sale data with cashier_id and shift_id
+            sale_data = {
+                'items': request.data['items'],
+                'subtotal': request.data.get('subtotal', 0),
+                'tax_amount': request.data.get('tax_amount', 0),
+                'discount_amount': request.data.get('discount_amount', 0),
+                'total_amount': request.data['total_amount'],
+                'payment_method': request.data['payment_method'],
+                'payment_details': request.data.get('payment_details', {}),
+                'customer_id': request.data.get('customer_id'),
+                'promotion_applied': request.data.get('promotion_applied'),
+                'shift_id': request.data.get('shift_id')  # ✅ Get shift_id from request
+            }
             
-            # Get performance metrics
-            performance = pos_service.get_cashier_performance(
-                cashier_id, 
-                start_date, 
-                end_date
-            )
+            # ✅ Log for debugging
+            print(f"Creating sale with cashier_id: {cashier_id}, shift_id: {sale_data.get('shift_id')}")
             
-            return Response({
-                'success': True,
-                'data': performance
-            }, status=status.HTTP_200_OK)
+            # Create the sale
+            result = pos_service.create_sale(sale_data, cashier_id)
+            
+            return Response(result, status=status.HTTP_201_CREATED)
             
         except ValueError as e:
             return Response({
                 'success': False,
-                'error': f'Invalid date format. Use YYYY-MM-DD: {str(e)}'
+                'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
             
         except Exception as e:
+            import traceback
+            print(f"Error creating sale: {traceback.format_exc()}")
             return Response({
                 'success': False,
-                'error': f'Failed to get performance metrics: {str(e)}'
+                'error': f'Failed to create sale: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -488,7 +516,6 @@ class POSSalesReceiptView(APIView):
     def get(self, request, sale_id):
         try:
             pos_service = POSSalesService()
-            user_service = UserService()
             
             # Get sale
             sale = pos_service.get_sale_by_id(sale_id)
@@ -499,16 +526,13 @@ class POSSalesReceiptView(APIView):
                     'error': 'Sale not found'
                 }, status=status.HTTP_404_NOT_FOUND)
             
-            # Get cashier details
-            cashier = user_service.get_user_by_id(sale.get('cashier_id'))
-            
-            # Format receipt data
+            # ✅ Format receipt data with IDs only (no names for security)
             receipt_data = {
                 'sale_id': sale.get('_id'),
                 'transaction_date': sale.get('transaction_date'),
                 'cashier': {
                     'id': sale.get('cashier_id'),
-                    'name': cashier.get('username') if cashier else 'Unknown'
+                    'shift_id': sale.get('shift_id')
                 },
                 'items': sale.get('items', []),
                 'subtotal': sale.get('subtotal', 0),
@@ -516,6 +540,7 @@ class POSSalesReceiptView(APIView):
                 'discount_amount': sale.get('discount_amount', 0),
                 'total_amount': sale.get('total_amount', 0),
                 'payment_method': sale.get('payment_method'),
+                'payment_details': sale.get('payment_details', {}),
                 'status': sale.get('status'),
                 'customer_id': sale.get('customer_id')
             }

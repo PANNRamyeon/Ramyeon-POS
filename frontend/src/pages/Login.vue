@@ -49,7 +49,7 @@
               <div class="form-group">
                 <label for="openingCash" class="form-label">
                   Opening Cash:
-                  <span class="optional-text">(For Cashiers/Employees only)</span>
+                  <span class="optional-text"></span>
                 </label>
                 <input 
                   id="openingCash"
@@ -187,40 +187,66 @@ export default {
       }
     },
 
-    async handleLoginSuccess(data) {
-      // Store authentication data
-      if (data.access_token) {
-        localStorage.setItem('authToken', data.access_token)
+    async handleLoginSuccess(response) {
+      try {
+        console.log('✅ Processing login success...', response);
+        
+        // ✅ Save auth token (check multiple possible fields)
+        const token = response.token || response.access_token;
+        if (token) {
+          localStorage.setItem('authToken', token);
+          console.log('🔑 Auth token saved');
+        } else {
+          console.warn('⚠️ No token found in response');
+        }
+        
+        // ✅ Save user data
+        if (response.user) {
+          localStorage.setItem('userData', JSON.stringify(response.user));
+          console.log('👤 User data saved:', response.user);
+        } else {
+          console.warn('⚠️ No user data in response');
+        }
+        
+        // ✅ Save shift ID (check both top-level and nested)
+        let shiftId = null;
+        
+        // Try top-level first
+        if (response.shift_id) {
+          shiftId = response.shift_id;
+          console.log('⏰ Found shift_id at top level:', shiftId);
+        } 
+        // Fallback to nested shift.shift_id
+        else if (response.shift && response.shift.shift_id) {
+          shiftId = response.shift.shift_id;
+          console.log('⏰ Found shift_id in nested shift object:', shiftId);
+        }
+        // Another fallback for shift._id
+        else if (response.shift && response.shift._id) {
+          shiftId = response.shift._id;
+          console.log('⏰ Found _id in nested shift object:', shiftId);
+        }
+        
+        if (shiftId) {
+          localStorage.setItem('activeShiftId', shiftId);
+          console.log('✅ Shift ID saved to localStorage:', shiftId);
+        } else {
+          console.warn('⚠️ No shift ID in login response - user may be admin or shift creation failed');
+        }
+        
+        // ✅ Show success message
+        this.successMessage = 'Login successful! Redirecting...';
+        
+        // ✅ Redirect to POS
+        setTimeout(() => {
+          this.$router.push('/new-order');
+        }, 500);
+        
+      } catch (error) {
+        console.error('❌ Login success handler error:', error);
+        this.error = 'Login succeeded but session setup failed. Please try again.';
+        throw error;
       }
-
-      if (data.user) {
-        localStorage.setItem('userData', JSON.stringify(data.user))
-        localStorage.setItem('userRole', data.user.role)
-      }
-
-      // Store shift data if available
-      if (data.shift && data.shift.shift_id) {
-        localStorage.setItem('activeShiftId', data.shift.shift_id)
-        localStorage.setItem('shiftStartTime', data.shift.start_time)
-        localStorage.setItem('openingCash', data.shift.opening_cash)
-        console.log('✅ Shift data stored:', data.shift)
-        this.successMessage = 'Login successful! Shift started. Redirecting...'
-      } else if (data.shift && data.shift.error) {
-        console.warn('⚠️ Shift could not be started:', data.shift.error)
-        this.successMessage = 'Login successful! (Warning: Shift could not be started) Redirecting...'
-      } else {
-        this.successMessage = 'Login successful! Redirecting...'
-      }
-
-      // Store login timestamp
-      localStorage.setItem('loginTime', new Date().toISOString())
-
-      console.log('Login successful:', data)
-
-      // Navigate to dashboard
-      setTimeout(() => {
-        this.navigateToDashboard(data.user.role)
-      }, 1500)
     },
 
     navigateToDashboard(userRole) {

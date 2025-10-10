@@ -388,6 +388,8 @@ class CartService:
                 'tax_amount': cart['tax_amount'],
                 'discount_amount': cart['discount_amount'],
                 'total_amount': cart['total'],
+                'shift_id': cart.get('shift_id'),  # ✅ ADD THIS LINE
+                'cashier_id': cart.get('cashier_id'),  # ✅ ADD THIS LINE (optional but good to have)
                 'discount_details': cart.get('discount_details', {}),
                 'cart_id': cart_id  # Reference to original cart
             }
@@ -400,7 +402,6 @@ class CartService:
             
         except Exception as e:
             raise Exception(f"Error preparing checkout: {str(e)}")
-    
     # ================================================================
     # UTILITY METHODS
     # ================================================================

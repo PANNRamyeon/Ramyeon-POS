@@ -153,7 +153,6 @@ from .kpi_views.POS.pos_sales_views import (
     POSSalesVoidView,
     POSSalesDailySummaryView,
     POSSalesShiftSummaryView,
-    POSSalesCashierPerformanceView,
     POSSalesExportView,
     POSSalesReceiptView
 )
@@ -360,7 +359,6 @@ urlpatterns = [
     path('pos/sales/create/', POSSalesCreateView.as_view(), name='pos-sales-create'),
     path('pos/sales/daily-summary/', POSSalesDailySummaryView.as_view(), name='pos-sales-daily-summary'),
     path('pos/sales/shift-summary/<str:shift_id>/', POSSalesShiftSummaryView.as_view(), name='pos-sales-shift-summary'),
-    path('pos/sales/cashier-performance/', POSSalesCashierPerformanceView.as_view(), name='pos-sales-cashier-performance'),
     path('pos/sales/export/', POSSalesExportView.as_view(), name='pos-sales-export'),
     path('pos/sales/<str:sale_id>/', POSSalesDetailView.as_view(), name='pos-sales-detail'),
     path('pos/sales/<str:sale_id>/void/', POSSalesVoidView.as_view(), name='pos-sales-void'),

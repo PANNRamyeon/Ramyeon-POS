@@ -54,6 +54,7 @@ class POSSalesService:
                 'discount_amount': float,
                 'total_amount': float,
                 'payment_method': str,
+                'shift_id': str (optional),
                 'customer_id': str (optional)
             }
             cashier_id: str (USER-#### format)
@@ -71,6 +72,7 @@ class POSSalesService:
                 'payment_method': sale_data['payment_method'],
                 'payment_details': sale_data.get('payment_details', {}),
                 'cashier_id': cashier_id,
+                'shift_id': sale_data.get('shift_id'),  # ✅ ADD THIS LINE
                 'customer_id': sale_data.get('customer_id'),
                 'promotion_applied': sale_data.get('promotion_applied'),
                 'transaction_date': datetime.utcnow(),

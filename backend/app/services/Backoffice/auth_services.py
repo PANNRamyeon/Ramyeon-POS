@@ -184,6 +184,7 @@ class AuthService:
             # Prepare user data for response
             user_response_data = {
                 "id": user_id,
+                "user_id": user_id,  # ✅ Add user_id for frontend compatibility
                 "email": user["email"],
                 "role": user["role"],
                 "name": user.get("full_name", ""),
@@ -202,7 +203,7 @@ class AuthService:
                     "username": user.get("username", user["email"]),
                     "email": user["email"],
                     "branch_id": 1,
-                    "role": user_role  # Use actual role instead of hardcoded "admin"
+                    "role": user_role
                 }
                 print(f"📝 Session user data: {session_user}")
                 session_result = session_service.log_login(session_user)
@@ -211,23 +212,26 @@ class AuthService:
             except Exception as session_error:
                 print(f"❌ Session logging error: {session_error}")
             
-            # Final response with shift data
+            # ✅ FINAL RESPONSE WITH SHIFT DATA AT TOP LEVEL
             final_response = {
                 "access_token": access_token,
                 "refresh_token": refresh_token,
+                "token": access_token,  # ✅ Add for frontend compatibility
                 "token_type": "bearer",
                 "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                 "user": user_response_data
             }
             
-            # Add shift data if available
+            # ✅ Add shift data if available (BOTH nested AND top-level)
             if shift_data:
-                final_response["shift"] = shift_data
+                final_response["shift"] = shift_data  # Nested
+                final_response["shift_id"] = shift_data.get('shift_id')  # ✅ Top-level
             
             print(f"🎉 LOGIN SUCCESSFUL - Response prepared")
             print(f"🎉 Final response keys: {list(final_response.keys())}")
             
             if shift_data:
+                print(f"💼 Shift ID at top level: {final_response.get('shift_id')}")
                 print(f"💼 Shift data included in response: {shift_data}")
             
             return final_response

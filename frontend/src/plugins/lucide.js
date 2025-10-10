@@ -1,5 +1,6 @@
 import { 
   Plus, 
+  Printer,
   X,
   ArchiveX,
   Minus, 
@@ -45,6 +46,7 @@ import {
 export default {
   install(app) {
     app.component('AlertTriangle', AlertTriangle)
+    app.component('Printer', Printer)
     app.component('Cake', Cake)
     app.component('ArchiveX', ArchiveX)
     app.component('Calendar', Calendar)
