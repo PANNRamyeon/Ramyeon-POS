@@ -133,11 +133,24 @@ class ApiService {
   // AUTH METHODS
   async login(email, password, opening_cash = 0) {
     try {
-      const response = await api.post('/auth/login/', { 
+      // ✅ Debug logging
+      console.log('📤 API: Sending login request');
+      console.log('   Email:', email);
+      console.log('   Opening Cash:', opening_cash);
+      console.log('   Opening Cash Type:', typeof opening_cash);
+      
+      const payload = {
         email, 
         password,
-        opening_cash: opening_cash || 0
-      });
+        opening_cash: parseFloat(opening_cash) || 0  // ✅ Ensure it's a number
+      };
+      
+      console.log('📤 API: Final payload:', payload);
+      
+      const response = await api.post('/auth/login/', payload);
+      
+      console.log('✅ API: Login response:', response.data);
+      
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);

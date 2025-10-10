@@ -159,7 +159,6 @@ export default {
   },
   methods: {
     async handleLogin() {
-      // Reset state
       this.error = null
       this.successMessage = null
       this.loading = true
@@ -170,13 +169,18 @@ export default {
           throw new Error('Please fill in all fields')
         }
 
+        // ✅ Convert to number and add debug logging
+        const openingCash = parseFloat(this.loginForm.openingCash) || 0;
+        console.log('💰 Frontend: Opening Cash (before send):', openingCash);
+        console.log('💰 Frontend: Type:', typeof openingCash);
+
         // Send login request WITH opening_cash
         const response = await apiService.login(
           this.loginForm.email, 
           this.loginForm.password,
-          this.loginForm.openingCash || 0  // Default to 0 if not provided
+          openingCash  // ✅ Use the converted value
         )
-       
+      
         await this.handleLoginSuccess(response)
 
       } catch (error) {
@@ -239,7 +243,7 @@ export default {
         
         // ✅ Redirect to POS
         setTimeout(() => {
-          this.$router.push('/new-order');
+          this.$router.push('/dashboard');
         }, 500);
         
       } catch (error) {

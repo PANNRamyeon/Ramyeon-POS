@@ -137,6 +137,10 @@ class AuthService:
                         }
                     else:
                         # Start new shift
+                        print(f"✅ No existing shift found - creating new shift")
+                        print(f"   User ID: {user_id}")
+                        print(f"   Opening Cash: {opening_cash}")
+                        
                         shift_result = shift_service.start_shift(
                             cashier_id=user_id,
                             opening_cash=float(opening_cash) if opening_cash else 0.0
@@ -148,7 +152,7 @@ class AuthService:
                             'start_time': shift_result.get('start_time').isoformat() if shift_result.get('start_time') else None,
                             'message': 'Shift started successfully'
                         }
-                        print(f"✅ Shift started successfully: {shift_data['shift_id']}")
+                        print(f"✅ New shift created successfully: {shift_data['shift_id']}")
                     
                 except Exception as shift_error:
                     print(f"⚠️ Shift start failed: {shift_error}")
@@ -184,7 +188,7 @@ class AuthService:
             # Prepare user data for response
             user_response_data = {
                 "id": user_id,
-                "user_id": user_id,  # ✅ Add user_id for frontend compatibility
+                "user_id": user_id,
                 "email": user["email"],
                 "role": user["role"],
                 "name": user.get("full_name", ""),
@@ -212,20 +216,20 @@ class AuthService:
             except Exception as session_error:
                 print(f"❌ Session logging error: {session_error}")
             
-            # ✅ FINAL RESPONSE WITH SHIFT DATA AT TOP LEVEL
+            # Final response with shift data
             final_response = {
                 "access_token": access_token,
                 "refresh_token": refresh_token,
-                "token": access_token,  # ✅ Add for frontend compatibility
+                "token": access_token,
                 "token_type": "bearer",
                 "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                 "user": user_response_data
             }
             
-            # ✅ Add shift data if available (BOTH nested AND top-level)
+            # Add shift data if available
             if shift_data:
-                final_response["shift"] = shift_data  # Nested
-                final_response["shift_id"] = shift_data.get('shift_id')  # ✅ Top-level
+                final_response["shift"] = shift_data
+                final_response["shift_id"] = shift_data.get('shift_id')
             
             print(f"🎉 LOGIN SUCCESSFUL - Response prepared")
             print(f"🎉 Final response keys: {list(final_response.keys())}")
