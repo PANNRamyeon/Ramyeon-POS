@@ -36,7 +36,7 @@
             <path d="m320-410 79-110h170L320-716v306ZM551-80 406-392 240-160v-720l560 440H516l144 309-109 51ZM399-520Z"/>
           </svg>
         </div>
-        <span class="nav-label">Online Order</span>
+        <span class="nav-label">Pending Order</span>
         <div class="notification-badge">1</div>
       </div>
 

@@ -51,6 +51,45 @@ class POSProductBatchView(APIView):
         except Exception as e:
             logger.error(f"Error batch fetching products: {e}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def get(self, request):
+        """Batch fetch multiple products by IDs via query params (GET)"""
+        try:
+            pos_service = POSCategoryService()
+            
+            # Get product IDs from query params
+            ids_param = request.GET.get('ids', '')
+            product_ids = [id.strip() for id in ids_param.split(',') if id.strip()]
+            
+            if not product_ids:
+                return Response({
+                    'success': False,
+                    'error': 'No product IDs provided. Use ?ids=PROD-001,PROD-002'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            logger.info(f"📦 POS: Fetching batch products: {product_ids}")
+            
+            # Use the existing service method
+            products = pos_service.get_products_for_pos_cart(product_ids)
+            
+            logger.info(f"✅ POS: Found {len(products)} products")
+            
+            return Response({
+                'success': True,
+                'message': 'Products retrieved successfully',
+                'data': products,
+                'products': products,  # Keep both for compatibility
+                'count': len(products)
+            }, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.error(f"❌ Error batch fetching products: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class POSBarcodeView(APIView):

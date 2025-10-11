@@ -78,10 +78,11 @@ const router = createRouter({
           component: History
         },
         {
-          path: 'checkout/:cartId',  
+          path: 'checkout',
           name: 'Checkout',
-          component: Checkout 
-        }
+          component: Checkout,
+          meta: { requiresAuth: true }
+        },
       ]
     },
     // Catch all route - redirect to login

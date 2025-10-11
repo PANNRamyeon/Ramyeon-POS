@@ -281,24 +281,24 @@
           <p>Your cart is empty</p>
           <p>Add items to get started!</p>
         </div>
-        <div v-for="item in cartItems" :key="item.id" class="cart-item">
-          <img :src="item.image" :alt="item.name" class="cart-item-image" />
+        
+        <!-- ✅ FIXED: Use productName instead of name -->
+        <div v-for="item in cartItems" :key="item.productId" class="cart-item">
+          <img :src="item.image" :alt="item.productName" class="cart-item-image" />
           <div class="cart-item-info">
-            <h4>{{ item.name }}</h4>
+            <h4>{{ item.productName }}</h4>  <!-- ✅ Changed from item.name -->
             <p class="item-price">₱{{ formatPrice(item.price) }}</p>
           </div>
           <div class="cart-item-controls">
             <button 
               @click="decreaseQuantity(item)" 
-              class="quantity-btn minus"
-              :disabled="quantityUpdating">
+              class="quantity-btn minus">
               <Minus :size="16" />
             </button>
             <span class="quantity">{{ item.quantity }}</span>
             <button 
               @click="increaseQuantity(item)" 
-              class="quantity-btn plus"
-              :disabled="quantityUpdating">
+              class="quantity-btn plus">
               <Plus :size="16" />
             </button>
           </div>
@@ -307,17 +307,27 @@
           </div>
           <button 
             @click="removeFromCart(item)" 
-            class="remove-btn"
-            :disabled="quantityUpdating">
+            class="remove-btn">
             <Trash2 :size="16" />
           </button>
         </div>
       </div>
-
+      
       <!-- Cart Summary -->
       <div class="cart-footer">
+        <div class="input-group" style="margin-bottom: 20px;">
+          <input 
+            type="text" 
+            class="form-control" 
+            placeholder="Enter promo code"
+            v-model="promoCode"
+            style="gap: 10px;"
+          >
+          <button class="btn btn-primary" type="button" @click="applyPromotion">
+            Apply
+          </button>
+        </div>
         <div class="cart-summary">
-  
           <div class="cart-info">
             <div class="item-count">{{ totalItems }} items</div>
             <div class="cart-total">₱{{ formatPrice(cartTotal) }}</div>
@@ -325,14 +335,17 @@
           <button 
             class="pay-btn" 
             @click="checkout"
-            :disabled="cartItems.length === 0 || checkoutProcessing">
-            <span v-if="!checkoutProcessing">Checkout →</span>
-            <span v-else>Processing...</span>
+            :disabled="cartItems.length === 0">
+            <span>Checkout →</span>
           </button>
         </div>
+         <div v-if="appliedPromotion" class="alert alert-success mt-2">
+            ✅ {{ appliedPromotion.name }} applied
+            <button @click="removePromotion" class="btn-close"></button>
+          </div>
       </div>
     </div>
-    
+        
     <!-- Cart Toggle Button -->
     <button v-if="!showCart && cartItems.length > 0" class="cart-toggle" @click="openCart">
       <ShoppingCart :size="24" />
@@ -342,20 +355,23 @@
 </template>
 
 <script>
-import categoriesAPI from '@/services/apiCategory.js';
-import productsAPI from '@/services/apiProducts.js';
-import cartAPI from '@/services/apiCart.js';
+import { useCartStore } from '@/stores/cartStores'
+import categoriesAPI from '@/services/apiCategory.js'
+import productsAPI from '@/services/apiProducts.js'
 
 export default {
   name: 'NewOrder',
+  
+  setup() {
+    const cartStore = useCartStore()
+    return { cartStore }
+  },
   
   data() {
     return {
       // Loading and error states
       loading: false,
       productsLoading: false,
-      quantityUpdating: false,
-      checkoutProcessing: false,
       error: null,
       
       // Categories (backend + custom)
@@ -368,18 +384,8 @@ export default {
       customCategoryProducts: {},
       allProducts: [],
       
-      // Cart (backend integration)
-      cartId: null,
-      cartItems: [],
-      cartSubtotal: 0,
-      cartTax: 0,
-      cartDiscount: 0,
-      cartTotal: 0,
+      // Cart UI state
       showCart: false,
-      
-      // User context
-      cashierId: null,
-      shiftId: null,
       
       // Modal states
       showCategoryModal: false,
@@ -423,14 +429,14 @@ export default {
   },
 
   async mounted() {
-    await this.initializeSession();
-    await this.loadCategories();
+    await this.initializeSession()
+    await this.loadCategories()
   },
 
   watch: {
     selectedSourceCategory(newCategoryId) {
       if (newCategoryId) {
-        this.loadProductsForSelection();
+        this.loadProductsForSelection()
       }
     }
   },
@@ -438,12 +444,27 @@ export default {
   computed: {
     // Combine backend and custom categories
     categories() {
-      return [...this.backendCategories, ...this.customCategories];
+      return [...this.backendCategories, ...this.customCategories]
+    },
+
+    // ✅ Cart items from store
+    cartItems() {
+      return this.cartStore.items
+    },
+    
+    // ✅ Cart total from store
+    cartTotal() {
+      return this.cartStore.total
+    },
+    
+    // ✅ Total items from store
+    totalItems() {
+      return this.cartStore.itemCount
     },
 
     filteredProducts() {
       if (this.viewMode === 'subcategories') {
-        const category = this.categories.find(cat => cat.id === this.activeCategory);
+        const category = this.categories.find(cat => cat.id === this.activeCategory)
         if (category && category.subcategories) {
           return category.subcategories.map(sub => ({
             id: sub.id,
@@ -453,203 +474,115 @@ export default {
             image: this.generateSubcategoryImage(sub.name),
             isSubcategory: true,
             subcategoryData: sub
-          }));
+          }))
         }
-        return [];
+        return []
       }
       
-      let products;
+      let products
       
       if (this.isCustomCategory) {
-        products = this.customCategoryProducts[this.activeCategory] || [];
+        products = this.customCategoryProducts[this.activeCategory] || []
       } else {
-        products = this.products;
+        products = this.products
       }
       
       if (this.categorySearch.trim()) {
         products = products.filter(product => 
           product.name.toLowerCase().includes(this.categorySearch.toLowerCase())
-        );
+        )
       }
       
-      return products;
+      return products
     },
 
     paginatedProducts() {
       if (this.viewMode === 'subcategories') {
-        return this.filteredProducts;
+        return this.filteredProducts
       }
       
-      const start = (this.currentPage - 1) * this.itemsPerPage;
-      const end = start + this.itemsPerPage;
-      return this.filteredProducts.slice(start, end);
+      const start = (this.currentPage - 1) * this.itemsPerPage
+      const end = start + this.itemsPerPage
+      return this.filteredProducts.slice(start, end)
     },
 
     totalPages() {
-      if (this.viewMode === 'subcategories') return 1;
-      return Math.ceil(this.filteredProducts.length / this.itemsPerPage);
-    },
-
-    totalItems() {
-      return this.cartItems.reduce((total, item) => total + item.quantity, 0);
+      if (this.viewMode === 'subcategories') return 1
+      return Math.ceil(this.filteredProducts.length / this.itemsPerPage)
     },
 
     isCustomCategory() {
-      const category = this.categories.find(cat => cat.id === this.activeCategory);
-      return category && category.isCustom;
+      const category = this.categories.find(cat => cat.id === this.activeCategory)
+      return category && category.isCustom
     },
 
     customCategoryItems() {
-      return this.filteredProducts;
+      return this.filteredProducts
     },
 
     availableSourceCategories() {
-      return this.backendCategories.filter(cat => cat.id !== this.activeCategory);
+      return this.backendCategories.filter(cat => cat.id !== this.activeCategory)
     },
 
     availableProductsForSelection() {
       let products = this.allProducts.filter(product => 
         product.category === this.selectedSourceCategory
-      );
+      )
       
       if (this.productSearchQuery.trim()) {
         products = products.filter(product => 
           product.name.toLowerCase().includes(this.productSearchQuery.toLowerCase())
-        );
+        )
       }
       
-      return products;
+      return products
     },
 
     allAvailableProductsCount() {
-      const currentCategoryProducts = this.customCategoryProducts[this.activeCategory] || [];
-      const currentProductIds = currentCategoryProducts.map(p => p.originalId || p.id);
+      const currentCategoryProducts = this.customCategoryProducts[this.activeCategory] || []
+      const currentProductIds = currentCategoryProducts.map(p => p.originalId || p.id)
       
-      return this.allProducts.filter(p => !currentProductIds.includes(p.id)).length;
+      return this.allProducts.filter(p => !currentProductIds.includes(p.id)).length
     },
 
     wouldExceedLimit() {
-      return this.customCategoryItems.length + this.selectedProducts.length > 8;
+      return this.customCategoryItems.length + this.selectedProducts.length > 8
     }
   },
 
   methods: {
     // ================================================================
-    // INITIALIZATION
+    // INITIALIZATION (SIMPLIFIED - NO BACKEND CART)
     // ================================================================
     
     async initializeSession() {
-       try {
-        console.log('🔄 Initializing session...');
-        
-        // Get cashier ID from auth token/localStorage
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        this.cashierId = userData.user_id || userData.id || userData._id;
-        
-        console.log('👤 Cashier ID:', this.cashierId);
-        
-        if (!this.cashierId) {
-          throw new Error('No cashier ID found. Please log in again.');
-        }
-        
-        // ✅ Get active shift (CRITICAL)
-        this.shiftId = localStorage.getItem('activeShiftId') || null;
-        console.log('⏰ Shift ID:', this.shiftId);
-        
-        // ✅ Warn if no shift
-        if (!this.shiftId) {
-          console.warn('⚠️ No active shift found. Sale will be created without shift tracking.');
-        }
-            
-        // Get active shift (if exists)
-        this.shiftId = localStorage.getItem('activeShiftId') || null;
-        console.log('⏰ Shift ID:', this.shiftId);
-        
-        // Check for existing cart
-        const existingCartId = localStorage.getItem('currentCartId');
-        console.log('🛒 Existing cart ID from storage:', existingCartId);
-        
-        if (existingCartId) {
-          try {
-            console.log('🔍 Attempting to restore existing cart:', existingCartId);
-            const cart = await cartAPI.getCart(existingCartId);
-            this.cartId = existingCartId;
-            this.updateCartFromBackend(cart);
-            console.log('✅ Cart restored successfully:', this.cartId);
-          } catch (error) {
-            console.warn('⚠️ Existing cart not found, creating new one:', error.message);
-            localStorage.removeItem('currentCartId'); // Clean up invalid cart ID
-            await this.createNewCart();
-          }
-        } else {
-          console.log('📝 No existing cart, creating new one...');
-          await this.createNewCart();
-        }
-        
-        console.log('✅ Session initialized. Cart ID:', this.cartId);
-        
-      } catch (error) {
-        console.error('❌ Session initialization failed:', error);
-        this.error = error.message;
-        
-        // Show user-friendly error
-        alert(`Failed to initialize session: ${error.message}\n\nPlease refresh the page or log in again.`);
-      }
-    },
-
-    async createNewCart() {
       try {
-        console.log('📝 Creating new cart...');
-        console.log('   Cashier ID:', this.cashierId);
-        console.log('   Shift ID:', this.shiftId);
+        console.log('🔄 Initializing session...')
         
-        if (!this.cashierId) {
-          throw new Error('Cannot create cart: No cashier ID available');
+        // Get user data
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}')
+        const cashierId = userData.user_id || userData.id || userData._id
+        
+        console.log('👤 Cashier ID:', cashierId)
+        
+        if (!cashierId) {
+          throw new Error('No cashier ID found. Please log in again.')
         }
         
-        const cart = await cartAPI.createCart(this.cashierId, this.shiftId);
+        // Get active shift
+        const shiftId = localStorage.getItem('activeShiftId') || null
+        console.log('⏰ Shift ID:', shiftId)
         
-        console.log('✅ Cart created:', cart);
+        // ✅ Initialize frontend cart (INSTANT - no API call)
+        this.cartStore.initializeSession(cashierId, shiftId)
         
-        if (!cart || !cart.id) {
-          throw new Error('Cart creation returned invalid data');
-        }
-        
-        this.cartId = cart.id;
-        localStorage.setItem('currentCartId', this.cartId);
-        this.updateCartFromBackend(cart);
-        
-        console.log('💾 Cart ID saved to localStorage:', this.cartId);
+        console.log('✅ Session initialized (frontend cart)')
         
       } catch (error) {
-        console.error('❌ Failed to create cart:', error);
-        throw new Error(`Cart creation failed: ${error.message}`);
+        console.error('❌ Session initialization failed:', error)
+        this.error = error.message
+        alert(`Failed to initialize session: ${error.message}\n\nPlease refresh the page or log in again.`)
       }
-    },
-
-   updateCartFromBackend(cart) {
-      console.log('🔄 Updating cart from backend:', cart);
-      
-      if (!cart) {
-        console.warn('⚠️ Cart is null or undefined');
-        return;
-      }
-      
-      // Update cart items
-      this.cartItems = cart.items || [];
-      
-      // Update totals
-      this.cartSubtotal = cart.subtotal || 0;
-      this.cartTax = cart.taxAmount || 0;
-      this.cartDiscount = cart.discountAmount || 0;
-      this.cartTotal = cart.total || 0;
-      
-      console.log('✅ Cart updated:', {
-        items: this.cartItems.length,
-        subtotal: this.cartSubtotal,
-        tax: this.cartTax,
-        total: this.cartTotal
-      });
     },
 
     // ================================================================
@@ -658,85 +591,85 @@ export default {
     
     async loadCategories() {
       try {
-        this.loading = true;
-        this.error = null;
+        this.loading = true
+        this.error = null
         
-        this.backendCategories = await categoriesAPI.getActiveCategories();
+        this.backendCategories = await categoriesAPI.getActiveCategories()
         
         if (this.backendCategories.length > 0 && !this.activeCategory) {
-          this.activeCategory = this.backendCategories[0].id;
-          await this.selectCategory(this.backendCategories[0].id);
+          this.activeCategory = this.backendCategories[0].id
+          await this.selectCategory(this.backendCategories[0].id)
         }
         
       } catch (error) {
-        console.error('Failed to load categories:', error);
-        this.error = error.message;
+        console.error('Failed to load categories:', error)
+        this.error = error.message
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
 
     async selectCategory(categoryId) {
-      this.activeCategory = categoryId;
-      this.currentPage = 1;
-      this.categorySearch = '';
-      this.breadcrumbs = [];
-      this.currentSubcategory = null;
+      this.activeCategory = categoryId
+      this.currentPage = 1
+      this.categorySearch = ''
+      this.breadcrumbs = []
+      this.currentSubcategory = null
       
-      const category = this.categories.find(cat => cat.id === categoryId);
+      const category = this.categories.find(cat => cat.id === categoryId)
       
       if (category && !category.isCustom && category.hasSubcategories) {
-        this.viewMode = 'subcategories';
+        this.viewMode = 'subcategories'
         this.breadcrumbs = [
           { name: category.name, type: 'categories', categoryId: categoryId }
-        ];
+        ]
       } else {
-        this.viewMode = 'products';
+        this.viewMode = 'products'
         if (!category.isCustom) {
-          await this.loadProducts(categoryId);
+          await this.loadProducts(categoryId)
         }
       }
     },
 
     async loadProducts(categoryId, subcategoryName = null) {
       try {
-        this.productsLoading = true;
-        this.error = null;
+        this.productsLoading = true
+        this.error = null
         
         if (this.isCustomCategory) {
-          this.productsLoading = false;
-          return;
+          this.productsLoading = false
+          return
         }
         
-        const products = await productsAPI.getProductsByCategory(categoryId, subcategoryName);
-        this.products = products;
+        const products = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
+        this.products = products
         
       } catch (error) {
-        console.error('Failed to load products:', error);
-        this.error = error.message;
-        this.products = [];
+        console.error('Failed to load products:', error)
+        this.error = error.message
+        this.products = []
       } finally {
-        this.productsLoading = false;
+        this.productsLoading = false
       }
     },
 
     async loadProductsForSelection() {
-      if (!this.selectedSourceCategory) return;
+      if (!this.selectedSourceCategory) return
       
       try {
-        this.productsLoading = true;
-        const products = await productsAPI.getProductsByCategory(this.selectedSourceCategory);
-        this.allProducts = products;
+        this.productsLoading = true
+        const products = await productsAPI.getProductsByCategory(this.selectedSourceCategory)
+        this.allProducts = products
       } catch (error) {
-        console.error('Failed to load products for selection:', error);
-        this.error = error.message;
+        console.error('Failed to load products for selection:', error)
+        this.error = error.message
       } finally {
-        this.productsLoading = false;
+        this.productsLoading = false
       }
     },
 
     generateSubcategoryImage(subcategoryName) {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(subcategoryName)}&size=200&background=A07BE3&color=fff`;
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(subcategoryName)}&size=200&background=A07BE3&color=fff`
     },
 
     // ================================================================
@@ -744,9 +677,9 @@ export default {
     // ================================================================
     
     createCategory() {
-      if (!this.newCategory.name.trim()) return;
+      if (!this.newCategory.name.trim()) return
       
-      const categoryId = `custom_${this.nextCategoryId++}`;
+      const categoryId = `custom_${this.nextCategoryId++}`
       const category = {
         id: categoryId,
         name: this.newCategory.name.trim(),
@@ -754,54 +687,54 @@ export default {
         isCustom: true,
         hasSubcategories: false,
         subcategories: []
-      };
+      }
       
-      this.customCategoryProducts[categoryId] = [];
-      this.customCategories.push(category);
-      this.closeCategoryModal();
-      this.selectCategory(categoryId);
+      this.customCategoryProducts[categoryId] = []
+      this.customCategories.push(category)
+      this.closeCategoryModal()
+      this.selectCategory(categoryId)
     },
 
     deleteCategory(categoryId) {
       if (confirm('Are you sure you want to delete this category and all its items?')) {
-        this.customCategories = this.customCategories.filter(cat => cat.id !== categoryId);
-        delete this.customCategoryProducts[categoryId];
+        this.customCategories = this.customCategories.filter(cat => cat.id !== categoryId)
+        delete this.customCategoryProducts[categoryId]
         
         if (this.activeCategory === categoryId) {
-          this.activeCategory = this.categories[0]?.id;
+          this.activeCategory = this.categories[0]?.id
           if (this.activeCategory) {
-            this.selectCategory(this.activeCategory);
+            this.selectCategory(this.activeCategory)
           }
         }
       }
     },
 
     closeCategoryModal() {
-      this.showCategoryModal = false;
-      this.newCategory = { name: '', icon: 'Package' };
+      this.showCategoryModal = false
+      this.newCategory = { name: '', icon: 'Package' }
     },
 
     getCurrentCategoryName() {
-      const category = this.categories.find(cat => cat.id === this.activeCategory);
-      return category ? category.name : 'Category';
+      const category = this.categories.find(cat => cat.id === this.activeCategory)
+      return category ? category.name : 'Category'
     },
 
     closeProductSelectorModal() {
-      this.showProductSelectorModal = false;
-      this.selectedProducts = [];
-      this.productSearchQuery = '';
-      this.selectedSourceCategory = null;
+      this.showProductSelectorModal = false
+      this.selectedProducts = []
+      this.productSearchQuery = ''
+      this.selectedSourceCategory = null
     },
 
     toggleProductSelection(product) {
-      if (this.isProductAlreadyInCategory(product.id)) return;
+      if (this.isProductAlreadyInCategory(product.id)) return
       
-      const index = this.selectedProducts.indexOf(product.id);
+      const index = this.selectedProducts.indexOf(product.id)
       if (index > -1) {
-        this.selectedProducts.splice(index, 1);
+        this.selectedProducts.splice(index, 1)
       } else {
         if (this.customCategoryItems.length + this.selectedProducts.length < 8) {
-          this.selectedProducts.push(product.id);
+          this.selectedProducts.push(product.id)
         }
       }
     },
@@ -810,22 +743,22 @@ export default {
       if (this.isCustomCategory && this.customCategoryProducts[this.activeCategory]) {
         return this.customCategoryProducts[this.activeCategory].some(product => 
           product.originalId === productId || product.id === productId
-        );
+        )
       }
-      return false;
+      return false
     },
 
     getProductCountForCategory(categoryId) {
-      return this.allProducts.filter(product => product.category === categoryId).length;
+      return this.allProducts.filter(product => product.category === categoryId).length
     },
 
     addSelectedProductsToCategory() {
       const selectedProductData = this.allProducts.filter(product => 
         this.selectedProducts.includes(product.id)
-      );
+      )
       
       if (!this.customCategoryProducts[this.activeCategory]) {
-        this.customCategoryProducts[this.activeCategory] = [];
+        this.customCategoryProducts[this.activeCategory] = []
       }
       
       selectedProductData.forEach(product => {
@@ -835,21 +768,21 @@ export default {
           category: this.activeCategory,
           isReference: true,
           originalId: product.id
-        };
+        }
         
-        this.customCategoryProducts[this.activeCategory].push(newProduct);
-      });
+        this.customCategoryProducts[this.activeCategory].push(newProduct)
+      })
       
-      this.$forceUpdate();
-      this.closeProductSelectorModal();
+      this.$forceUpdate()
+      this.closeProductSelectorModal()
     },
 
     removeFromCategory(productId) {
       if (this.isCustomCategory && this.customCategoryProducts[this.activeCategory]) {
         this.customCategoryProducts[this.activeCategory] = 
-          this.customCategoryProducts[this.activeCategory].filter(product => product.id !== productId);
+          this.customCategoryProducts[this.activeCategory].filter(product => product.id !== productId)
         
-        this.$forceUpdate();
+        this.$forceUpdate()
       }
     },
 
@@ -859,270 +792,119 @@ export default {
     
     handleProductClick(product) {
       if (product.isSubcategory) {
-        this.selectSubcategory(product.subcategoryData);
+        this.selectSubcategory(product.subcategoryData)
       } else {
-        this.addToCart(product);
+        this.addToCart(product)
       }
     },
 
     async selectSubcategory(subcategoryData) {
-      this.currentSubcategory = subcategoryData;
-      this.viewMode = 'products';
+      this.currentSubcategory = subcategoryData
+      this.viewMode = 'products'
       this.breadcrumbs.push({
         name: subcategoryData.name,
         type: 'products',
         data: subcategoryData
-      });
+      })
       
-      await this.loadProducts(this.activeCategory, subcategoryData.name);
+      await this.loadProducts(this.activeCategory, subcategoryData.name)
     },
 
     async navigateTo(crumb) {
       if (crumb.type === 'categories') {
-        this.viewMode = 'subcategories';
-        this.currentSubcategory = null;
-        this.breadcrumbs = [crumb];
-        await this.selectCategory(crumb.categoryId);
+        this.viewMode = 'subcategories'
+        this.currentSubcategory = null
+        this.breadcrumbs = [crumb]
+        await this.selectCategory(crumb.categoryId)
       } else if (crumb.type === 'products') {
-        const crumbIndex = this.breadcrumbs.findIndex(b => b === crumb);
-        this.breadcrumbs = this.breadcrumbs.slice(0, crumbIndex + 1);
-        this.currentSubcategory = crumb.data;
-        await this.loadProducts(this.activeCategory, crumb.data.name);
+        const crumbIndex = this.breadcrumbs.findIndex(b => b === crumb)
+        this.breadcrumbs = this.breadcrumbs.slice(0, crumbIndex + 1)
+        this.currentSubcategory = crumb.data
+        await this.loadProducts(this.activeCategory, crumb.data.name)
       }
     },
 
     goToPage(page) {
       if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page;
+        this.currentPage = page
       }
     },
 
     retryLoad() {
-      this.error = null;
+      this.error = null
       if (this.activeCategory) {
-        this.loadProducts(this.activeCategory);
+        this.loadProducts(this.activeCategory)
       } else {
-        this.loadCategories();
+        this.loadCategories()
       }
     },
 
     // ================================================================
-    // CART MANAGEMENT (Backend Integration)
+    // CART MANAGEMENT (FRONTEND ONLY - INSTANT!)
     // ================================================================
     
-    async addToCart(product) {
+    addToCart(product) {
       try {
-        console.log('🛒 Adding to cart:', {
-          cartId: this.cartId,
-          productId: product.id,
-          productName: product.name,
-          price: product.price
-        });
+        console.log('🛒 Adding to cart (frontend):', product.name)
         
-        // Validate cart exists
-        if (!this.cartId) {
-          throw new Error('No active cart. Please refresh the page.');
+        // ✅ Validate product has required fields
+        if (!product.id || !product.name || !product.price) {
+          throw new Error('Invalid product data')
         }
         
-        // Validate product
-        if (!product.id) {
-          throw new Error('Invalid product: missing ID');
+        // ✅ Check stock (client-side validation)
+        if (product.stock <= 0) {
+          alert(`${product.name} is out of stock!`)
+          return
         }
         
-        // Show loading state
-        this.showCart = true;
+        // ✅ INSTANT UPDATE - No API call!
+        this.cartStore.addItem(product)
         
-        // Call backend FIRST (no optimistic update)
-        console.log('📡 Sending add item request to backend...');
-        const updatedCart = await cartAPI.addItem(this.cartId, product.id, 1);
+        // Show cart sidebar
+        this.showCart = true
         
-        console.log('✅ Backend returned updated cart:', updatedCart);
-        
-        // Update UI from backend response
-        this.updateCartFromBackend(updatedCart);
-        
-        // Show success message (optional)
-        console.log('✅ Item added successfully');
+        console.log('✅ Item added instantly')
         
       } catch (error) {
-        console.error('❌ Add to cart failed:', error);
-        console.error('   Product:', product);
-        console.error('   Cart ID:', this.cartId);
-        
-        // Show error to user
-        alert(`Failed to add item: ${error.message}\n\nPlease try again or refresh the page.`);
-      }
-    },
-
-    async removeFromCart(item) {
-      try {
-        console.log('🗑️ Removing from cart:', item);
-        
-        if (!this.cartId) {
-          throw new Error('No active cart');
-        }
-        
-        // Call backend
-        const updatedCart = await cartAPI.removeItem(this.cartId, item.productId || item.id);
-        
-        // Update UI from backend
-        this.updateCartFromBackend(updatedCart);
-        
-        console.log('✅ Item removed successfully');
-        
-      } catch (error) {
-        console.error('❌ Remove from cart failed:', error);
-        alert(`Failed to remove item: ${error.message}`);
-      }
-    },
-
-    async increaseQuantity(item) {
-      if (this.quantityUpdating) return;
-      
-      try {
-        this.quantityUpdating = true;
-        console.log('➕ Increasing quantity for:', item.name);
-        
-        const newQuantity = item.quantity + 1;
-        
-        // Call backend
-        const updatedCart = await cartAPI.updateItemQuantity(
-          this.cartId, 
-          item.productId || item.id, 
-          newQuantity
-        );
-        
-        // Update UI from backend
-        this.updateCartFromBackend(updatedCart);
-        
-        console.log('✅ Quantity increased');
-        
-      } catch (error) {
-        console.error('❌ Increase quantity failed:', error);
-        alert(`Failed to update quantity: ${error.message}`);
-      } finally {
-        this.quantityUpdating = false;
-      }
-    },
-
-  async decreaseQuantity(item) {
-    if (this.quantityUpdating) return;
-    
-    if (item.quantity <= 1) {
-      await this.removeFromCart(item);
-      return;
-    }
-    
-    try {
-      this.quantityUpdating = true;
-      console.log('➖ Decreasing quantity for:', item.name);
-      
-      const newQuantity = item.quantity - 1;
-      
-      // Call backend
-      const updatedCart = await cartAPI.updateItemQuantity(
-        this.cartId, 
-        item.productId || item.id, 
-        newQuantity
-      );
-      
-      // Update UI from backend
-      this.updateCartFromBackend(updatedCart);
-      
-      console.log('✅ Quantity decreased');
-      
-    } catch (error) {
-      console.error('❌ Decrease quantity failed:', error);
-      alert(`Failed to update quantity: ${error.message}`);
-    } finally {
-      this.quantityUpdating = false;
-    }
-  },
-
-    
-
-    async checkout() {
-      if (this.cartItems.length === 0) {
-        alert('Your cart is empty!');
-        return;
-      }
-      
-      try {
-        console.log('🛒 Starting checkout process...');
-        console.log('   Cart ID:', this.cartId);
-        console.log('   Items:', this.cartItems.length);
-        
-        if (!this.cartId) {
-          throw new Error('No active cart found. Please refresh the page and try again.');
-        }
-        
-        this.checkoutProcessing = true;
-        
-        console.log('📋 Preparing checkout for cart:', this.cartId);
-        const saleData = await cartAPI.prepareCheckout(this.cartId);
-        
-        console.log('✅ Checkout prepared:', saleData);
-        
-        if (!saleData || typeof saleData.total_amount === 'undefined') {
-          throw new Error('Invalid checkout data received from server');
-        }
-        
-        // ✅✅✅ CRITICAL: Use path with cartId, NOT name with params
-        this.$router.push(`/checkout/${this.cartId}`);
-        
-      } catch (error) {
-        console.error('❌ Checkout failed:', error);
-        
-        let errorMessage = error.message || 'Unknown error occurred';
-        
-        if (errorMessage.includes('not found')) {
-          errorMessage = 'Cart session expired. Creating a new cart...';
-          
-          try {
-            localStorage.removeItem('currentCartId');
-            await this.createNewCart();
-            alert('Cart was reset. Please add items again and try checkout.');
-          } catch (recoveryError) {
-            alert('Failed to recover cart. Please refresh the page.');
-          }
-        } else if (errorMessage.includes('stock')) {
-          errorMessage = 'Some items are out of stock. Please review your cart.';
-        } else {
-          errorMessage = `Checkout failed: ${errorMessage}`;
-        }
-        
-        alert(errorMessage);
-        
-      } finally {
-        this.checkoutProcessing = false;
+        console.error('❌ Add to cart failed:', error)
+        alert(`Failed to add item: ${error.message}`)
       }
     },
     
-    async validateCart() {
-      try {
-        if (!this.cartId) {
-          console.warn('⚠️ No cart ID available');
-          return false;
-        }
-        
-        const cart = await cartAPI.getCart(this.cartId);
-        this.updateCartFromBackend(cart);
-        return true;
-        
-      } catch (error) {
-        console.error('❌ Cart validation failed:', error);
-        localStorage.removeItem('currentCartId');
-        this.cartId = null;
-        return false;
+    removeFromCart(item) {
+      console.log('🗑️ Removing from cart (frontend):', item.productName)
+      this.cartStore.removeItem(item.productId)
+    },
+    
+    increaseQuantity(item) {
+      console.log('➕ Increasing quantity (frontend):', item.productName)
+      this.cartStore.increaseQuantity(item.productId)
+    },
+    
+    decreaseQuantity(item) {
+      console.log('➖ Decreasing quantity (frontend):', item.productName)
+      this.cartStore.decreaseQuantity(item.productId)
+    },
+    
+    checkout() {
+      if (this.cartStore.isEmpty) {
+        alert('Your cart is empty!')
+        return
       }
+      
+      console.log('🛒 Proceeding to checkout...')
+      
+      // ✅ Just navigate - checkout page will handle validation
+      this.$router.push('/checkout')
     },
 
     closeCart() {
-      this.showCart = false;
+      this.showCart = false
     },
 
     openCart() {
-      this.showCart = true;
+      this.showCart = true
     },
 
     // ================================================================
@@ -1130,11 +912,12 @@ export default {
     // ================================================================
     
     formatPrice(price) {
-      return parseFloat(price || 0).toFixed(2);
+      return parseFloat(price || 0).toFixed(2)
     }
   }
 }
 </script>
+
 <style scoped>
 @import '@/assets/styles/NewOrder.css'
 
