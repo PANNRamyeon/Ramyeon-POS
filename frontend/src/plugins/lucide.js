@@ -1,6 +1,8 @@
 import { 
   Plus, 
-  X, 
+  Printer,
+  X,
+  ArchiveX,
   Minus, 
   Trash2, 
   ShoppingCart, 
@@ -37,13 +39,18 @@ import {
   Search, 
   Filter, 
   Settings, 
-  ChevronLeft 
+  ChevronLeft, 
+  Archive,
+  ToggleLeft,
+  ToggleRight 
 } from 'lucide-vue-next'
 
 export default {
   install(app) {
     app.component('AlertTriangle', AlertTriangle)
+    app.component('Printer', Printer)
     app.component('Cake', Cake)
+    app.component('ArchiveX', ArchiveX)
     app.component('Calendar', Calendar)
     app.component('Check', Check)
     app.component('CheckCircle', CheckCircle)
@@ -76,6 +83,8 @@ export default {
     app.component('ShoppingBag', ShoppingBag)
     app.component('ShoppingCart', ShoppingCart)
     app.component('Soup', Soup)
+    app.component('ToggleLeft', ToggleLeft)
+    app.component('ToggleRight', ToggleRight)
     app.component('Trash2', Trash2)
     app.component('Unlock', Unlock)
     app.component('Upload', Upload)

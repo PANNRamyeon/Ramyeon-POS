@@ -33,14 +33,13 @@ class SettingsAPIService {
     }
   }
 
-  // Keep only one update method that handles both regular updates and password changes
   async updateUser(userId, userData) {
     try {
       const response = await api.put(`/users/${userId}/`, userData);
 
       return { 
         success: true, 
-        message: 'User updated successfully',
+        message: response.data.message || 'User updated successfully',
         data: response.data 
       };
       

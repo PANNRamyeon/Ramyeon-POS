@@ -6,18 +6,31 @@
         <!-- Header Section -->
         <div class="no-header">
           <div class="category-search">
-            <input type="text" v-model="categorySearch" placeholder="search" class="search-input"/>
+            <input 
+              type="text" 
+              v-model="categorySearch" 
+              placeholder="Search products..." 
+              class="search-input"
+            />
           </div>
           
           <!-- Categories -->
           <div class="header-bot">
             <div class="categories-container">
-              <div v-for="category in categories" :key="category.id":class="['cat-card', { active: activeCategory === category.id }]"@click="selectCategory(category.id)">
+              <div 
+                v-for="category in categories" 
+                :key="category.id"
+                :class="['cat-card', { active: activeCategory === category.id }]"
+                @click="selectCategory(category.id)">
                 <div class="cat-icon">
                   <component :is="category.icon" />
                 </div>
                 <span class="cat-label">{{ category.name }}</span>
-                <button v-if="category.isCustom"class="delete-category-btn"@click.stop="deleteCategory(category.id)"title="Delete Category">
+                <button 
+                  v-if="category.isCustom"
+                  class="delete-category-btn"
+                  @click.stop="deleteCategory(category.id)"
+                  title="Delete Category">
                   <X :size="12" />
                 </button>
               </div>
@@ -33,17 +46,37 @@
           </div>
         </div>
         
-        <!-- Navigation -->
+        <!-- Navigation Breadcrumbs -->
         <div v-if="breadcrumbs.length > 0" class="breadcrumb-nav">
-          <button v-for="(crumb, index) in breadcrumbs" :key="index"class="breadcrumb-item"@click="navigateTo(crumb)">
+          <button 
+            v-for="(crumb, index) in breadcrumbs" 
+            :key="index"
+            class="breadcrumb-item"
+            @click="navigateTo(crumb)">
             {{ crumb.name }}
             <ChevronRight v-if="index < breadcrumbs.length - 1" :size="16" />
           </button>
         </div>
 
+        <!-- Loading State -->
+        <div v-if="loading || productsLoading" class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading...</p>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="error-state">
+          <p class="error-message">{{ error }}</p>
+          <button class="btn-primary" @click="retryLoad">Retry</button>
+        </div>
+
         <!-- Products Grid -->
-        <div class="products-grid">
-          <div v-for="product in paginatedProducts" :key="product.id"class="product-card"@click="handleProductClick(product)">
+        <div v-else class="products-grid">
+          <div 
+            v-for="product in paginatedProducts" 
+            :key="product.id"
+            class="product-card"
+            @click="handleProductClick(product)">
             <div class="product-image">
               <img 
                 :src="product.image" 
@@ -54,31 +87,31 @@
               />
             </div>
             <div class="product-info">
-              <h3 
-                class="product-name" 
-                @mouseenter="showTooltip($event, product.name)"
-              >
-                {{ product.name }}
-              </h3>
-              <p class="product-description">{{ product.description }}</p>
+              <h3 class="product-name">{{ product.name }}</h3>
+              <p v-if="!product.isSubcategory" class="product-description">
+                Stock: {{ product.stock || 0 }}
+              </p>
               <div v-if="!product.isSubcategory" class="product-price">
-                ₱{{ product.price }}
+                ₱{{ formatPrice(product.price) }}
               </div>
               <div v-else class="subcategory-indicator">
                 <ChevronRight :size="16" /> View Items
               </div>
             </div>
-            <button v-if="!product.isSubcategory && isCustomCategory" class="delete-product-btn" @click.stop="removeFromCategory(product.id)" title="Remove from category">
+            <button 
+              v-if="!product.isSubcategory && isCustomCategory" 
+              class="delete-product-btn" 
+              @click.stop="removeFromCategory(product.id)" 
+              title="Remove from category">
               <X :size="14" />
             </button>
           </div>
           
           <!-- Add Products Option (Custom Categories Only) -->
           <div 
-              v-if="viewMode === 'products' && isCustomCategory && customCategoryItems.length < 8"
-              class="product-card add-item-card"
-              @click="showProductSelectorModal = true"
-            >
+            v-if="viewMode === 'products' && isCustomCategory && customCategoryItems.length < 8"
+            class="product-card add-item-card"
+            @click="openProductSelectorModal()">
             <div class="add-item-content">
               <ShoppingBag :size="32" />
               <p>Add Products</p>
@@ -92,8 +125,7 @@
           <button 
             class="page-btn" 
             :disabled="currentPage === 1"
-            @click="goToPage(currentPage - 1)"
-          >
+            @click="goToPage(currentPage - 1)">
             Previous
           </button>
           
@@ -104,8 +136,7 @@
           <button 
             class="page-btn" 
             :disabled="currentPage === totalPages"
-            @click="goToPage(currentPage + 1)"
-          >
+            @click="goToPage(currentPage + 1)">
             Next
           </button>
         </div>
@@ -139,8 +170,7 @@
                 v-for="iconOption in iconOptions" 
                 :key="iconOption.name"
                 :class="['icon-option', { selected: newCategory.icon === iconOption.name }]"
-                @click="newCategory.icon = iconOption.name"
-              >
+                @click="newCategory.icon = iconOption.name">
                 <component :is="iconOption.name" :size="20" />
               </div>
             </div>
@@ -151,8 +181,7 @@
           <button 
             class="btn-primary" 
             @click="createCategory" 
-            :disabled="!newCategory.name.trim()"
-          >
+            :disabled="!newCategory.name.trim()">
             Create Category
           </button>
         </div>
@@ -175,9 +204,8 @@
               v-for="category in availableSourceCategories" 
               :key="category.id"
               :class="['tab-btn', { active: selectedSourceCategory === category.id }]"
-              @click="selectedSourceCategory = category.id"
-            >
-              {{ category.name }} ({{ getProductCountForCategory(category.id) }})
+              @click="selectedSourceCategory = category.id">
+              {{ category.name }} ({{ productCountsByCategory[category.id] || 0 }})
             </button>
           </div>
           
@@ -191,8 +219,13 @@
             />
           </div>
           
+          <!-- Loading State -->
+          <div v-if="productsLoading" class="loading-state">
+            <p>Loading products...</p>
+          </div>
+          
           <!-- Product Selection Grid -->
-          <div class="product-selection-grid">
+          <div v-else class="product-selection-grid">
             <div 
               v-for="product in availableProductsForSelection" 
               :key="product.id"
@@ -200,8 +233,7 @@
                 selected: selectedProducts.includes(product.id),
                 'already-added': isProductAlreadyInCategory(product.id)
               }]"
-              @click="toggleProductSelection(product)"
-            >
+              @click="toggleProductSelection(product)">
               <div class="product-image-small">
                 <img 
                   :src="product.image" 
@@ -212,7 +244,7 @@
               </div>
               <div class="product-details">
                 <h4>{{ product.name }}</h4>
-                <p>₱{{ product.price }}</p>
+                <p>₱{{ formatPrice(product.price) }}</p>
                 <small v-if="isProductAlreadyInCategory(product.id)" class="already-added-text">
                   Already added
                 </small>
@@ -235,8 +267,7 @@
           <button 
             class="btn-primary" 
             @click="addSelectedProductsToCategory" 
-            :disabled="selectedProducts.length === 0 || wouldExceedLimit"
-          >
+            :disabled="selectedProducts.length === 0 || wouldExceedLimit">
             Add {{ selectedProducts.length }} Products
             <span v-if="wouldExceedLimit" class="error-text">
               (Exceeds 8 item limit)
@@ -257,55 +288,74 @@
       
       <div class="cart-items">
         <div v-if="cartItems.length === 0" class="empty-cart-message">
+          <ShoppingCart :size="48" class="empty-cart-icon" />
           <p>Your cart is empty</p>
           <p>Add items to get started!</p>
         </div>
-        <div v-for="item in cartItems" :key="item.id" class="cart-item">
-          <img 
-            :src="item.image" 
-            :alt="item.name" 
-            class="cart-item-image"
-            @error="handleImageError($event, item)"
-          />
+        
+        <div v-for="item in cartItems" :key="item.productId" class="cart-item">
+          <img :src="item.image" :alt="item.productName" class="cart-item-image" />
           <div class="cart-item-info">
-            <h4 :class="getCartItemNameClass(item.name)">
-              {{ item.name }}
-            </h4>
-            <p>{{ item.description }}</p>
+            <h4>{{ item.productName }}</h4>
+            <p class="item-price">₱{{ formatPrice(item.price) }}</p>
           </div>
-          <div class="cart-item-price">₱{{ item.price }}</div>
           <div class="cart-item-controls">
-            <button @click="decreaseQuantity(item)" class="quantity-btn minus">
+            <button 
+              @click="decreaseQuantity(item)" 
+              class="quantity-btn minus">
               <Minus :size="16" />
             </button>
             <span class="quantity">{{ item.quantity }}</span>
-            <button @click="increaseQuantity(item)" class="quantity-btn plus">
+            <button 
+              @click="increaseQuantity(item)" 
+              class="quantity-btn plus">
               <Plus :size="16" />
             </button>
           </div>
-          <button @click="removeFromCart(item)" class="remove-btn">
+          <div class="cart-item-subtotal">
+            ₱{{ formatPrice(item.subtotal) }}
+          </div>
+          <button 
+            @click="removeFromCart(item)" 
+            class="remove-btn">
             <Trash2 :size="16" />
           </button>
         </div>
       </div>
-
+      
+      <!-- Cart Summary -->
       <div class="cart-footer">
+        <div class="input-group" style="margin-bottom: 20px;">
+          <input 
+            type="text" 
+            class="form-control" 
+            placeholder="Enter promo code"
+            v-model="promoCode"
+            style="gap: 10px;"
+          >
+          <button class="btn btn-primary" type="button" @click="applyPromotion">
+            Apply
+          </button>
+        </div>
         <div class="cart-summary">
           <div class="cart-info">
             <div class="item-count">{{ totalItems }} items</div>
-            <div class="cart-total">₱{{ cartTotal }}</div>
+            <div class="cart-total">₱{{ formatPrice(cartTotal) }}</div>
           </div>
           <button 
             class="pay-btn" 
             @click="checkout"
-            :disabled="cartItems.length === 0"
-          >
-            Checkout →
+            :disabled="cartItems.length === 0">
+            <span>Checkout →</span>
           </button>
         </div>
+         <div v-if="appliedPromotion" class="alert alert-success mt-2">
+            ✅ {{ appliedPromotion.name }} applied
+            <button @click="removePromotion" class="btn-close"></button>
+          </div>
       </div>
     </div>
-    
+        
     <!-- Cart Toggle Button -->
     <button v-if="!showCart && cartItems.length > 0" class="cart-toggle" @click="openCart">
       <ShoppingCart :size="24" />
@@ -315,18 +365,23 @@
 </template>
 
 <script>
-import categoriesAPI from '@/services/apiCategory.js';
-import productsAPI from '@/services/apiProducts.js';
+import { useCartStore } from '@/stores/cartStores'
+import categoriesAPI from '@/services/apiCategory.js'
+import productsAPI from '@/services/apiProducts.js'
 
 export default {
   name: 'NewOrder',
-  components: {
-    // Add your icon components here
+  
+  setup() {
+    const cartStore = useCartStore()
+    return { cartStore }
   },
+  
   data() {
     return {
       // Loading and error states
       loading: false,
+      productsLoading: false,
       error: null,
       
       // Categories (backend + custom)
@@ -334,9 +389,13 @@ export default {
       customCategories: [],
       activeCategory: null,
       
-      // Cart functionality
+      // Products
+      products: [],
+      customCategoryProducts: {},
+      allProducts: [],
+      
+      // Cart UI state
       showCart: false,
-      cartItems: [],
       
       // Modal states
       showCategoryModal: false,
@@ -376,28 +435,35 @@ export default {
         { name: 'ShoppingBag' },
         { name: 'Utensils' }
       ],
-      
-      // Static products (will be replaced with API later)
-      allProducts: [],
-      products: [],
-      productsLoading: false,
     }
   },
 
   async mounted() {
-    await this.loadCategories();
+    await this.initializeSession()
+    await this.loadCategories()
   },
 
   computed: {
     // Combine backend and custom categories
     categories() {
-      return [...this.backendCategories, ...this.customCategories];
+      return [...this.backendCategories, ...this.customCategories]
+    },
+
+    cartItems() {
+      return this.cartStore.items
+    },
+    
+    cartTotal() {
+      return this.cartStore.total
+    },
+    
+    totalItems() {
+      return this.cartStore.itemCount
     },
 
     filteredProducts() {
       if (this.viewMode === 'subcategories') {
-        // Show subcategories as product cards
-        const category = this.categories.find(cat => cat.id === this.activeCategory);
+        const category = this.categories.find(cat => cat.id === this.activeCategory)
         if (category && category.subcategories) {
           return category.subcategories.map(sub => ({
             id: sub.id,
@@ -407,205 +473,237 @@ export default {
             image: this.generateSubcategoryImage(sub.name),
             isSubcategory: true,
             subcategoryData: sub
-          }));
+          }))
         }
-        return [];
+        return []
       }
       
-      // Show products
-      let products = this.products.filter(product => product.category === this.activeCategory);
+      let products
       
-      // Apply search filter
+      if (this.isCustomCategory) {
+        products = this.customCategoryProducts[this.activeCategory] || []
+      } else {
+        products = this.products
+      }
+      
       if (this.categorySearch.trim()) {
         products = products.filter(product => 
           product.name.toLowerCase().includes(this.categorySearch.toLowerCase())
-        );
+        )
       }
       
-      return products;
+      return products
     },
 
     paginatedProducts() {
       if (this.viewMode === 'subcategories') {
-        return this.filteredProducts;
+        return this.filteredProducts
       }
       
-      const start = (this.currentPage - 1) * this.itemsPerPage;
-      const end = start + this.itemsPerPage;
-      return this.filteredProducts.slice(start, end);
+      const start = (this.currentPage - 1) * this.itemsPerPage
+      const end = start + this.itemsPerPage
+      return this.filteredProducts.slice(start, end)
     },
 
     totalPages() {
-      if (this.viewMode === 'subcategories') return 1;
-      return Math.ceil(this.filteredProducts.length / this.itemsPerPage);
-    },
-
-    cartTotal() {
-      return this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-    },
-
-    totalItems() {
-      return this.cartItems.reduce((total, item) => total + item.quantity, 0);
+      if (this.viewMode === 'subcategories') return 1
+      return Math.ceil(this.filteredProducts.length / this.itemsPerPage)
     },
 
     isCustomCategory() {
-      const category = this.categories.find(cat => cat.id === this.activeCategory);
-      return category && category.isCustom;
+      const category = this.categories.find(cat => cat.id === this.activeCategory)
+      return category && category.isCustom
     },
 
     customCategoryItems() {
-      return this.filteredProducts;
+      return this.filteredProducts
     },
 
     availableSourceCategories() {
-      return this.backendCategories.filter(cat => cat.id !== this.activeCategory);
+      return this.backendCategories.filter(cat => cat.id !== this.activeCategory)
     },
 
     availableProductsForSelection() {
-      // Load products when source category changes
-      if (this.selectedSourceCategory && this.allProducts.length === 0) {
-        this.loadProductsForSelection();
-        return [];
-      }
-      
       let products = this.allProducts.filter(product => 
         product.category === this.selectedSourceCategory
-      );
+      )
       
       if (this.productSearchQuery.trim()) {
         products = products.filter(product => 
           product.name.toLowerCase().includes(this.productSearchQuery.toLowerCase())
-        );
+        )
       }
       
-      return products;
+      return products
     },
 
     allAvailableProductsCount() {
-      return this.products.length;
-    }
+      const currentCategoryProducts = this.customCategoryProducts[this.activeCategory] || []
+      const currentProductIds = currentCategoryProducts.map(p => p.originalId || p.id)
+      
+      return this.allProducts.filter(p => !currentProductIds.includes(p.id)).length
+    },
+
+    wouldExceedLimit() {
+      return this.customCategoryItems.length + this.selectedProducts.length > 8
+    },
+
+    // ✅ FIX: Product counts by category (REACTIVE COMPUTED PROPERTY)
+    productCountsByCategory() {
+      const counts = {}
+      
+      this.availableSourceCategories.forEach(category => {
+        counts[category.id] = this.allProducts.filter(
+          product => product.category === category.id
+        ).length
+      })
+      
+      return counts
+    },
   },
 
   methods: {
-    // Categories API integration
+    async initializeSession() {
+      try {
+        console.log('🔄 Initializing session...')
+        
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}')
+        const cashierId = userData.user_id || userData.id || userData._id
+        
+        console.log('👤 Cashier ID:', cashierId)
+        
+        if (!cashierId) {
+          throw new Error('No cashier ID found. Please log in again.')
+        }
+        
+        const shiftId = localStorage.getItem('activeShiftId') || null
+        console.log('⏰ Shift ID:', shiftId)
+        
+        this.cartStore.initializeSession(cashierId, shiftId)
+        
+        console.log('✅ Session initialized (frontend cart)')
+        
+      } catch (error) {
+        console.error('❌ Session initialization failed:', error)
+        this.error = error.message
+        alert(`Failed to initialize session: ${error.message}\n\nPlease refresh the page or log in again.`)
+      }
+    },
+
+    // ✅ FIX: Load ALL products when modal opens
+    async openProductSelectorModal() {
+      this.showProductSelectorModal = true
+      
+      // Load ALL products from ALL available categories
+      await this.loadAllProductsForSelection()
+      
+      // Then select the first category
+      if (this.availableSourceCategories.length > 0) {
+        this.selectedSourceCategory = this.availableSourceCategories[0].id
+      }
+    },
+
+    // ✅ FIX: New method to load all products at once
+    async loadAllProductsForSelection() {
+      try {
+        this.productsLoading = true
+        
+        console.log('📦 Loading products from all categories...')
+        
+        // Fetch products from ALL available source categories in parallel
+        const productPromises = this.availableSourceCategories.map(category => 
+          productsAPI.getProductsByCategory(category.id)
+        )
+        
+        // Wait for all requests to complete
+        const allCategoryProducts = await Promise.all(productPromises)
+        
+        // Flatten all products into a single array
+        this.allProducts = allCategoryProducts.flat()
+        
+        console.log('✅ Loaded all products:', this.allProducts.length)
+        console.log('📊 Products by category:', this.productCountsByCategory)
+        
+      } catch (error) {
+        console.error('Failed to load all products:', error)
+        this.error = error.message
+      } finally {
+        this.productsLoading = false
+      }
+    },
+
     async loadCategories() {
       try {
-        this.loading = true;
-        this.error = null;
+        this.loading = true
+        this.error = null
         
-        this.backendCategories = await categoriesAPI.getActiveCategories();
+        this.backendCategories = await categoriesAPI.getActiveCategories()
         
-        console.log('Loaded categories:', this.backendCategories);
-        
-        // Set first category as active
         if (this.backendCategories.length > 0 && !this.activeCategory) {
-          this.activeCategory = this.backendCategories[0].id;
-          await this.selectCategory(this.backendCategories[0].id);
+          this.activeCategory = this.backendCategories[0].id
+          await this.selectCategory(this.backendCategories[0].id)
         }
         
       } catch (error) {
-        console.error('Failed to load categories:', error);
-        this.error = error.message;
+        console.error('Failed to load categories:', error)
+        this.error = error.message
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
 
     async selectCategory(categoryId) {
-      this.activeCategory = categoryId;
-      this.currentPage = 1;
-      this.categorySearch = '';
-      this.breadcrumbs = [];
-      this.currentSubcategory = null;
+      this.activeCategory = categoryId
+      this.currentPage = 1
+      this.categorySearch = ''
+      this.breadcrumbs = []
+      this.currentSubcategory = null
       
-      const category = this.categories.find(cat => cat.id === categoryId);
+      const category = this.categories.find(cat => cat.id === categoryId)
       
       if (category && !category.isCustom && category.hasSubcategories) {
-        this.viewMode = 'subcategories';
+        this.viewMode = 'subcategories'
         this.breadcrumbs = [
-          { name: category.name, type: 'categories' }
-        ];
+          { name: category.name, type: 'categories', categoryId: categoryId }
+        ]
       } else {
-        this.viewMode = 'products';
-        // Load products from API
-        await this.loadProducts(categoryId);
+        this.viewMode = 'products'
+        if (!category.isCustom) {
+          await this.loadProducts(categoryId)
+        }
       }
     },
 
-    showTooltip(event, productName) {
-      // Only show tooltip if text is truncated
-      const element = event.target;
-      if (element.scrollWidth > element.clientWidth || 
-          element.scrollHeight > element.clientHeight) {
-        element.title = productName;
-      }
-    },
-
-    shouldScroll(text, maxWidth = 120) {
-      // Create a temporary span to measure actual text width
-      const tempSpan = document.createElement('span');
-      tempSpan.style.font = '0.875rem Arial';
-      tempSpan.style.fontWeight = '600';
-      tempSpan.style.visibility = 'hidden';
-      tempSpan.style.position = 'absolute';
-      tempSpan.style.whiteSpace = 'nowrap';
-      tempSpan.textContent = text;
-      
-      document.body.appendChild(tempSpan);
-      const textWidth = tempSpan.offsetWidth;
-      document.body.removeChild(tempSpan);
-      
-      return textWidth > maxWidth;
-    },
-
-    // Enhanced method to get proper CSS class
-    getCartItemNameClass(itemName) {
-      if (this.shouldScroll(itemName, 140)) {
-        setTimeout(() => {
-          const elements = document.querySelectorAll('.cart-item-info h4');
-          elements.forEach(element => {
-            if (element.textContent.trim() === itemName) {
-              // Get the actual rendered text width
-              const textWidth = element.scrollWidth;
-              const containerWidth = element.parentElement.offsetWidth || 140;
-              
-              // Calculate scroll distance to show ALL text
-              // We need to scroll the difference plus some padding
-              const scrollDistance = textWidth - containerWidth + 30; // Increased padding
-              
-              // Ensure we don't have negative scroll distance
-              const finalScrollDistance = Math.max(0, scrollDistance);
-              
-              // Dynamic timing based on text length
-              const delay = Math.max(2, itemName.length * 0.08); // Slightly reduced multiplier
-              const duration = Math.max(8, itemName.length * 0.2); // Increased duration multiplier
-              
-              console.log(`Item: "${itemName}"`);
-              console.log(`Text width: ${textWidth}px, Container: ${containerWidth}px`);
-              console.log(`Scroll distance: ${finalScrollDistance}px`);
-              console.log(`Delay: ${delay}s, Duration: ${duration}s`);
-              
-              element.style.setProperty('--scroll-distance', `${finalScrollDistance}px`);
-              element.style.setProperty('--animation-delay', `${delay}s`);
-              element.style.setProperty('--animation-duration', `${duration}s`);
-            }
-          });
-        }, 400); // Increased delay for better measurement
+    async loadProducts(categoryId, subcategoryName = null) {
+      try {
+        this.productsLoading = true
+        this.error = null
         
-        return 'scrolling-text-precise';
+        if (this.isCustomCategory) {
+          this.productsLoading = false
+          return
+        }
+        
+        const products = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
+        this.products = products
+        
+      } catch (error) {
+        console.error('Failed to load products:', error)
+        this.error = error.message
+        this.products = []
+      } finally {
+        this.productsLoading = false
       }
-      return '';
     },
 
     generateSubcategoryImage(subcategoryName) {
-      return `https://via.placeholder.com/200x150/9b59b6/white?text=${encodeURIComponent(subcategoryName)}`;
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(subcategoryName)}&size=200&background=A07BE3&color=fff`
     },
 
-    // Custom category management
     createCategory() {
-      if (!this.newCategory.name.trim()) return;
+      if (!this.newCategory.name.trim()) return
       
-      const categoryId = `custom_${this.nextCategoryId++}`;
+      const categoryId = `custom_${this.nextCategoryId++}`
       const category = {
         id: categoryId,
         name: this.newCategory.name.trim(),
@@ -613,362 +711,215 @@ export default {
         isCustom: true,
         hasSubcategories: false,
         subcategories: []
-      };
+      }
       
-      this.customCategories.push(category);
-      this.closeCategoryModal();
-      this.selectCategory(categoryId);
+      this.customCategoryProducts[categoryId] = []
+      this.customCategories.push(category)
+      this.closeCategoryModal()
+      this.selectCategory(categoryId)
     },
 
     deleteCategory(categoryId) {
       if (confirm('Are you sure you want to delete this category and all its items?')) {
-        this.customCategories = this.customCategories.filter(cat => cat.id !== categoryId);
-        this.products = this.products.filter(product => product.category !== categoryId);
+        this.customCategories = this.customCategories.filter(cat => cat.id !== categoryId)
+        delete this.customCategoryProducts[categoryId]
         
         if (this.activeCategory === categoryId) {
-          this.activeCategory = this.categories[0]?.id;
+          this.activeCategory = this.categories[0]?.id
+          if (this.activeCategory) {
+            this.selectCategory(this.activeCategory)
+          }
         }
       }
     },
 
     closeCategoryModal() {
-      this.showCategoryModal = false;
-      this.newCategory = { name: '', icon: 'Package' };
+      this.showCategoryModal = false
+      this.newCategory = { name: '', icon: 'Package' }
     },
 
     getCurrentCategoryName() {
-      const category = this.categories.find(cat => cat.id === this.activeCategory);
-      return category ? category.name : 'Category';
+      const category = this.categories.find(cat => cat.id === this.activeCategory)
+      return category ? category.name : 'Category'
     },
 
-    // Product selection for custom categories
     closeProductSelectorModal() {
-      this.showProductSelectorModal = false;
-      this.selectedProducts = [];
-      this.productSearchQuery = '';
-      this.selectedSourceCategory = null;
+      this.showProductSelectorModal = false
+      this.selectedProducts = []
+      this.productSearchQuery = ''
+      this.selectedSourceCategory = null
+      this.allProducts = []
     },
 
     toggleProductSelection(product) {
-      if (this.isProductAlreadyInCategory(product.id)) return;
+      if (this.isProductAlreadyInCategory(product.id)) return
       
-      const index = this.selectedProducts.indexOf(product.id);
+      const index = this.selectedProducts.indexOf(product.id)
       if (index > -1) {
-        this.selectedProducts.splice(index, 1);
+        this.selectedProducts.splice(index, 1)
       } else {
         if (this.customCategoryItems.length + this.selectedProducts.length < 8) {
-          this.selectedProducts.push(product.id);
+          this.selectedProducts.push(product.id)
         }
       }
     },
 
     isProductAlreadyInCategory(productId) {
-      return this.products.some(product => 
-        product.id === productId && product.category === this.activeCategory
-      );
-    },
-
-    getProductCountForCategory(categoryId) {
-      return this.products.filter(product => product.category === categoryId).length;
+      if (this.isCustomCategory && this.customCategoryProducts[this.activeCategory]) {
+        return this.customCategoryProducts[this.activeCategory].some(product => 
+          product.originalId === productId || product.id === productId
+        )
+      }
+      return false
     },
 
     addSelectedProductsToCategory() {
-      const selectedProductData = this.products.filter(product => 
+      const selectedProductData = this.allProducts.filter(product => 
         this.selectedProducts.includes(product.id)
-      );
+      )
+      
+      if (!this.customCategoryProducts[this.activeCategory]) {
+        this.customCategoryProducts[this.activeCategory] = []
+      }
       
       selectedProductData.forEach(product => {
         const newProduct = {
           ...product,
-          id: this.nextProductId++,
+          id: `custom_${this.nextProductId++}`,
           category: this.activeCategory,
           isReference: true,
           originalId: product.id
-        };
-        this.products.push(newProduct);
-      });
-      
-      this.closeProductSelectorModal();
-    },
-
-    // Image handling methods
-    handleImageError(event, product) {
-      // Remove loading class from parent container
-      const container = event.target.closest('.product-image');
-      if (container) {
-        container.classList.remove('loading');
-      }
-      
-      // Prevent infinite loops
-      if (event.target.classList.contains('placeholder-set')) {
-        return;
-      }
-      
-      console.warn(`Failed to load image for product: ${product.name}`);
-      
-      // Mark as placeholder and set fallback
-      event.target.classList.add('placeholder-set');
-      event.target.src = this.generateDataURLPlaceholder(product.name);
-      event.target.style.opacity = '1';
-    },
-
-    handleImageLoad(event) {
-      // Remove loading class from parent container
-      const container = event.target.closest('.product-image');
-      if (container) {
-        container.classList.remove('loading');
-      }
-      
-      if (!event.target.classList.contains('placeholder-set')) {
-        console.log(`Successfully loaded image: ${event.target.src}`);
-      }
-      event.target.style.opacity = '1';
-    },
-
-    // Generate a data URL placeholder that won't make HTTP requests
-    generateDataURLPlaceholder(productName) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 200;
-      canvas.height = 150;
-      const ctx = canvas.getContext('2d');
-      
-      // Fill with your app's primary color
-      ctx.fillStyle = '#7392E2';
-      ctx.fillRect(0, 0, 200, 150);
-      
-      // Add white text
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 14px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      // Smart text wrapping for long names
-      const maxWidth = 180; // Leave some margin
-      const lineHeight = 18;
-      const maxLines = 4;
-      
-      const words = productName.split(' ');
-      const lines = [];
-      let currentLine = '';
-      
-      // Word wrapping algorithm
-      for (let word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        const metrics = ctx.measureText(testLine);
-        
-        if (metrics.width > maxWidth && currentLine) {
-          lines.push(currentLine);
-          currentLine = word;
-        } else {
-          currentLine = testLine;
         }
         
-        if (lines.length >= maxLines - 1) break;
-      }
+        this.customCategoryProducts[this.activeCategory].push(newProduct)
+      })
       
-      if (currentLine) {
-        lines.push(currentLine);
-      }
-      
-      // Truncate if still too many lines
-      if (lines.length > maxLines) {
-        lines[maxLines - 1] = lines[maxLines - 1].substring(0, 15) + '...';
-        lines.splice(maxLines);
-      }
-      
-      // Draw the lines
-      const startY = 75 - ((lines.length - 1) * lineHeight / 2);
-      lines.forEach((line, index) => {
-        // Truncate individual lines if still too long
-        if (ctx.measureText(line).width > maxWidth) {
-          while (ctx.measureText(line + '...').width > maxWidth && line.length > 1) {
-            line = line.slice(0, -1);
-          }
-          line += '...';
-        }
+      this.$forceUpdate()
+      this.closeProductSelectorModal()
+    },
+
+    removeFromCategory(productId) {
+      if (this.isCustomCategory && this.customCategoryProducts[this.activeCategory]) {
+        this.customCategoryProducts[this.activeCategory] = 
+          this.customCategoryProducts[this.activeCategory].filter(product => product.id !== productId)
         
-        ctx.fillText(line, 100, startY + (index * lineHeight));
-      });
-      
-      return canvas.toDataURL();
+        this.$forceUpdate()
+      }
     },
 
-    // Simpler fallback that doesn't make HTTP requests
-    generateFallbackImage(productName) {
-      return this.generateDataURLPlaceholder(productName);
-    },
-
-    // Navigation
     handleProductClick(product) {
       if (product.isSubcategory) {
-        this.selectSubcategory(product.subcategoryData);
+        this.selectSubcategory(product.subcategoryData)
       } else {
-        this.addToCart(product);
+        this.addToCart(product)
       }
     },
 
-    selectSubcategory(subcategoryData) {
-      console.log('Subcategory data:', subcategoryData); 
-      this.currentSubcategory = subcategoryData;
-      this.viewMode = 'products';
+    async selectSubcategory(subcategoryData) {
+      this.currentSubcategory = subcategoryData
+      this.viewMode = 'products'
       this.breadcrumbs.push({
         name: subcategoryData.name,
         type: 'products',
         data: subcategoryData
-      });
-      console.log('Breadcrumbs after push:', this.breadcrumbs);
-      // Here you would load subcategory products from API
+      })
+      
+      await this.loadProducts(this.activeCategory, subcategoryData.name)
     },
 
-    navigateTo(crumb) {
-      this.viewMode = crumb.type;
-      if (crumb.type === 'subcategories') {
-        this.currentSubcategory = null;
-        this.breadcrumbs = this.breadcrumbs.slice(0, 1);
-      } else if (crumb.type === 'categories') {
-        this.breadcrumbs = [];
-        this.currentSubcategory = null;
+    async navigateTo(crumb) {
+      if (crumb.type === 'categories') {
+        this.viewMode = 'subcategories'
+        this.currentSubcategory = null
+        this.breadcrumbs = [crumb]
+        await this.selectCategory(crumb.categoryId)
+      } else if (crumb.type === 'products') {
+        const crumbIndex = this.breadcrumbs.findIndex(b => b === crumb)
+        this.breadcrumbs = this.breadcrumbs.slice(0, crumbIndex + 1)
+        this.currentSubcategory = crumb.data
+        await this.loadProducts(this.activeCategory, crumb.data.name)
       }
     },
 
     goToPage(page) {
       if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page;
+        this.currentPage = page
       }
     },
 
-    // Cart functionality
-    closeCart() {
-      this.showCart = false;
-    },
-
-    openCart() {
-      this.showCart = true;
+    retryLoad() {
+      this.error = null
+      if (this.activeCategory) {
+        this.loadProducts(this.activeCategory)
+      } else {
+        this.loadCategories()
+      }
     },
 
     addToCart(product) {
-      const existingItem = this.cartItems.find(item => item.id === product.id);
-      if (existingItem) {
-        existingItem.quantity++;
-      } else {
-        this.cartItems.push({ ...product, quantity: 1 });
+      try {
+        console.log('🛒 Adding to cart (frontend):', product.name)
+        
+        if (!product.id || !product.name || !product.price) {
+          throw new Error('Invalid product data')
+        }
+        
+        if (product.stock <= 0) {
+          alert(`${product.name} is out of stock!`)
+          return
+        }
+        
+        this.cartStore.addItem(product)
+        this.showCart = true
+        
+        console.log('✅ Item added instantly')
+        
+      } catch (error) {
+        console.error('❌ Add to cart failed:', error)
+        alert(`Failed to add item: ${error.message}`)
       }
-      this.showCart = true;
     },
-
+    
     removeFromCart(item) {
-      const index = this.cartItems.findIndex(cartItem => cartItem.id === item.id);
-      if (index > -1) {
-        this.cartItems.splice(index, 1);
-      }
+      console.log('🗑️ Removing from cart (frontend):', item.productName)
+      this.cartStore.removeItem(item.productId)
     },
-
+    
     increaseQuantity(item) {
-      item.quantity++;
+      console.log('➕ Increasing quantity (frontend):', item.productName)
+      this.cartStore.increaseQuantity(item.productId)
     },
-
+    
     decreaseQuantity(item) {
-      if (item.quantity > 1) {
-        item.quantity--;
-      }
+      console.log('➖ Decreasing quantity (frontend):', item.productName)
+      this.cartStore.decreaseQuantity(item.productId)
     },
-
+    
     checkout() {
-      if (this.cartItems.length === 0) {
-        alert('Your cart is empty!');
-        return;
+      if (this.cartStore.isEmpty) {
+        alert('Your cart is empty!')
+        return
       }
-      console.log('Checkout clicked - Cart Items:', this.cartItems);
-      this.$router.push('/Checkout');
-    },
-
-    async loadProducts(categoryId, subcategoryName = null) {
-      try {
-        this.productsLoading = true;
-        this.error = null;
-        
-        if (this.isCustomCategory) {
-          return;
-        }
-        
-        console.log(`Loading products for category: ${categoryId}, subcategory: ${subcategoryName}`);
-        
-        let products = [];
-        
-        try {
-          // Try the primary method first
-          products = await productsAPI.getProductsByCategory(categoryId, subcategoryName);
-        } catch (primaryError) {
-          console.warn('Primary method failed, trying POS catalog:', primaryError.message);
-          
-          try {
-            // Try POS catalog as fallback
-            products = await productsAPI.getProductsByPOSCatalog(categoryId);
-          } catch (secondaryError) {
-            console.warn('POS catalog failed, trying all products:', secondaryError.message);
-            
-            // Last resort: get all products and filter
-            const allProducts = await productsAPI.getAllProducts();
-            products = allProducts.filter(product => 
-              product.category === categoryId || product.category_id === categoryId
-            );
-          }
-        }
-        
-        console.log('Final products:', products);
-        
-        // Update products based on context
-        if (subcategoryName) {
-          this.products = this.products.filter(p => 
-            !(p.category === categoryId && p.subcategory === subcategoryName)
-          );
-          this.products.push(...products);
-        } else {
-          this.products = this.products.filter(p => p.category !== categoryId);
-          this.products.push(...products);
-        }
-        
-        
-      } catch (error) {
-        console.error('Failed to load products:', error);
-        this.error = `Failed to load products: ${error.message}`;
-        this.products = [];
-      } finally {
-        this.productsLoading = false;
-      }
-    },
-
-    async selectSubcategory(subcategoryData) {
-      console.log('Subcategory data:', subcategoryData); 
-      this.currentSubcategory = subcategoryData;
-      this.viewMode = 'products';
-      this.breadcrumbs.push({
-        name: subcategoryData.name,
-        type: 'products',
-        data: subcategoryData
-      });
       
-      // Load subcategory products
-      await this.loadProducts(this.activeCategory, subcategoryData.name);
+      console.log('🛒 Proceeding to checkout...')
+      this.$router.push('/checkout')
     },
 
-    async loadProductsForSelection() {
-      if (!this.selectedSourceCategory) return;
-      
-      try {
-        const products = await productsAPI.getProductsByCategory(this.selectedSourceCategory);
-        this.allProducts = products;
-      } catch (error) {
-        console.error('Failed to load products for selection:', error);
-      }
+    closeCart() {
+      this.showCart = false
+    },
+
+    openCart() {
+      this.showCart = true
+    },
+
+    formatPrice(price) {
+      return parseFloat(price || 0).toFixed(2)
     }
-
-     
   }
 }
 </script>
 
 <style scoped>
 @import '@/assets/styles/NewOrder.css'
-
 </style>

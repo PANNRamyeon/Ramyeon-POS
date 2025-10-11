@@ -99,7 +99,7 @@
 </template>
 
 <script>
-import { useTheme } from '@/composables/useTheme'
+import { useTheme } from '@/composables/ui/useTheme'
 import { ref, computed } from 'vue'
 
 export default {

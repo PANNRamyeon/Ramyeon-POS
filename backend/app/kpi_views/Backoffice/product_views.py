@@ -832,3 +832,35 @@ class ImportTemplateView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
+class ProductBatchView(APIView):
+    """GET /api/v1/products/batch/?ids=PROD-001,PROD-002,PROD-003"""
+    
+    def get(self, request):
+        try:
+            product_service = ProductService()
+            
+            # Get product IDs from query params
+            ids_param = request.GET.get('ids', '')
+            product_ids = [id.strip() for id in ids_param.split(',') if id.strip()]
+            
+            if not product_ids:
+                return Response({
+                    'success': False,
+                    'error': 'No product IDs provided'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Batch fetch products
+            products = list(product_service.__init__.products_collection.find({
+                '_id': {'$in': product_ids}
+            }))
+            
+            return Response({
+                'success': True,
+                'data': products
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

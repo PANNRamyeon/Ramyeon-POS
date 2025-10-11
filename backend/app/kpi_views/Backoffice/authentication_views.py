@@ -15,6 +15,9 @@ class LoginView(APIView):
             auth_service = AuthService()
             email = request.data.get('email')
             password = request.data.get('password')
+            opening_cash = request.data.get('opening_cash', 0)  # ✅ GET opening_cash
+            
+            print(f"🔍 LoginView: Received opening_cash = {opening_cash}")  # ✅ Debug
             
             if not email or not password:
                 return Response(
@@ -22,7 +25,8 @@ class LoginView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            result = auth_service.login(email, password)
+            # ✅ PASS opening_cash to auth_service
+            result = auth_service.login(email, password, opening_cash)
             return Response(result, status=status.HTTP_200_OK)
         
         except Exception as e:
@@ -33,7 +37,7 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     def post(self, request):
-        """User logout"""
+        """User logout with optional shift end"""
         try:
             auth_service = AuthService()
             
@@ -44,9 +48,12 @@ class LogoutView(APIView):
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             
-            # Let AuthService handle everything including session logout
+            # Get closing cash from request body (optional)
+            closing_cash = request.data.get('closing_cash', 0)
+            
+            # Let AuthService handle everything including session logout and shift end
             token = authorization.replace("Bearer ", "").strip()
-            result = auth_service.logout(token)
+            result = auth_service.logout(token, closing_cash)
             
             return Response(result, status=status.HTTP_200_OK)
         

@@ -1,92 +1,102 @@
 <template>
-  <div class="online-orders-page">
-    <div class = "oo-contents">
-        <div class = "oo-left">
-          <div class="tab-headers">
-            <ul class="nav-tabs">
-              <li class="nav-item">
-                <button :class="['nav-link', { active: activeTab === 'pending' }]" @click="activeTab = 'pending'">
-                  Pending
-                </button>
-              </li>
-              <li class="nav-item">
-                <button :class="['nav-link', { active: activeTab === 'complete' }]" @click="activeTab = 'complete'">
-                  Complete
-                </button>
-              </li>
-            </ul>
-          </div>
-          <div class="tab-content">
-            <div class="oocard" :class="{ selected: selectedOrder && selectedOrder.id === order.id }"
-                  v-for="order in filteredOrders" :key="order.id" @click="selectOrder(order)">
-              <div class="cardtop">
-                  <h1>Order # {{ order.id }}</h1>
-                  <h2>{{ order.timestamp }}</h2>
-              </div>
-              <div class="cardbot">    
-                  <h2>Number of items: {{ order.quantity }}</h2>
- 
-                <div class="cdbot-right">
-                  <h2>₱{{ order.total_price }}</h2>
-                  <span :class="getBadgeClass(order.status)">
-                    {{ getBadgeText(order.status) }}
-                  </span>
-                </div>
-              </div> 
+  <div class="online-orders-page surface-secondary transition-theme">
+    <div class="oo-contents">
+      <div class="oo-left">
+        <div class="tab-headers">
+          <ul class="nav-tabs border-bottom-theme">
+            <li class="nav-item">
+              <button 
+                :class="['nav-link', 'text-secondary', 'transition-theme-fast', { active: activeTab === 'pending' }]" 
+                @click="activeTab = 'pending'"
+              >
+                Pending
+              </button>
+            </li>
+            <li class="nav-item">
+              <button 
+                :class="['nav-link', 'text-secondary', 'transition-theme-fast', { active: activeTab === 'complete' }]" 
+                @click="activeTab = 'complete'"
+              >
+                Complete
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div class="tab-content">
+          <div 
+            class="oocard surface-primary border-theme shadow-sm transition-theme hover-lift"
+            :class="{ selected: selectedOrder && selectedOrder.id === order.id }"
+            v-for="order in filteredOrders" 
+            :key="order.id" 
+            @click="selectOrder(order)"
+          >
+            <div class="cardtop">
+              <h1 class="text-primary">Order # {{ order.id }}</h1>
+              <h2 class="text-secondary">{{ order.timestamp }}</h2>
             </div>
+            <div class="cardbot">    
+              <h2 class="text-secondary">Number of items: {{ order.quantity }}</h2>
+              <div class="cdbot-right">
+                <h2 class="text-primary">₱{{ order.total_price }}</h2>
+                <span :class="getBadgeClass(order.status)">
+                  {{ getBadgeText(order.status) }}
+                </span>
+              </div>
+            </div> 
+          </div>
         </div>
       </div>
       
-      <div v-if="selectedOrder" class="oo-right">
-        <!-- Keep your existing or-title -->
+      <div v-if="selectedOrder" class="oo-right surface-primary border-theme shadow-lg transition-theme">
+        <!-- Order title -->
         <div class="or-title">
           <div class="title-left">
-            <h1 style="font-weight: bold; font-size: 30px;">Order</h1>
-            <h2># {{ selectedOrder.id }}</h2>
+            <h1 class="text-primary" style="font-weight: bold; font-size: 30px;">Order</h1>
+            <h2 class="text-secondary"># {{ selectedOrder.id }}</h2>
           </div>
-          <button @click="selectedOrder = null" class="close-btn">
+          <button @click="selectedOrder = null" class="close-btn hover-accent transition-theme-fast">
             <CircleX :size="24" />
           </button>
         </div>
 
         <div class="or-body">
           <div class="orb-header">
-            <h3>item</h3>
-            <h3>qty</h3>
-            <h3></h3> <!-- Empty column for checkboxes -->
+            <h3 class="text-primary">item</h3>
+            <h3 class="text-primary">qty</h3>
+            <h3 class="text-primary"></h3> <!-- Empty column for checkboxes -->
           </div>
           <div class="orb-body">
-            <div v-for="items in selectedOrder.items" :key="items.id" class="orbb-card">
-              <span class="item-name">{{ items.name }}</span>
-              <span class="item-qty">{{ items.quantity }}</span>
-              <input type="checkbox" v-model="items.completed" class="item-checkbox" />
+            <div v-for="items in selectedOrder.items" :key="items.id" class="orbb-card surface-tertiary border-theme-subtle">
+              <span class="item-name text-primary">{{ items.name }}</span>
+              <span class="item-qty text-primary">{{ items.quantity }}</span>
+              <input type="checkbox" v-model="items.completed" class="item-checkbox focus-theme" />
             </div>
           </div>
         </div>
 
         <!-- Customer Location -->
-        <div class="customer-section">
+        <div class="customer-section surface-tertiary border-theme-subtle">
           <div class="location-row">
-            <MapPin class="location-icon" />
+            <MapPin class="location-icon text-accent" />
             <div class="location-text">
-              <p class="community">{{ selectedOrder.customer?.community || 'Bamboo bay community' }}</p>
-              <p class="address">{{ selectedOrder.customer?.address || 'Hernan Cortes St., Subangdaku, Mandaue City' }}</p>
+              <p class="community text-primary">{{ selectedOrder.customer?.community || 'Bamboo bay community' }}</p>
+              <p class="address text-secondary">{{ selectedOrder.customer?.address || 'Hernan Cortes St., Subangdaku, Mandaue City' }}</p>
             </div>
           </div>
           
           <div class="phone-row">
-            <span>{{ selectedOrder.customer?.phone || '+63 987 6543 210' }}</span>
+            <span class="text-primary">{{ selectedOrder.customer?.phone || '+63 987 6543 210' }}</span>
           </div>
           
           <div class="notes-row">
-            <p><strong>Notes:</strong> {{ selectedOrder.notes || 'Can wait at the front door' }}</p>
+            <p class="text-primary"><strong>Notes:</strong> <span class="text-secondary">{{ selectedOrder.notes || 'Can wait at the front door' }}</span></p>
           </div>
         </div>
 
         <!-- Payment Toggle -->
         <div class="payment-section">
           <div class="payment-row">
-            <span class="cash-label">Cash Received</span>
+            <span class="cash-label text-success">Cash Received</span>
             <label class="toggle-switch">
               <input type="checkbox" v-model="selectedOrder.cashReceived" />
               <span class="slider"></span>
@@ -96,18 +106,21 @@
 
         <!-- Complete Button -->
         <div class="complete-section">
-          <button class="complete-btn" :disabled="!canCompleteOrder" @click="completeOrder">
+          <button 
+            class="complete-btn surface-tertiary border-theme text-primary transition-theme-fast hover-accent"
+            :class="{ 'state-disabled': !canCompleteOrder }"
+            :disabled="!canCompleteOrder" 
+            @click="completeOrder"
+          >
             Complete <ChevronRight />
           </button>
         </div>
       </div>
-
     </div>
   </div>
 </template>
 
 <script>
-
 export default {
   name: 'OnlineOrder',
   data() {
@@ -170,9 +183,7 @@ export default {
           ]
         },
       ],
-      cart:[
-
-      ]
+      cart:[]
     }
   },
   computed:{
@@ -201,24 +212,38 @@ export default {
     selectOrder(order) {
       this.selectedOrder = order;
     },
+
     closeOrderPanel() {
       this.selectedOrder = null;
     },
+
     getBadgeClass(status) {
-    return status === 'success' ? 'badge text-bg-success' : 'badge text-bg-secondary';
+      switch(status) {
+        case 'success':
+          return 'badge badge-complete';
+        case 'pending':
+          return 'badge badge-pending';
+        case 'processing':
+          return 'badge badge-processing';
+        case 'cancelled':
+          return 'badge badge-cancelled';
+        default:
+          return 'badge badge-inactive';
+      }
     },
     getBadgeText(status) {
       return status === 'success' ? 'Success' : 'Pending';
     },
+
     completeOrder() {
       if (this.canCompleteOrder) {
-      // Change the order status to success
-      this.selectedOrder.status = 'success';
-      
-      // Close the right panel
-      this.selectedOrder = null;
-      
-      console.log('Order completed and moved to Complete tab');
+        // Change the order status to success
+        this.selectedOrder.status = 'success';
+        
+        // Close the right panel
+        this.selectedOrder = null;
+        
+        console.log('Order completed and moved to Complete tab');
       }
     }
   }
@@ -227,11 +252,11 @@ export default {
 
 <style scoped>
 .oo-contents {
-  padding: 0;
+  padding: 2rem 0 2rem 2rem; /* Add top and bottom padding */
   display: flex;
   height: 74vh;
   gap: 0.5rem;
-}
+} 
 
 /** Left side of the OO **/
 .oo-left {
@@ -244,7 +269,7 @@ export default {
   list-style: none;
   padding: 0;
   margin: 0;
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 2px solid var(--border-secondary);
 }
 
 .nav-item {
@@ -256,19 +281,20 @@ export default {
   border: none;
   padding: 0.75rem 1.5rem;
   cursor: pointer;
-  color: #6c757d;
   font-weight: 500;
   border-bottom: 2px solid transparent;
-  transition: all 0.2s ease;
+  color: var(--text-secondary);
 }
 
 .nav-link:hover {
-  color: #495057;
+  color: var(--text-primary) !important;
 }
 
 .nav-link.active {
-  color: #6f42c1;
-  border-bottom-color: #6f42c1;
+  color: var(--primary) !important;
+  border-bottom-color: var(--primary);
+  background-color: var(--surface-primary);
+  border-radius: 0.5rem 0.5rem 0 0;
 }
 
 .tab-content {
@@ -282,32 +308,23 @@ export default {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  background-color: white;
   border-radius: 12px;
-  border: 1px solid #e9ecef;
-  transition: all 0.2s ease;
   margin-top: 20px;
   height: auto;
   min-height: 100px;
   cursor: pointer;
 }
 
-.oocard:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-color: #dee2e6;
-  background-color: white;
-}
-
 .oocard.selected {
-  background-color: #6f42c1; 
-  color: white; 
-  border-color: #6f42c1;
+  background-color: var(--primary) !important; 
+  color: white !important; 
+  border-color: var(--primary) !important;
   border-width: 3px;
 }
 
-.oocard.selected h1,
-.oocard.selected h2 {
-  color: white;
+.oocard.selected .text-primary,
+.oocard.selected .text-secondary {
+  color: white !important;
 }
 
 .oocard.selected .badge {
@@ -329,11 +346,9 @@ export default {
   font-size: 30px;
   font-weight: 600;
   margin: 0;
-  color: #2d3748;
 }
 
 .cardtop h2 {
-  color: #6b7280;
   font-size: 20px;
   font-weight: 500;
   margin: 0;
@@ -351,7 +366,6 @@ export default {
   font-size: 16px;
   font-weight: 500;
   margin: 0;
-  color: #6b7280;
 }
 
 /* Right side grouping - Price and Badge close together */
@@ -365,7 +379,6 @@ export default {
   font-size: 24px;
   font-weight: 700;
   margin: 0;
-  color: #2d3748;
 }
 
 .badge {
@@ -380,34 +393,10 @@ export default {
   flex-shrink: 0;
 }
 
-/* Badge color variations */
-.text-bg-success {
-  background-color: #10b981 !important;
-  color: white !important;
-}
-
-.text-bg-secondary {
-  background-color: #f59e0b !important;
-  color: white !important;
-}
-
-/* Selected state adjustments */
-.oocard.selected .cardtop h1,
-.oocard.selected .cdbot-right h2 {
-  color: white;
-}
-
-.oocard.selected .cardtop h2,
-.oocard.selected .cardbot h2 {
-  color: rgba(255, 255, 255, 0.8);
-}
-
 /**Right Side of the OO **/
 .oo-right {
   width: 24%;
   height: 79vh;
-  border-left: black;
-  background-color: white;
   border-radius: 10px;
 }
 
@@ -438,7 +427,6 @@ export default {
 }
 
 .orbb-card {
-  background-color: #f8f9fa;
   height: 50px;
   width: 87%;
   margin-left: 25px;
@@ -459,15 +447,14 @@ export default {
   background: none;
   border: none;
   cursor: pointer;
-  color: #6c757d;
+  color: var(--text-secondary);
   padding: 0.25rem;
   border-radius: 50%;
-  transition: all 0.2s ease;
 }
 
 .close-btn:hover {
-  background-color: #f8f9fa;
-  color: #dc3545;
+  background-color: var(--state-hover);
+  color: var(--error);
 }
 
 .item-name {
@@ -490,7 +477,6 @@ export default {
 .customer-section {
   margin: 1rem;
   padding: 1rem;
-  background-color: #f8f9fa;
   border-radius: 10px;
 }
 
@@ -501,7 +487,6 @@ export default {
 }
 
 .location-icon {
-  color: #6f42c1;
   margin-right: 0.5rem;
   margin-top: 0.2rem;
 }
@@ -513,10 +498,6 @@ export default {
 
 .community {
   font-weight: 600;
-}
-
-.address {
-  color: #666;
 }
 
 .phone-row {
@@ -541,7 +522,6 @@ export default {
 }
 
 .cash-label {
-  color: #28a745;
   font-weight: 600;
 }
 
@@ -564,7 +544,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: var(--neutral-medium);
   transition: .4s;
   border-radius: 24px;
 }
@@ -582,7 +562,7 @@ export default {
 }
 
 input:checked + .slider {
-  background-color: #6f42c1;
+  background-color: var(--primary);
 }
 
 input:checked + .slider:before {
@@ -595,8 +575,7 @@ input:checked + .slider:before {
 
 .complete-btn {
   width: 100%;
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-primary);
   padding: 0.75rem;
   border-radius: 10px;
   cursor: pointer;
@@ -605,28 +584,24 @@ input:checked + .slider:before {
   align-items: center;
 }
 
-.complete-btn:hover {
-  background-color: #6f42c1;
-  color: white;
+.complete-btn:hover:not(:disabled) {
+  background-color: var(--primary) !important;
+  color: white !important;
 }
 
 .complete-btn:disabled {
-  background-color: #e9ecef;
-  color: #6c757d;
-  cursor: not-allowed;
   opacity: 0.6;
-}
-
-.complete-btn:disabled:hover {
-  background-color: #e9ecef;
-  color: #6c757d;
+  cursor: not-allowed;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .oo-contents {
-    flex-direction: column;
-    height: auto;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    display: flex;
+    height: 74vh;
+    gap: 0.5rem;
   }
   
   .oo-left {

@@ -89,6 +89,7 @@ from .kpi_views.Backoffice.product_views import (
     ProductExportView,
     BulkCreateProductsView,
     ImportTemplateView,
+    ProductBatchView
 )
 
 from .kpi_views.Backoffice.category_views import (
@@ -116,6 +117,7 @@ from .kpi_views.Backoffice.category_pos_views import (
     POSStockCheckView,
     POSLowStockView,
     POSSubcategoryProductsView,  
+    POSCategoryProductsView,
 )
 
 # Display/Export Operations
@@ -123,6 +125,7 @@ from .kpi_views.Backoffice.category_display_views import (
     CategoryDataView,
     CategoryExportView,
     CategoryStatsView,
+    
 )
 
 from .kpi_views.Backoffice.promotion_views import (
@@ -151,7 +154,6 @@ from .kpi_views.POS.pos_sales_views import (
     POSSalesVoidView,
     POSSalesDailySummaryView,
     POSSalesShiftSummaryView,
-    POSSalesCashierPerformanceView,
     POSSalesExportView,
     POSSalesReceiptView
 )
@@ -271,6 +273,7 @@ urlpatterns = [
     # ========== PRODUCT MANAGEMENT ==========
     # Product CRUD (static paths first)
     path('products/', ProductListView.as_view(), name='product-list'),  # GET (list), POST (create)
+    path('products/batch/', ProductBatchView.as_view(), name='product-batch'),
     path('products/sku/<str:sku>/', ProductBySkuView.as_view(), name='product-by-sku'),  # GET by SKU
     path('products/deleted/', DeletedProductsView.as_view(), name='deleted-products'),  # GET deleted products
     
@@ -329,6 +332,7 @@ urlpatterns = [
     path('pos/stock/check/', POSStockCheckView.as_view(), name='pos-stock-check'),
     path('pos/stock/low/', POSLowStockView.as_view(), name='pos-low-stock'),
     path('pos/category/<str:category_id>/subcategory/<str:subcategory_name>/products/', POSSubcategoryProductsView.as_view(), name='pos-subcategory-products'),
+    path('pos/category/<str:category_id>/products/', POSCategoryProductsView.as_view()),
 
     # ========== PRODUCT-CATEGORY RELATIONSHIPS ==========
     path('product/subcategory/update/', ProductSubcategoryUpdateView.as_view(), name='product-subcategory-update'),
@@ -357,7 +361,6 @@ urlpatterns = [
     path('pos/sales/create/', POSSalesCreateView.as_view(), name='pos-sales-create'),
     path('pos/sales/daily-summary/', POSSalesDailySummaryView.as_view(), name='pos-sales-daily-summary'),
     path('pos/sales/shift-summary/<str:shift_id>/', POSSalesShiftSummaryView.as_view(), name='pos-sales-shift-summary'),
-    path('pos/sales/cashier-performance/', POSSalesCashierPerformanceView.as_view(), name='pos-sales-cashier-performance'),
     path('pos/sales/export/', POSSalesExportView.as_view(), name='pos-sales-export'),
     path('pos/sales/<str:sale_id>/', POSSalesDetailView.as_view(), name='pos-sales-detail'),
     path('pos/sales/<str:sale_id>/void/', POSSalesVoidView.as_view(), name='pos-sales-void'),

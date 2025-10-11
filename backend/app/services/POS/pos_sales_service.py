@@ -44,63 +44,123 @@ class POSSalesService:
     
     def create_sale(self, sale_data, cashier_id):
         """
-        Create POS sale transaction
+        Create a new POS sale transaction
         
         Args:
-            sale_data: {
-                'items': [...],
-                'subtotal': float,
-                'tax_amount': float,
-                'discount_amount': float,
-                'total_amount': float,
-                'payment_method': str,
-                'customer_id': str (optional)
-            }
-            cashier_id: str (USER-#### format)
+            sale_data: Dictionary containing sale information
+            cashier_id: ID of the cashier (USER-#### format) - SEPARATE PARAMETER
+        
+        Returns:
+            Dictionary with success status and created sale data
         """
         try:
+            # Generate sale ID
             sale_id = self.generate_sale_id()
             
+            # Get current timestamp
+            transaction_date = datetime.utcnow()
+            
+            print(f"💰 Creating sale: {sale_id}")
+            print(f"   Cashier: {cashier_id}")
+            print(f"   Total: ₱{sale_data.get('total_amount', 0)}")
+            print(f"   Items: {len(sale_data.get('items', []))}")
+            
+            # ✅ Build sale record
             sale_record = {
-                '_id': sale_id,  # ✅ String ID
-                'items': sale_data['items'],
+                '_id': sale_id,
+                'transaction_date': transaction_date,
+                'cashier_id': cashier_id,  # ✅ Use the parameter, NOT sale_data['cashier_id']
+                'shift_id': sale_data.get('shift_id'),
+                'customer_id': sale_data.get('customer_id'),
+                
+                # Items
+                'items': sale_data.get('items', []),
+                
+                # Financial details
                 'subtotal': sale_data.get('subtotal', 0),
                 'tax_amount': sale_data.get('tax_amount', 0),
                 'discount_amount': sale_data.get('discount_amount', 0),
-                'total_amount': sale_data['total_amount'],
-                'payment_method': sale_data['payment_method'],
+                'total_amount': sale_data.get('total_amount', 0),
+                
+                # Payment
+                'payment_method': sale_data.get('payment_method'),
                 'payment_details': sale_data.get('payment_details', {}),
-                'cashier_id': cashier_id,
-                'customer_id': sale_data.get('customer_id'),
+                
+                # Promotion tracking
                 'promotion_applied': sale_data.get('promotion_applied'),
-                'transaction_date': datetime.utcnow(),
+                'discount_details': sale_data.get('discount_details', {}),
+                
+                # Status
                 'status': 'completed',
                 'source': 'pos',
-                'created_at': datetime.utcnow()
+                
+                # Timestamps
+                'created_at': transaction_date,
+                'updated_at': transaction_date,
+                'is_voided': False
             }
-
-            # Insert sale
+            
+            print(f"📝 Sale record prepared: {sale_record['_id']}")
+            
+            # ✅ Validate items exist and update stock
+            for item in sale_record['items']:
+                product_id = item.get('product_id')
+                quantity = item.get('quantity', 0)
+                
+                print(f"   📦 Processing: {product_id} x{quantity}")
+                
+                # Check product exists
+                product = self.products_collection.find_one({'_id': product_id})
+                
+                if not product:
+                    raise ValueError(f"Product {product_id} not found")
+                
+                # Check stock
+                current_stock = product.get('stock', 0)
+                if current_stock < quantity:
+                    raise ValueError(
+                        f"Insufficient stock for {product.get('product_name', product_id)}. "
+                        f"Available: {current_stock}, Requested: {quantity}"
+                    )
+                
+                # ✅ Deduct stock
+                new_stock = current_stock - quantity
+                
+                self.products_collection.update_one(
+                    {'_id': product_id},
+                    {
+                        '$set': {
+                            'stock': new_stock,
+                            'updated_at': transaction_date
+                        }
+                    }
+                )
+                
+                print(f"      ✅ Stock updated: {current_stock} → {new_stock}")
+            
+            # ✅ Insert sale record
             self.sales_collection.insert_one(sale_record)
             
-            # Update stock for each item
-            for item in sale_data['items']:
-                self.product_service.adjust_stock_for_sale(
-                    item['product_id'],
-                    item['quantity']
-                )
-
-            # Send notification
-            self._send_sale_notification(sale_record, 'pos_sale_created')
-
+            print(f"✅ Sale created successfully: {sale_id}")
+            
             return {
                 'success': True,
-                'message': 'POS sale created successfully',
+                'message': 'Sale created successfully',
                 'data': sale_record
             }
-
+            
+        except ValueError as e:
+            # Business logic errors (validation, insufficient stock, etc.)
+            print(f"❌ Validation error: {str(e)}")
+            raise
+            
         except Exception as e:
+            # Unexpected errors
+            print(f"❌ Unexpected error creating sale: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise Exception(f"Error creating POS sale: {str(e)}")
-    
+        
     def get_sale_by_id(self, sale_id):
         """Get a POS sale by string ID"""
         try:

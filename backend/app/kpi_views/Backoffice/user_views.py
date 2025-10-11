@@ -5,6 +5,8 @@ from ...services.Backoffice.user_service import UserService
 from ...decorators.authenticationDecorator import require_admin, require_authentication, require_permission, get_authenticated_user_from_jwt
 from ...serializers import UserCreateSerializer
 import logging
+from datetime import datetime
+
 
 logger = logging.getLogger(__name__)
 
@@ -117,48 +119,117 @@ class UserDetailView(APIView):
     def put(self, request, user_id):
         """Update user - Admin only OR self-service password change"""
         try:
+            from datetime import datetime
+            
             current_user = request.current_user
+            # Try multiple possible ID fields
+            current_user_id = current_user.get('_id') or current_user.get('user_id') or current_user.get('id')
             
-            # Determine role context
-            if current_user.get('_id') == user_id:
-                # Self-service: only password changes
-                if set(request.data.keys()) - {'password'} != set():
+            request_data = request.data.copy()
+            
+            # Check if this is a password change request
+            is_password_change = 'current_password' in request_data and 'new_password' in request_data
+            
+            # Determine if self-service
+            is_self_service = current_user_id == user_id
+            
+            if is_self_service and is_password_change:
+                # Get user
+                user = self.user_service.get_user_by_id(user_id)
+                if not user:
                     return Response(
-                        {"error": "You can only update your own password"}, 
-                        status=status.HTTP_403_FORBIDDEN
+                        {"error": "User not found"}, 
+                        status=status.HTTP_404_NOT_FOUND
                     )
-                role_context = 'self_service'
-            else:
-                # Admin updating another user
-                if current_user.get('role', '').lower() != 'admin':
+                
+                # Verify current password
+                current_password = request_data.get('current_password')
+                password_valid = self.user_service.verify_password(current_password, user['password'])
+                
+                if not password_valid:
                     return Response(
-                        {"error": "Admin permissions required"}, 
-                        status=status.HTTP_403_FORBIDDEN
+                        {"error": "Current password is incorrect"}, 
+                        status=status.HTTP_400_BAD_REQUEST
                     )
-                role_context = 'admin'
+                
+                # Hash new password
+                new_password = request_data.get('new_password')
+                hashed_password = self.user_service.hash_password(new_password)
+                
+                # Prepare update data
+                update_data = {
+                    'password': hashed_password,
+                    'last_updated': datetime.utcnow()
+                }
+                
+                # Perform update
+                result = self.user_service.collection.update_one(
+                    {'_id': user_id, 'isDeleted': {'$ne': True}}, 
+                    {'$set': update_data}
+                )
+                
+                if result.modified_count > 0:
+                    updated_user = self.user_service.get_user_by_id(user_id)
+                    
+                    # Send notification
+                    user_name = updated_user.get('full_name', updated_user.get('username', 'User'))
+                    self.user_service._send_user_notification('password_changed', user_name, user_id)
+                    
+                    return Response({
+                        'success': True,
+                        'message': 'Password updated successfully',
+                        'data': updated_user
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response(
+                        {"error": "Password was not updated"}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
             
-            updated_user = self.user_service.update_user_profile(
-                user_id, 
-                request.data, 
-                current_user, 
-                role_context
-            )
-            
-            if not updated_user:
+            elif current_user.get('role', '').lower() == 'admin':
+                # Admin updating user (not password change)
+                
+                # Remove password-related fields for regular updates
+                update_data = {k: v for k, v in request_data.items() 
+                            if k not in ['current_password', 'new_password', 'password']}
+                update_data['last_updated'] = datetime.utcnow()
+                
+                result = self.user_service.collection.update_one(
+                    {'_id': user_id, 'isDeleted': {'$ne': True}}, 
+                    {'$set': update_data}
+                )
+                
+                if result.modified_count > 0:
+                    updated_user = self.user_service.get_user_by_id(user_id)
+                    
+                    # Send notification
+                    user_name = updated_user.get('full_name', updated_user.get('username', 'User'))
+                    self.user_service._send_user_notification('updated', user_name, user_id)
+                    
+                    return Response({
+                        'success': True,
+                        'message': 'User updated successfully',
+                        'data': updated_user
+                    }, status=status.HTTP_200_OK)
+                
                 return Response(
-                    {"error": "User not found"}, 
-                    status=status.HTTP_404_NOT_FOUND
+                    {"error": "No changes made"}, 
+                    status=status.HTTP_400_BAD_REQUEST
                 )
             
-            return Response(updated_user, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {"error": "Insufficient permissions to update user"}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
             
         except Exception as e:
-            logger.error(f"Error updating user {user_id}: {e}")
+            logger.error(f"Error updating user {user_id}: {str(e)}")
             return Response(
                 {"error": str(e)}, 
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+            
     @require_authentication
     def delete(self, request, user_id):
         """Soft delete user - Requires admin authentication"""

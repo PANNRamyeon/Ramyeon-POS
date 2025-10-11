@@ -79,41 +79,81 @@ class POSCategoryService:
         Optimized for speed with only essential cart fields
         """
         try:
+            print(f"📦 get_products_for_pos_cart called with IDs: {product_ids}")
+            
             if not product_ids or not isinstance(product_ids, list):
                 raise ValueError("product_ids must be a non-empty list")
             
-            # Validate string product IDs
-            valid_ids = []
-            for pid in product_ids:
-                if isinstance(pid, str) and pid.startswith('PROD-'):
-                    valid_ids.append(pid)
-                else:
-                    logger.warning(f"Invalid product ID skipped: {pid}")
+            # ✅ No validation needed - accept product IDs as-is
+            valid_ids = [str(pid).strip() for pid in product_ids if pid]
             
             if not valid_ids:
-                raise ValueError("No valid PROD-##### product IDs provided")
+                raise ValueError("No valid product IDs provided")
             
-            # Single batch query with only essential POS fields
+            print(f"✅ Validated IDs: {valid_ids}")
+            
+            # ✅ Query using '_id' field (not 'product_id')
             products = list(self.product_collection.find(
-                {'product_id': {'$in': valid_ids}},  # String-based lookup
+                {'_id': {'$in': valid_ids}},  # ✅ CHANGED FROM 'product_id' to '_id'
                 {
-                    'product_id': 1,  # String ID
+                    '_id': 1,
                     'product_name': 1,
-                    'unit_price': 1,
-                    'stock_quantity': 1,
-                    'product_code': 1,
+                    'selling_price': 1,  # ✅ Your collection uses 'selling_price'
+                    'stock': 1,          # ✅ Your collection uses 'stock' (not 'stock_quantity')
+                    'SKU': 1,
                     'barcode': 1,
-                    'tax_rate': 1,
-                    'category_id': 1,  # String category ID
-                    'subcategory_name': 1
+                    'category_id': 1,
+                    'subcategory_name': 1,
+                    'is_taxable': 1,
+                    'image_url': 1,
+                    'description': 1,
+                    'unit': 1,
+                    'status': 1
                 }
             ))
             
-            return products
+            print(f"✅ Found {len(products)} products in database")
+            
+            if not products:
+                print(f"❌ No products found for IDs: {valid_ids}")
+                return []
+            
+            # ✅ Transform to standardized format
+            pos_products = []
+            for product in products:
+                pos_product = {
+                    '_id': product['_id'],
+                    'id': product['_id'],  # ✅ Both formats
+                    'product_id': product['_id'],  # ✅ Legacy compatibility
+                    'product_name': product.get('product_name', 'Unknown'),
+                    'name': product.get('product_name', 'Unknown'),
+                    'SKU': product.get('SKU', ''),
+                    'sku': product.get('SKU', ''),
+                    'selling_price': product.get('selling_price', 0),
+                    'price': product.get('selling_price', 0),
+                    'unit_price': product.get('selling_price', 0),  # ✅ Multiple names
+                    'stock': product.get('stock', 0),
+                    'stock_quantity': product.get('stock', 0),
+                    'barcode': product.get('barcode', ''),
+                    'category_id': product.get('category_id', ''),
+                    'subcategory_name': product.get('subcategory_name', ''),
+                    'is_taxable': product.get('is_taxable', True),
+                    'tax_rate': 0.12 if product.get('is_taxable', True) else 0,
+                    'image_url': product.get('image_url', ''),
+                    'description': product.get('description', ''),
+                    'unit': product.get('unit', 'pc'),
+                    'status': product.get('status', 'active')
+                }
+                pos_products.append(pos_product)
+            
+            print(f"✅ Transformed {len(pos_products)} products for POS")
+            return pos_products
             
         except Exception as e:
-            logger.error(f"POS batch product fetch failed: {e}")
-            raise Exception(f"Failed to get products for cart: {str(e)}")
+            print(f"❌ Error in get_products_for_pos_cart: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
 
     def get_products_by_subcategory_for_pos(self, category_id, subcategory_name):
         """
@@ -158,9 +198,7 @@ class POSCategoryService:
             raise Exception(f"Failed to get subcategory products: {str(e)}")
 
     def get_product_by_barcode_for_pos(self, barcode):
-        """
-        Quick product lookup by barcode for POS scanner integration
-        """
+        """Quick product lookup by barcode for POS scanner integration"""
         try:
             if not barcode or not barcode.strip():
                 raise ValueError("Barcode is required")
@@ -168,14 +206,14 @@ class POSCategoryService:
             product = self.product_collection.find_one(
                 {'barcode': barcode.strip()},
                 {
-                    'product_id': 1,  # String ID
+                    '_id': 1,  # ✅ CHANGED
                     'product_name': 1,
-                    'unit_price': 1,
-                    'stock_quantity': 1,
-                    'product_code': 1,
+                    'selling_price': 1,  # ✅ CHANGED
+                    'stock': 1,  # ✅ CHANGED
+                    'SKU': 1,
                     'barcode': 1,
-                    'tax_rate': 1,
-                    'category_id': 1,  # String category ID
+                    'is_taxable': 1,
+                    'category_id': 1,
                     'subcategory_name': 1
                 }
             )
@@ -187,9 +225,7 @@ class POSCategoryService:
             raise Exception(f"Failed to get product by barcode: {str(e)}")
 
     def search_products_for_pos(self, search_term, limit=20):
-        """
-        Quick product search for POS - by name or product code
-        """
+        """Quick product search for POS - by name or SKU"""
         try:
             if not search_term or not search_term.strip():
                 return []
@@ -201,15 +237,15 @@ class POSCategoryService:
                 {
                     '$or': [
                         {'product_name': regex_pattern},
-                        {'product_code': regex_pattern}
+                        {'SKU': regex_pattern}  # ✅ CHANGED from 'product_code'
                     ]
                 },
                 {
-                    'product_id': 1,  # String ID
+                    '_id': 1,  # ✅ CHANGED
                     'product_name': 1,
-                    'unit_price': 1,
-                    'stock_quantity': 1,
-                    'product_code': 1,
+                    'selling_price': 1,  # ✅ CHANGED
+                    'stock': 1,  # ✅ CHANGED
+                    'SKU': 1,
                     'barcode': 1
                 }
             ).limit(limit))
@@ -221,22 +257,21 @@ class POSCategoryService:
             raise Exception(f"Failed to search products: {str(e)}")
 
     def check_product_stock_for_pos(self, product_id, requested_quantity):
-        """
-        Quick stock check for POS before adding to cart
-        """
+        """Quick stock check for POS before adding to cart"""
         try:
-            if not product_id or not product_id.startswith('PROD-'):
-                return {'available': False, 'error': 'Invalid product ID - must be PROD-##### format'}
+            if not product_id:
+                return {'available': False, 'error': 'Invalid product ID'}
             
+            # ✅ Use '_id' instead of 'product_id'
             product = self.product_collection.find_one(
-                {'product_id': product_id},  # String-based lookup
-                {'stock_quantity': 1, 'product_name': 1}
+                {'_id': product_id},  # ✅ CHANGED
+                {'stock': 1, 'product_name': 1}  # ✅ 'stock' not 'stock_quantity'
             )
             
             if not product:
                 return {'available': False, 'error': 'Product not found'}
             
-            current_stock = product.get('stock_quantity', 0)
+            current_stock = product.get('stock', 0)  # ✅ CHANGED
             
             return {
                 'available': current_stock >= requested_quantity,
@@ -250,19 +285,17 @@ class POSCategoryService:
             return {'available': False, 'error': str(e)}
 
     def get_low_stock_products_for_pos(self, threshold=10):
-        """
-        Get products with low stock for POS alerts
-        """
+        """Get products with low stock for POS alerts"""
         try:
             products = list(self.product_collection.find(
-                {'stock_quantity': {'$lte': threshold}},
+                {'stock': {'$lte': threshold}},  # ✅ CHANGED
                 {
-                    'product_id': 1,  # String ID
+                    '_id': 1,  # ✅ CHANGED
                     'product_name': 1,
-                    'stock_quantity': 1,
-                    'product_code': 1
+                    'stock': 1,  # ✅ CHANGED
+                    'SKU': 1
                 }
-            ).sort('stock_quantity', 1).limit(50))
+            ).sort('stock', 1).limit(50))  # ✅ CHANGED
             
             return products
             
@@ -357,3 +390,63 @@ class POSCategoryService:
         except Exception as e:
             logger.error(f"POS quick access products failed: {e}")
             raise Exception(f"Failed to get quick access products: {str(e)}")
+    
+    def get_products_by_category_for_pos(self, category_id):
+        """
+        Get all products in a category (all subcategories combined)
+        NEW: For category-level product browsing in POS
+        
+        Args:
+            category_id: Category ID (e.g., 'CAT-001', 'UNCTGRY-001')
+            
+        Returns:
+            List of products in POS format
+        """
+        try:
+            from .product_service import ProductService
+            product_service = ProductService()
+            
+            # Verify category exists
+            category = self.category_collection.find_one({
+                '_id': category_id,
+                'is_deleted': False
+            })
+            
+            if not category:
+                raise ValueError(f"Category {category_id} not found")
+            
+            # Get all products in this category (in stock only)
+            query = {
+                'category_id': category_id,
+                'is_deleted': False,
+                'stock': {'$gt': 0}  # Only in-stock products for POS
+            }
+            
+            products = list(self.product_collection.find(query).sort('name', 1))
+            
+            if not products:
+                return []
+            
+            # Format for POS display
+            pos_products = []
+            for product in products:
+                pos_products.append({
+                    'product_id': product['_id'],
+                    'name': product['name'],
+                    'price': product.get('price', 0),
+                    'stock': product.get('stock', 0),
+                    'category_id': product.get('category_id'),
+                    'subcategory': product.get('subcategory'),
+                    'barcode': product.get('barcode'),
+                    'unit': product.get('unit', 'pcs'),
+                    'image_url': product.get('image_url'),
+                    'description': product.get('description', '')
+                })
+            
+            return pos_products
+            
+        except ValueError as e:
+            # Re-raise ValueError for 404 handling
+            raise
+        except Exception as e:
+            raise Exception(f"Error fetching products by category: {str(e)}")   
