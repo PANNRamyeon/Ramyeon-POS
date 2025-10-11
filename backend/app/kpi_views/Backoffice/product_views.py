@@ -4,6 +4,7 @@ from rest_framework import status
 from django.http import HttpResponse
 from ...services.Backoffice.product_service import ProductService
 import logging
+from ...services.POS.batch_service import BatchService
 
 logger = logging.getLogger(__name__)
 
@@ -524,21 +525,86 @@ class ExpiringProductsView(APIView):
             )
 
 class ProductsByCategoryView(APIView):
+    """
+    GET /api/v1/products/reports/by-category/{category_id}/
+    Get products by category WITH REAL-TIME BATCH STOCK
+    """
+    
     def get(self, request, category_id):
-        """Get products by category"""
         try:
+            from ...services.POS.batch_service import BatchService  # ✅ Import batch service
+            
             product_service = ProductService()
+            batch_service = BatchService()  # ✅ Initialize batch service
+            
+            print(f"\n{'='*60}")
+            print(f"📊 ProductsByCategoryView: Getting products for category {category_id}")
+            print(f"{'='*60}")
+            
+            # Get products from category
             products = product_service.get_products_by_category(category_id)
+            
+            print(f"✅ Found {len(products)} products in database\n")
+            
+            if not products:
+                return Response({
+                    'success': True,
+                    'message': 'No products found in this category',
+                    'data': [],
+                    'count': 0
+                }, status=status.HTTP_200_OK)
+            
+            # ✅ Calculate batch stock for each product
+            for product in products:
+                product_id = product.get('_id')
+                cached_stock = product.get('stock', 0)
+                
+                print(f"Processing {product_id}:")
+                print(f"   Product name: {product.get('product_name')}")
+                print(f"   Cached stock: {cached_stock}")
+                
+                # Get batch availability
+                batch_info = batch_service.check_batch_availability(product_id, 0)
+                
+                # Update stock fields with batch stock
+                product['stock'] = batch_info['total_stock']
+                product['stock_quantity'] = batch_info['total_stock']
+                product['batch_stock'] = batch_info['total_stock']
+                product['batches_count'] = batch_info['batches_count']
+                
+                if batch_info.get('oldest_batch'):
+                    product['oldest_expiry'] = batch_info['oldest_batch'].get('expiry_date')
+                
+                print(f"   Batch stock: {batch_info['total_stock']}")
+                print(f"   Batches count: {batch_info['batches_count']}")
+                print()
+            
+            print(f"{'='*60}")
+            print(f"✅ Returning {len(products)} products with batch stock")
+            print(f"{'='*60}\n")
+            
             return Response({
+                'success': True,
                 'message': f'Found {len(products)} products in category',
-                'data': products
+                'data': products,
+                'count': len(products)
             }, status=status.HTTP_200_OK)
+            
+        except ValueError as e:
+            logger.error(f"ProductsByCategoryView error: {e}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_404_NOT_FOUND)
+            
         except Exception as e:
-            logger.error(f"Error in ProductsByCategoryView.get: {e}")
-            return Response(
-                {"error": str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error(f"ProductsByCategoryView error: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'success': False,
+                'error': f'Failed to retrieve products: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class DeletedProductsView(APIView):
     def get(self, request):

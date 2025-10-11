@@ -368,50 +368,53 @@ export default {
           return
         }
         
-        // ✅ Get all product IDs
+        // Get product IDs
         const productIds = this.cartItems.map(item => item.productId)
         
         console.log('📦 Product IDs to validate:', productIds)
-        console.log('🛒 Cart items:', this.cartItems)  // ✅ ADD THIS
         
-        // ✅ Batch fetch products (single API call)
+        // ✅ Fetch products (now includes batch stock)
         const products = await apiProducts.getProductsBatch(productIds)
         
-        console.log('✅ Products fetched:', products)
-        console.log('📋 Product IDs from API:', products.map(p => p.id || p._id))  // ✅ ADD THIS
+        console.log('✅ Products fetched with batch stock:', products)
         
-        // ✅ Build product map for quick lookup
+        // Build product map
         const productMap = {}
         products.forEach(product => {
-          const productId = product.id || product._id  // ✅ Try both
-          console.log(`📌 Mapping product: ${productId}`, product)  // ✅ ADD THIS
+          const productId = product.id || product._id
           productMap[productId] = product
         })
         
-        console.log('🗺️ Product map keys:', Object.keys(productMap))  // ✅ ADD THIS
-        
-        // ✅ Validate each item
+        // Validate each item
         const errors = []
         
         for (const item of this.cartItems) {
-          console.log(`🔎 Looking up item.productId: "${item.productId}"`)  // ✅ ADD THIS
-          
           const product = productMap[item.productId]
           
           if (!product) {
-            console.error('❌ Product not found:', item.productId)
-            console.error('   Available keys:', Object.keys(productMap))  // ✅ ADD THIS
             errors.push(`Product "${item.productName}" not found`)
           } else {
-            const availableStock = product.stock || 0
+            // ✅ Use batch stock (real-time)
+            const availableStock = product.batch_stock || product.stock || 0
             
-            console.log(`📊 ${item.productName}: Available=${availableStock}, Requested=${item.quantity}`)
+            console.log(`📊 ${item.productName}: Batch stock=${availableStock}, Requested=${item.quantity}`)
             
             if (availableStock < item.quantity) {
               errors.push(
                 `Insufficient stock for "${item.productName}". ` +
                 `Available: ${availableStock}, Requested: ${item.quantity}`
               )
+            }
+            
+            // ✅ Expiry warning
+            if (product.oldest_expiry) {
+              const daysUntilExpiry = Math.floor(
+                (new Date(product.oldest_expiry) - new Date()) / (1000 * 60 * 60 * 24)
+              )
+              
+              if (daysUntilExpiry <= 7 && daysUntilExpiry >= 0) {
+                console.warn(`⚠️ ${item.productName} has items expiring in ${daysUntilExpiry} days`)
+              }
             }
           }
         }
@@ -422,7 +425,7 @@ export default {
           alert('Stock validation failed:\n\n' + errors.join('\n') + '\n\nPlease update your cart.')
           this.$router.replace('/new-order')
         } else {
-          console.log('✅ Stock validation passed')
+          console.log('✅ Stock validation passed (batch stock verified)')
           this.validationErrors = []
         }
         

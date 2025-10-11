@@ -1,6 +1,7 @@
 from datetime import datetime
 from ...database import db_manager
 import logging
+from ..POS.batch_service import BatchService
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,8 @@ class POSCategoryService:
         self.db = db_manager.get_database()
         self.category_collection = self.db.category
         self.product_collection = self.db.products
+        self.batches_collection = self.db.batches
+        self.batch_service = BatchService() 
         self._ensure_pos_indexes()
 
     def _ensure_pos_indexes(self):
@@ -121,76 +124,82 @@ class POSCategoryService:
             # ✅ Transform to standardized format
             pos_products = []
             for product in products:
+                product_id = product['_id']
+                
+                # Calculate batch stock
+                batch_stock = self._calculate_batch_stock(product_id)
+                batch_details = self._get_batch_details(product_id)
+                
+                # ✅ DEBUG: Print what we're calculating
+                print(f"   📊 {product_id}:")
+                print(f"      - Product.stock (cached): {product.get('stock', 0)}")
+                print(f"      - Batch stock (real-time): {batch_stock}")
+                print(f"      - Batches count: {batch_details['batches_count']}")
+                
                 pos_product = {
                     '_id': product['_id'],
-                    'id': product['_id'],  # ✅ Both formats
-                    'product_id': product['_id'],  # ✅ Legacy compatibility
+                    'id': product['_id'],
+                    'product_id': product['_id'],
                     'product_name': product.get('product_name', 'Unknown'),
                     'name': product.get('product_name', 'Unknown'),
-                    'SKU': product.get('SKU', ''),
-                    'sku': product.get('SKU', ''),
                     'selling_price': product.get('selling_price', 0),
                     'price': product.get('selling_price', 0),
-                    'unit_price': product.get('selling_price', 0),  # ✅ Multiple names
-                    'stock': product.get('stock', 0),
-                    'stock_quantity': product.get('stock', 0),
-                    'barcode': product.get('barcode', ''),
-                    'category_id': product.get('category_id', ''),
-                    'subcategory_name': product.get('subcategory_name', ''),
-                    'is_taxable': product.get('is_taxable', True),
-                    'tax_rate': 0.12 if product.get('is_taxable', True) else 0,
-                    'image_url': product.get('image_url', ''),
-                    'description': product.get('description', ''),
-                    'unit': product.get('unit', 'pc'),
-                    'status': product.get('status', 'active')
+                    
+                    # ✅ Use batch stock (this should be 500)
+                    'stock': batch_stock,
+                    'stock_quantity': batch_stock,
+                    'batch_stock': batch_stock,
+                    
+                    'batches_count': batch_details['batches_count'],
+                    'oldest_expiry': batch_details['oldest_expiry'],
+                    
+                    # ... other fields ...
                 }
+                
+                # ✅ DEBUG: Print final product object
+                print(f"      - Final stock value: {pos_product['stock']}")
+                
                 pos_products.append(pos_product)
             
-            print(f"✅ Transformed {len(pos_products)} products for POS")
+            print(f"✅ Returning {len(pos_products)} products")
+            
             return pos_products
             
         except Exception as e:
-            print(f"❌ Error in get_products_for_pos_cart: {str(e)}")
+            print(f"❌ Error: {str(e)}")
             import traceback
             traceback.print_exc()
             return []
 
     def get_products_by_subcategory_for_pos(self, category_id, subcategory_name):
-        """
-        Get all products in a subcategory for bulk selection
-        Useful when user wants to add entire subcategory to cart
-        """
+        """Get all products in a subcategory with batch stock"""
         try:
-            if not category_id or not category_id.startswith('CTGY-'):
-                raise ValueError("Invalid category ID - must be CTGY-### format")
+            if not category_id:
+                raise ValueError("Invalid category ID")
             
-            # Get the subcategory's product IDs using string-based lookup
-            category = self.category_collection.find_one(
-                {
-                    'category_id': category_id,  # String ID
-                    'status': 'active',
-                    'isDeleted': {'$ne': True}
-                },
-                {'sub_categories': 1}
-            )
+            # Get category and product IDs
+            category = self.category_collection.find_one({
+                '_id': category_id,
+                'status': 'active',
+                'isDeleted': {'$ne': True}
+            }, {'sub_categories': 1})
             
             if not category:
                 return []
             
-            # Find the specific subcategory and extract product IDs
+            # Find subcategory products
             product_ids = []
             for subcategory in category.get('sub_categories', []):
                 if subcategory['name'] == subcategory_name:
                     products = subcategory.get('products', [])
-                    # Handle combined format (product_id + product_name)
                     if products and isinstance(products[0], dict):
-                        product_ids = [p['product_id'] for p in products]  # String IDs
+                        product_ids = [p['product_id'] for p in products]
                     break
             
             if not product_ids:
                 return []
             
-            # Batch fetch all products in this subcategory
+            # ✅ Use the method that calculates batch stock
             return self.get_products_for_pos_cart(product_ids)
             
         except Exception as e:
@@ -198,34 +207,31 @@ class POSCategoryService:
             raise Exception(f"Failed to get subcategory products: {str(e)}")
 
     def get_product_by_barcode_for_pos(self, barcode):
-        """Quick product lookup by barcode for POS scanner integration"""
+        """Quick product lookup by barcode with batch stock"""
         try:
             if not barcode or not barcode.strip():
                 raise ValueError("Barcode is required")
             
+            # Find product by barcode
             product = self.product_collection.find_one(
                 {'barcode': barcode.strip()},
-                {
-                    '_id': 1,  # ✅ CHANGED
-                    'product_name': 1,
-                    'selling_price': 1,  # ✅ CHANGED
-                    'stock': 1,  # ✅ CHANGED
-                    'SKU': 1,
-                    'barcode': 1,
-                    'is_taxable': 1,
-                    'category_id': 1,
-                    'subcategory_name': 1
-                }
+                {'_id': 1}
             )
             
-            return product
+            if not product:
+                return None
+            
+            # ✅ Get full product data with batch stock
+            products = self.get_products_for_pos_cart([product['_id']])
+            
+            return products[0] if products else None
             
         except Exception as e:
             logger.error(f"POS barcode lookup failed: {e}")
             raise Exception(f"Failed to get product by barcode: {str(e)}")
 
     def search_products_for_pos(self, search_term, limit=20):
-        """Quick product search for POS - by name or SKU"""
+        """Quick product search for POS with batch stock"""
         try:
             if not search_term or not search_term.strip():
                 return []
@@ -233,24 +239,25 @@ class POSCategoryService:
             search_term = search_term.strip()
             regex_pattern = {'$regex': search_term, '$options': 'i'}
             
+            # Find matching products
             products = list(self.product_collection.find(
                 {
                     '$or': [
                         {'product_name': regex_pattern},
-                        {'SKU': regex_pattern}  # ✅ CHANGED from 'product_code'
+                        {'SKU': regex_pattern}
                     ]
                 },
-                {
-                    '_id': 1,  # ✅ CHANGED
-                    'product_name': 1,
-                    'selling_price': 1,  # ✅ CHANGED
-                    'stock': 1,  # ✅ CHANGED
-                    'SKU': 1,
-                    'barcode': 1
-                }
+                {'_id': 1}
             ).limit(limit))
             
-            return products
+            if not products:
+                return []
+            
+            # Get product IDs
+            product_ids = [p['_id'] for p in products]
+            
+            # ✅ Use the method that calculates batch stock
+            return self.get_products_for_pos_cart(product_ids)
             
         except Exception as e:
             logger.error(f"POS product search failed: {e}")
@@ -393,18 +400,10 @@ class POSCategoryService:
     
     def get_products_by_category_for_pos(self, category_id):
         """
-        Get all products in a category (all subcategories combined)
-        NEW: For category-level product browsing in POS
-        
-        Args:
-            category_id: Category ID (e.g., 'CAT-001', 'UNCTGRY-001')
-            
-        Returns:
-            List of products in POS format
+        Get all products in a category with real-time batch stock
         """
         try:
-            from .product_service import ProductService
-            product_service = ProductService()
+            print(f"📦 Getting products for category: {category_id}")
             
             # Verify category exists
             category = self.category_collection.find_one({
@@ -415,29 +414,50 @@ class POSCategoryService:
             if not category:
                 raise ValueError(f"Category {category_id} not found")
             
-            # Get all products in this category (in stock only)
+            # Get all products in this category
             query = {
                 'category_id': category_id,
-                'is_deleted': False,
-                'stock': {'$gt': 0}  # Only in-stock products for POS
+                'is_deleted': False
             }
             
             products = list(self.product_collection.find(query).sort('name', 1))
             
+            print(f"✅ Found {len(products)} products")
+            
             if not products:
                 return []
             
-            # Format for POS display
+            # ✅ Calculate batch stock for each product
             pos_products = []
             for product in products:
+                product_id = product['_id']
+                
+                # Get batch availability
+                batch_info = self.batch_service.check_batch_availability(product_id, 0)
+                
+                print(f"   📊 {product_id}: Batch stock = {batch_info['total_stock']}")
+                
                 pos_products.append({
-                    'product_id': product['_id'],
-                    'name': product['name'],
+                    'product_id': product_id,
+                    '_id': product_id,
+                    'id': product_id,
+                    'name': product.get('name'),
+                    'product_name': product.get('name'),
                     'price': product.get('price', 0),
-                    'stock': product.get('stock', 0),
+                    'selling_price': product.get('price', 0),
+                    
+                    # ✅ Use batch stock
+                    'stock': batch_info['total_stock'],
+                    'stock_quantity': batch_info['total_stock'],
+                    'batch_stock': batch_info['total_stock'],
+                    'batches_count': batch_info['batches_count'],
+                    'oldest_expiry': batch_info.get('oldest_batch', {}).get('expiry_date'),
+                    
                     'category_id': product.get('category_id'),
                     'subcategory': product.get('subcategory'),
                     'barcode': product.get('barcode'),
+                    'SKU': product.get('SKU'),
+                    'sku': product.get('SKU'),
                     'unit': product.get('unit', 'pcs'),
                     'image_url': product.get('image_url'),
                     'description': product.get('description', '')
@@ -446,7 +466,231 @@ class POSCategoryService:
             return pos_products
             
         except ValueError as e:
-            # Re-raise ValueError for 404 handling
             raise
         except Exception as e:
-            raise Exception(f"Error fetching products by category: {str(e)}")   
+            raise Exception(f"Error fetching products by category: {str(e)}")
+
+    def _calculate_batch_stock(self, product_id):
+        """Calculate total available stock from active batches"""
+        try:
+            print(f"      🔍 Calculating batch stock for {product_id}...")
+            
+            # Get all active batches
+            batches = list(self.batches_collection.find({
+                'product_id': product_id,
+                'status': 'active',
+                'quantity_remaining': {'$gt': 0}
+            }))
+            
+            print(f"      📦 Found {len(batches)} active batches:")
+            
+            total_stock = 0
+            for batch in batches:
+                batch_qty = batch.get('quantity_remaining', 0)
+                print(f"         - {batch['_id']}: {batch_qty} units")
+                total_stock += batch_qty
+            
+            print(f"      ✅ Total batch stock: {total_stock}")
+            
+            return total_stock
+            
+        except Exception as e:
+            logger.error(f"Error calculating batch stock for {product_id}: {e}")
+            return 0
+
+    def _get_batch_details(self, product_id):
+        """
+        Get batch details for a product (for display/debugging)
+        
+        Returns:
+            {
+                'total_stock': int,
+                'batches_count': int,
+                'oldest_expiry': datetime or None
+            }
+        """
+        try:
+            batches = list(self.batches_collection.find({
+                'product_id': product_id,
+                'status': 'active',
+                'quantity_remaining': {'$gt': 0}
+            }).sort('expiry_date', 1))
+            
+            total_stock = sum(b.get('quantity_remaining', 0) for b in batches)
+            oldest_expiry = batches[0].get('expiry_date') if batches else None
+            
+            return {
+                'total_stock': total_stock,
+                'batches_count': len(batches),
+                'oldest_expiry': oldest_expiry
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting batch details: {e}")
+            return {
+                'total_stock': 0,
+                'batches_count': 0,
+                'oldest_expiry': None
+            }
+
+    def get_products_for_pos_cart(self, product_ids):
+        """
+        Batch fetch multiple products for POS cart operations
+        WITH BATCH STOCK CALCULATION
+        """
+        try:
+            print(f"\n{'='*60}")
+            print(f"📦 get_products_for_pos_cart called")
+            print(f"{'='*60}")
+            print(f"Product IDs: {product_ids}")
+            
+            if not product_ids or not isinstance(product_ids, list):
+                raise ValueError("product_ids must be a non-empty list")
+            
+            valid_ids = [str(pid).strip() for pid in product_ids if pid]
+            
+            if not valid_ids:
+                raise ValueError("No valid product IDs provided")
+            
+            print(f"✅ Validated IDs: {valid_ids}\n")
+            
+            # Query products
+            products = list(self.product_collection.find(
+                {'_id': {'$in': valid_ids}},
+                {
+                    '_id': 1,
+                    'product_name': 1,
+                    'selling_price': 1,
+                    'stock': 1,
+                    'SKU': 1,
+                    'barcode': 1,
+                    'category_id': 1,
+                    'subcategory_name': 1,
+                    'is_taxable': 1,
+                    'image_url': 1,
+                    'description': 1,
+                    'unit': 1,
+                    'status': 1
+                }
+            ))
+            
+            print(f"✅ Found {len(products)} products in database\n")
+            
+            if not products:
+                print(f"❌ No products found")
+                return []
+            
+            # Transform with batch stock calculation
+            pos_products = []
+            
+            for product in products:
+                product_id = product['_id']
+                cached_stock = product.get('stock', 0)
+                
+                print(f"{'─'*60}")
+                print(f"Processing: {product_id}")
+                print(f"Product name: {product.get('product_name')}")
+                print(f"Cached stock (product.stock): {cached_stock}")
+                
+                # ✅ Calculate batch stock
+                batch_stock = self._calculate_batch_stock(product_id)
+                
+                print(f"Calculated batch stock: {batch_stock}")
+                print(f"{'─'*60}\n")
+                
+                pos_product = {
+                    '_id': product_id,
+                    'id': product_id,
+                    'product_id': product_id,
+                    'product_name': product.get('product_name', 'Unknown'),
+                    'name': product.get('product_name', 'Unknown'),
+                    'SKU': product.get('SKU', ''),
+                    'sku': product.get('SKU', ''),
+                    'selling_price': product.get('selling_price', 0),
+                    'price': product.get('selling_price', 0),
+                    'unit_price': product.get('selling_price', 0),
+                    
+                    # ✅ Use batch stock
+                    'stock': batch_stock,
+                    'stock_quantity': batch_stock,
+                    'batch_stock': batch_stock,
+                    
+                    'barcode': product.get('barcode', ''),
+                    'category_id': product.get('category_id', ''),
+                    'subcategory_name': product.get('subcategory_name', ''),
+                    'is_taxable': product.get('is_taxable', True),
+                    'tax_rate': 0.12 if product.get('is_taxable', True) else 0,
+                    'image_url': product.get('image_url', ''),
+                    'description': product.get('description', ''),
+                    'unit': product.get('unit', 'pc'),
+                    'status': product.get('status', 'active')
+                }
+                
+                pos_products.append(pos_product)
+            
+            print(f"{'='*60}")
+            print(f"✅ Returning {len(pos_products)} products")
+            print(f"{'='*60}\n")
+            
+            return pos_products
+            
+        except Exception as e:
+            print(f"❌ Error in get_products_for_pos_cart: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+
+    def _calculate_batch_stock(self, product_id):
+        """
+        Calculate total available stock from active batches
+        """
+        try:
+            print(f"   🔍 Calculating batch stock...")
+            print(f"      Collection: batches")
+            print(f"      Query: {{'product_id': '{product_id}', 'status': 'active', 'quantity_remaining': {{'$gt': 0}}}}")
+            
+            # Query batches
+            batches = list(self.db.batches.find({
+                'product_id': product_id,
+                'status': 'active',
+                'quantity_remaining': {'$gt': 0}
+            }))
+            
+            print(f"      Found batches: {len(batches)}")
+            
+            if not batches:
+                print(f"      ⚠️ NO ACTIVE BATCHES FOUND")
+                print(f"      Checking all batches for this product...")
+                
+                # Debug: Check ALL batches (no filters)
+                all_batches = list(self.db.batches.find({'product_id': product_id}))
+                print(f"      Total batches (any status): {len(all_batches)}")
+                
+                for b in all_batches:
+                    print(f"         - {b.get('_id')}: status={b.get('status')}, qty_remaining={b.get('quantity_remaining')}")
+                
+                return 0
+            
+            # Calculate total
+            total_stock = 0
+            for batch in batches:
+                batch_id = batch.get('_id', 'unknown')
+                batch_qty = batch.get('quantity_remaining', 0)
+                batch_status = batch.get('status', 'unknown')
+                
+                print(f"         ✓ {batch_id}")
+                print(f"            Status: {batch_status}")
+                print(f"            Quantity: {batch_qty}")
+                
+                total_stock += batch_qty
+            
+            print(f"      ✅ Total batch stock: {total_stock}")
+            
+            return total_stock
+            
+        except Exception as e:
+            print(f"      ❌ Error calculating batch stock: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return 0
