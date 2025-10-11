@@ -15,55 +15,65 @@ class ProductAPIService {
     throw new Error(message);
   }
 
- async getProductsByCategory(categoryId, subcategoryName = null) {
+  async getProductsByCategory(categoryId, subcategoryName = null) {
     try {
-        let url = `/products/category/${categoryId}/`;
+        let url;
         
-        // Add subcategory parameter if provided
         if (subcategoryName) {
-        url += `?subcategory=${encodeURIComponent(subcategoryName)}`;
+            // Use subcategory-specific endpoint
+            url = `/category/${categoryId}/subcategories/${encodeURIComponent(subcategoryName)}/products/`;
+        } else {
+            // Use category products report endpoint
+            url = `/products/reports/by-category/${categoryId}/`;
         }
+        
         const response = await api.get(url);
         const data = this.handleResponse(response);
+        
         // Transform and return the products
-        return this.transformProductData(data.products || data);
+        return this.transformProductData(data.products || data.data || data);
         
     } catch (error) {
         this.handleError(error);
     }
- }
+  }
 
- transformProductData(products) {
+  transformProductData(products) {
     if (!Array.isArray(products)) {
         return [];
     }
     
     return products.map(product => ({
-        id: product.id || product._id,
+        id: product._id || product.id,
         name: product.name || product.product_name,
         description: product.description || '',
         price: product.price || product.selling_price || 0,
-        category: product.category,
-        subcategory: product.subcategory,
-        image: product.image || this.generatePlaceholderImage(product.name),
-        stock: product.stock_quantity || 0,
+        category: product.category || product.category_id,
+        subcategory: product.subcategory || product.sub_category,
+        image: product.image || product.image_url || this.generatePlaceholderImage(product.name || product.product_name),
+        stock: product.stock_quantity || product.stock || 0,
         sku: product.sku || ''
     }));
- }
+  }
 
-   async searchProducts(query) {
-        try {
-            // Use the search parameter in the API call
-            const response = await api.get(`/products/?search=${encodeURIComponent(query)}`);
-            const data = this.handleResponse(response);
-            
-            // Return the transformed data directly
-            return this.transformProductData(data.results || data);
-            
-        } catch (error) {
-            this.handleError(error);
-        }
+  generatePlaceholderImage(productName) {
+    // Generate a placeholder image URL
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(productName || 'Product')}&size=200&background=7392E2&color=fff`;
+  }
+
+  async searchProducts(query) {
+    try {
+        // Use the search parameter in the API call
+        const response = await api.get(`/products/?search=${encodeURIComponent(query)}`);
+        const data = this.handleResponse(response);
+        
+        // Return the transformed data directly
+        return this.transformProductData(data.results || data.data || data);
+        
+    } catch (error) {
+        this.handleError(error);
     }
+  }
   
 }
 

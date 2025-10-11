@@ -1,246 +1,695 @@
 <template>
-   <div class="checkout-page">
-        <div class="cp-left">
-            <div class="cpl-header">
-                <button @click="goBack" class="nav-btn">
-                    <ChevronLeft :size="20"/> 
-                </button>
-                <h1>Checkout</h1>
-                <button class="trash-btn" @click="clearCart">
-                    <Trash2 :size="25"/> 
-                </button>
-            </div>
-            
-            <div class="cpl-contents">
-                <div v-if="cartItems.length === 0" class="empty-cart">
-                    <div class="empty-icon">🛒</div>
-                    <h3>Your cart is empty</h3>
-                    <p>Add some items to get started!</p>
-                    <button @click="goBack" class="continue-shopping-btn">
-                        Continue Shopping
-                    </button>
-                </div>
-                
-                <div v-else class="cart-items-container">
-                    <div class="cart-item-card" v-for="item in cartItems" :key="item.id">
-                        <div class="item-image">
-                            <img :src="item.image" :alt="item.name" />
-                        </div>
-                        
-                        <div class="item-info">
-                            <h3 class="item-name">{{ item.name }}</h3>
-                            <p class="item-description">{{ item.description }}</p>
-                            <div class="item-price-unit">₱{{ item.price }} each</div>
-                        </div>
-                        
-                        <div class="item-controls">
-                            <div class="quantity-controls">
-                                <button 
-                                    class="quantity-btn decrease" 
-                                    @click="decreaseQuantity(item)"
-                                    :disabled="item.quantity <= 1"
-                                >
-                                    <Minus :size="16" />
-                                </button>
-                                <span class="quantity">{{ item.quantity }}</span>
-                                <button class="quantity-btn increase" @click="increaseQuantity(item)">
-                                    <Plus :size="16" />
-                                </button>
-                            </div>
-                            
-                            <div class="item-total-price">
-                                ₱{{ (item.price * item.quantity).toFixed(2) }}
-                            </div>
-                            
-                            <button class="remove-item" @click="removeItem(item)" title="Remove item">
-                                <X :size="18" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="cp-right">
-            <div class="checkout-summary">
-                <h2>Order Summary</h2>
-                
-                <div class="summary-details">
-                    <div class="summary-row">
-                        <span>Items ({{ totalItems }})</span>
-                        <span>₱{{ cartTotal.toFixed(2) }}</span>
-                    </div>
-                    <div class="summary-row">
-                        <span>Tax (12%)</span>
-                        <span>₱{{ tax.toFixed(2) }}</span>
-                    </div>
-                    <div class="summary-divider"></div>
-                    <div class="summary-row total">
-                        <span>Total</span>
-                        <span>₱{{ totalWithTax.toFixed(2) }}</span>
-                    </div>
-                </div>
-                
-                <div class="payment-section">
-                    <h3>Payment Method</h3>
-                    <div class="payment-options">
-                        <label class="payment-option">
-                            <input type="radio" name="payment" value="cash" v-model="paymentMethod">
-                            <span class="payment-label">💵 Cash</span>
-                        </label>
-                        <label class="payment-option">
-                            <input type="radio" name="payment" value="card" v-model="paymentMethod">
-                            <span class="payment-label">💳 Card</span>
-                        </label>
-                        <label class="payment-option">
-                            <input type="radio" name="payment" value="qrph" v-model="paymentMethod">
-                            <span class="payment-label">📱 QR PH</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <button 
-                    class="place-order-btn" 
-                    @click="placeOrder"
-                    :disabled="cartItems.length === 0"
-                >
-                    Place Order - ₱{{ totalWithTax.toFixed(2) }}
-                </button>
-            </div>
-        </div>  
+  <div class="checkout-page">
+    <!-- Loading Overlay -->
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="spinner-large"></div>
+      <p>{{ loadingMessage }}</p>
     </div>
 
+    <div class="cp-left">
+      <div class="cpl-header">
+        <button @click="goBack" class="nav-btn" :disabled="isProcessing">
+          <ChevronLeft :size="20"/> 
+        </button>
+        <h1>Checkout</h1>
+        <button class="trash-btn" @click="clearCart" :disabled="isProcessing">
+          <Trash2 :size="25"/> 
+        </button>
+      </div>
+      
+      <div class="cpl-contents">
+        <!-- Empty Cart State -->
+        <div v-if="cartItems.length === 0" class="empty-cart">
+          <div class="empty-icon">🛒</div>
+          <h3>Your cart is empty</h3>
+          <p>Add some items to get started!</p>
+          <button @click="goBack" class="continue-shopping-btn">
+            Continue Shopping
+          </button>
+        </div>
+        
+        <!-- Cart Items -->
+        <div v-else class="cart-items-container">
+          <div class="cart-item-card" v-for="item in cartItems" :key="item.id">
+            <div class="item-image">
+              <img :src="item.image" :alt="item.name" loading="lazy" />
+            </div>
+            
+            <div class="item-info">
+              <h3 class="item-name">{{ item.name }}</h3>
+              <p class="item-description">SKU: {{ item.sku }}</p>
+              <div class="item-price-unit">₱{{ formatPrice(item.price) }} each</div>
+            </div>
+            
+            <div class="item-controls">
+              <div class="quantity-controls">
+                <button 
+                  class="quantity-btn decrease" 
+                  @click="decreaseQuantity(item)"
+                  :disabled="item.quantity <= 1 || quantityUpdating"
+                >
+                  <Minus :size="16" />
+                </button>
+                <span class="quantity">{{ item.quantity }}</span>
+                <button 
+                  class="quantity-btn increase" 
+                  @click="increaseQuantity(item)"
+                  :disabled="quantityUpdating"
+                >
+                  <Plus :size="16" />
+                </button>
+              </div>
+              
+              <div class="item-total-price">
+                ₱{{ formatPrice(item.subtotal) }}
+              </div>
+              
+              <button 
+                class="remove-item" 
+                @click="removeItem(item)" 
+                title="Remove item"
+                :disabled="quantityUpdating"
+              >
+                <X :size="18" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="cp-right">
+      <div class="checkout-summary">
+        <h2>Order Summary</h2>
+        
+        <div class="summary-details">
+          <div class="summary-row">
+            <span>Items ({{ totalItems }})</span>
+            <span>₱{{ formatPrice(subtotal) }}</span>
+          </div>
+          <div class="summary-row">
+            <span>Tax (12%)</span>
+            <span>₱{{ formatPrice(taxAmount) }}</span>
+          </div>
+          <div v-if="discountAmount > 0" class="summary-row discount">
+            <span>Discount</span>
+            <span class="discount-amount">-₱{{ formatPrice(discountAmount) }}</span>
+          </div>
+          <div class="summary-divider"></div>
+          <div class="summary-row total">
+            <span>Total</span>
+            <span>₱{{ formatPrice(totalAmount) }}</span>
+          </div>
+        </div>
+        
+        <!-- Payment Method Selection -->
+        <div class="payment-section">
+          <h3>Payment Method</h3>
+          <div class="payment-options">
+            <label class="payment-option" :class="{ disabled: isProcessing }">
+              <input 
+                type="radio" 
+                name="payment" 
+                value="cash" 
+                v-model="paymentMethod"
+                :disabled="isProcessing"
+              >
+              <span class="payment-label">💵 Cash</span>
+            </label>
+            <label class="payment-option" :class="{ disabled: isProcessing }">
+              <input 
+                type="radio" 
+                name="payment" 
+                value="card" 
+                v-model="paymentMethod"
+                :disabled="isProcessing"
+              >
+              <span class="payment-label">💳 Card (PayMongo)</span>
+              <small class="coming-soon">Coming Soon</small>
+            </label>
+            <label class="payment-option" :class="{ disabled: isProcessing }">
+              <input 
+                type="radio" 
+                name="payment" 
+                value="qrph" 
+                v-model="paymentMethod"
+                :disabled="isProcessing"
+              >
+              <span class="payment-label">📱 QR PH (GCash/PayMaya)</span>
+              <small class="coming-soon">Coming Soon</small>
+            </label>
+          </div>
+        </div>
+        
+        <!-- Cash Payment Details -->
+        <div v-if="paymentMethod === 'cash'" class="cash-payment-section">
+          <div class="form-group">
+            <label>Cash Tendered</label>
+            <div class="input-with-currency">
+              <span class="currency-symbol">₱</span>
+              <input 
+                type="number" 
+                v-model.number="cashTendered" 
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                class="form-input"
+                :disabled="isProcessing"
+                @input="validateCashPayment"
+              />
+            </div>
+            <small v-if="cashValidationError" class="error-text">
+              {{ cashValidationError }}
+            </small>
+          </div>
+          
+          <div v-if="changeAmount >= 0 && cashTendered > 0" class="change-display">
+            <span>Change</span>
+            <span class="change-amount">₱{{ formatPrice(changeAmount) }}</span>
+          </div>
+        </div>
+        
+        <!-- Card Payment Placeholder -->
+        <div v-else-if="paymentMethod === 'card'" class="payment-placeholder">
+          <p class="placeholder-text">
+            💳 Card payment via PayMongo will be available soon!
+          </p>
+          <small>For now, please use cash payment.</small>
+        </div>
+        
+        <!-- QR PH Payment Placeholder -->
+        <div v-else-if="paymentMethod === 'qrph'" class="payment-placeholder">
+          <p class="placeholder-text">
+            📱 GCash/PayMaya payment via PayMongo will be available soon!
+          </p>
+          <small>For now, please use cash payment.</small>
+        </div>
+        
+        <!-- Place Order Button -->
+        <button 
+          class="place-order-btn" 
+          @click="placeOrder"
+          :disabled="!canPlaceOrder"
+        >
+          <span v-if="!isProcessing">
+            Place Order - ₱{{ formatPrice(totalAmount) }}
+          </span>
+          <span v-else>
+            Processing... <span class="btn-spinner"></span>
+          </span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Success Modal -->
+    <div v-if="showSuccessModal" class="modal-overlay" @click="closeSuccessModal">
+      <div class="modal-content success-modal" @click.stop>
+        <div class="modal-header success-header">
+          <div class="success-icon">✓</div>
+          <h3>Order Completed!</h3>
+          <button class="close-btn" @click="closeSuccessModal">
+            <X :size="20" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="success-details">
+            <div class="detail-row">
+              <span>Sale ID:</span>
+              <strong>{{ completedSale.saleId }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Date:</span>
+              <strong>{{ formatDateTime(completedSale.transactionDate) }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Total Amount:</span>
+              <strong class="total-highlight">₱{{ formatPrice(completedSale.totalAmount) }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Payment Method:</span>
+              <strong>{{ completedSale.paymentMethod.toUpperCase() }}</strong>
+            </div>
+            <div v-if="completedSale.shiftId" class="detail-row">
+              <span>Shift ID:</span>
+              <strong>{{ completedSale.shiftId }}</strong>
+            </div>
+            <div v-if="completedSale.change > 0" class="detail-row change-row">
+              <span>Change:</span>
+              <strong>₱{{ formatPrice(completedSale.change) }}</strong>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="printReceipt">
+            <Printer :size="18" /> Print Receipt
+          </button>
+          <button class="btn-primary" @click="startNewOrder">
+            New Order
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
+import cartAPI from '@/services/apiCart.js';
+import salesAPI from '@/services/apiSales.js';
+import paymentService from '@/services/apiPayment.js';
 
 export default {
-    name: 'Checkout',
-    components: {
+  name: 'Checkout',
+  
+  data() {
+    return {
+      // Cart data
+      cartId: null,
+      cartItems: [],
+      subtotal: 0,
+      taxAmount: 0,
+      discountAmount: 0,
+      totalAmount: 0,
+      shiftId: null,
+      
+      // Loading states
+      isLoading: false,
+      loadingMessage: 'Loading...',
+      isProcessing: false,
+      quantityUpdating: false,
+      
+      // Payment
+      paymentMethod: 'cash',
+      cashTendered: 0,
+      cashValidationError: null,
+      
+      // Success modal
+      showSuccessModal: false,
+      completedSale: {
+        saleId: null,
+        transactionDate: null,
+        totalAmount: 0,
+        paymentMethod: '',
+        change: 0,
+        shiftId: null
+      }
+    }
+  },
+  
+  computed: {
+    totalItems() {
+      return this.cartItems.reduce((total, item) => total + item.quantity, 0);
+    },
     
+    changeAmount() {
+      if (this.paymentMethod !== 'cash') return 0;
+      return Math.max(0, this.cashTendered - this.totalAmount);
     },
-    data() {
-        return {
-            // Static example cart items for testing
-            cartItems: [
-                {
-                    id: 1,
-                    name: 'Chicken Ramen',
-                    description: 'Rich chicken broth with fresh noodles and vegetables',
-                    price: 150,
-                    quantity: 2,
-                    image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300&h=200&fit=crop&crop=center'
-                },
-                {
-                    id: 2,
-                    name: 'Pork Gyoza',
-                    description: 'Pan-fried dumplings with savory pork filling',
-                    price: 120,
-                    quantity: 1,
-                    image: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=300&h=200&fit=crop&crop=center'
-                },
-                {
-                    id: 3,
-                    name: 'Miso Ramen',
-                    description: 'Traditional miso-based ramen with soft-boiled egg',
-                    price: 160,
-                    quantity: 1,
-                    image: 'https://images.unsplash.com/photo-1557872943-16a5ac26437e?w=300&h=200&fit=crop&crop=center'
-                },
-                {
-                    id: 4,
-                    name: 'Green Tea',
-                    description: 'Hot Japanese green tea',
-                    price: 45,
-                    quantity: 3,
-                    image: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=300&h=200&fit=crop&crop=center'
-                },
-                {
-                    id: 5,
-                    name: 'Takoyaki',
-                    description: 'Octopus balls with takoyaki sauce and mayo',
-                    price: 80,
-                    quantity: 2,
-                    image: 'https://images.unsplash.com/photo-1606491956689-2ea866880c84?w=300&h=200&fit=crop&crop=center'
-                }
-            ],
-            paymentMethod: 'cash',
-            
+    
+    canPlaceOrder() {
+      if (this.cartItems.length === 0) return false;
+      if (this.isProcessing) return false;
+      
+      // Validate based on payment method
+      if (this.paymentMethod === 'cash') {
+        return this.cashTendered >= this.totalAmount;
+      }
+      
+      // Card and QR PH are not yet implemented
+      if (this.paymentMethod === 'card' || this.paymentMethod === 'qrph') {
+        return false; // Disable until implemented
+      }
+      
+      return true;
+    }
+  },
+  
+  async mounted() {
+    await this.initializeCheckout();
+  },
+  
+  methods: {
+    // ================================================================
+    // INITIALIZATION
+    // ================================================================
+    
+    async initializeCheckout() {
+      try {
+        this.isLoading = true;
+        this.loadingMessage = 'Loading cart...';
+        
+        // ✅ Get cartId from route params (URL)
+        this.cartId = this.$route.params.cartId;
+        
+        console.log('🛒 Initializing checkout with cart:', this.cartId);
+        
+        if (!this.cartId) {
+          throw new Error('No cart ID provided');
         }
+        
+        // Fetch fresh cart data (validates stock)
+        const cart = await cartAPI.getCart(this.cartId);
+        
+        console.log('✅ Cart loaded:', cart);
+        
+        // Update component data
+        this.updateCartData(cart);
+        
+        // Get shift ID from localStorage
+        this.shiftId = localStorage.getItem('activeShiftId');
+        
+        console.log('⏰ Shift ID:', this.shiftId);
+        
+      } catch (error) {
+        console.error('❌ Checkout initialization failed:', error);
+        
+        // Handle specific errors
+        if (error.message.includes('not found')) {
+          alert('Cart session expired. Returning to order page...');
+          this.$router.replace('/new-order');
+        } else if (error.message.includes('stock')) {
+          alert('Some items are no longer available. Please review your cart.');
+          this.$router.replace('/new-order');
+        } else {
+          alert(`Failed to load checkout: ${error.message}`);
+          this.$router.replace('/new-order');
+        }
+        
+      } finally {
+        this.isLoading = false;
+      }
     },
-    computed: {
-        cartTotal() {
-            return this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
-        },
-        totalItems() {
-            return this.cartItems.reduce((total, item) => total + item.quantity, 0)
-        },
-        tax() {
-            return (this.cartTotal ) * 0.12
-        },
-        totalWithTax() {
-            return this.cartTotal + this.tax
-        }
+    
+    updateCartData(cart) {
+      this.cartItems = cart.items || [];
+      this.subtotal = cart.subtotal || 0;
+      this.taxAmount = cart.taxAmount || 0;
+      this.discountAmount = cart.discountAmount || 0;
+      this.totalAmount = cart.total || 0;
+      
+      console.log('📊 Cart updated:', {
+        items: this.cartItems.length,
+        subtotal: this.subtotal,
+        tax: this.taxAmount,
+        total: this.totalAmount
+      });
     },
-    created() {
-        // You can still load from route params if available, but fall back to static data
-        if (this.$route.params.cartItems && this.$route.params.cartItems.length > 0) {
-            this.cartItems = this.$route.params.cartItems;
-        }
-        // If no route params, the static data above will be used
+    
+    // ================================================================
+    // CART MANAGEMENT
+    // ================================================================
+    
+    async increaseQuantity(item) {
+      if (this.quantityUpdating) return;
+      
+      try {
+        this.quantityUpdating = true;
+        console.log('➕ Increasing quantity:', item.name);
+        
+        const newQuantity = item.quantity + 1;
+        const updatedCart = await cartAPI.updateItemQuantity(
+          this.cartId,
+          item.productId,
+          newQuantity
+        );
+        
+        this.updateCartData(updatedCart);
+        
+      } catch (error) {
+        console.error('❌ Increase quantity failed:', error);
+        alert(`Failed to update quantity: ${error.message}`);
+      } finally {
+        this.quantityUpdating = false;
+      }
     },
-    methods: {
-        goBack() {
-            // For testing, you can just show an alert or do nothing
-            this.$router.go(-1)
-        },
-        clearCart() {
-            if (confirm('Are you sure you want to clear your cart?')) {
-                this.cartItems = []
-            }
-        },
-        increaseQuantity(item) {
-            item.quantity++
-        },
-        decreaseQuantity(item) {
-            if (item.quantity > 1) {
-                item.quantity--
-            }
-        },
-        removeItem(item) {
-            if (confirm(`Remove ${item.name} from cart?`)) {
-                const index = this.cartItems.findIndex(cartItem => cartItem.id === item.id)
-                if (index > -1) {
-                    this.cartItems.splice(index, 1)
-                }
-            }
-        },
-        placeOrder() {
-            if (this.cartItems.length === 0) {
-                alert('Your cart is empty!')
-                return
-            }
-            
-            const orderData = {
-                items: this.cartItems,
-                subtotal: this.cartTotal,
-                deliveryFee: this.deliveryFee,
-                tax: this.tax,
-                total: this.totalWithTax,
-                paymentMethod: this.paymentMethod,
-                orderDate: new Date().toISOString()
-            }
-            
-            console.log('Order placed:', orderData)
-            alert(`Order placed successfully!\nTotal: ₱${this.totalWithTax.toFixed(2)}\nPayment: ${this.paymentMethod.toUpperCase()}\nItems: ${this.totalItems}`)
-            
-            // For testing, just clear the cart
-            this.cartItems = []
+    
+    async decreaseQuantity(item) {
+      if (this.quantityUpdating) return;
+      
+      if (item.quantity <= 1) {
+        await this.removeItem(item);
+        return;
+      }
+      
+      try {
+        this.quantityUpdating = true;
+        console.log('➖ Decreasing quantity:', item.name);
+        
+        const newQuantity = item.quantity - 1;
+        const updatedCart = await cartAPI.updateItemQuantity(
+          this.cartId,
+          item.productId,
+          newQuantity
+        );
+        
+        this.updateCartData(updatedCart);
+        
+      } catch (error) {
+        console.error('❌ Decrease quantity failed:', error);
+        alert(`Failed to update quantity: ${error.message}`);
+      } finally {
+        this.quantityUpdating = false;
+      }
+    },
+    
+    async removeItem(item) {
+      if (this.quantityUpdating) return;
+      
+      if (!confirm(`Remove ${item.name} from cart?`)) return;
+      
+      try {
+        this.quantityUpdating = true;
+        console.log('🗑️ Removing item:', item.name);
+        
+        const updatedCart = await cartAPI.removeItem(this.cartId, item.productId);
+        this.updateCartData(updatedCart);
+        
+        // If cart is empty, redirect back
+        if (this.cartItems.length === 0) {
+          alert('Cart is now empty. Returning to order page...');
+          this.$router.replace('/new-order');
         }
-    }   
+        
+      } catch (error) {
+        console.error('❌ Remove item failed:', error);
+        alert(`Failed to remove item: ${error.message}`);
+      } finally {
+        this.quantityUpdating = false;
+      }
+    },
+    
+    async clearCart() {
+      if (!confirm('Are you sure you want to clear your entire cart?')) return;
+      
+      try {
+        this.isLoading = true;
+        this.loadingMessage = 'Clearing cart...';
+        
+        await cartAPI.clearCart(this.cartId);
+        
+        alert('Cart cleared. Returning to order page...');
+        this.$router.replace('/new-order');
+        
+      } catch (error) {
+        console.error('❌ Clear cart failed:', error);
+        alert(`Failed to clear cart: ${error.message}`);
+      } finally {
+        this.isLoading = false;
+      }
+    },
+    
+    // ================================================================
+    // PAYMENT
+    // ================================================================
+    
+    validateCashPayment() {
+      this.cashValidationError = null;
+      
+      if (this.cashTendered <= 0) {
+        this.cashValidationError = 'Please enter cash tendered amount';
+        return false;
+      }
+      
+      if (this.cashTendered < this.totalAmount) {
+        const shortage = this.totalAmount - this.cashTendered;
+        this.cashValidationError = `Insufficient. Need ₱${this.formatPrice(shortage)} more`;
+        return false;
+      }
+      
+      return true;
+    },
+    
+    async placeOrder() {
+      if (!this.canPlaceOrder) {
+        alert('Please complete payment details before placing order.');
+        return;
+      }
+      
+      // Final validation
+      if (this.paymentMethod === 'cash' && !this.validateCashPayment()) {
+        return;
+      }
+      
+      // Confirm order
+      const confirmMessage = this.paymentMethod === 'cash' 
+        ? `Confirm order:\nTotal: ₱${this.formatPrice(this.totalAmount)}\nCash: ₱${this.formatPrice(this.cashTendered)}\nChange: ₱${this.formatPrice(this.changeAmount)}`
+        : `Confirm order:\nTotal: ₱${this.formatPrice(this.totalAmount)}\nPayment: ${this.paymentMethod.toUpperCase()}`;
+      
+      if (!confirm(confirmMessage)) return;
+      
+      try {
+        this.isProcessing = true;
+        this.isLoading = true;
+        this.loadingMessage = 'Processing order...';
+        
+        console.log('💳 Processing order...');
+        
+        // Step 1: Prepare checkout (get sale data)
+        console.log('📋 Preparing checkout...');
+        const saleData = await cartAPI.prepareCheckout(this.cartId);
+        
+        console.log('✅ Sale data prepared:', saleData);
+        
+        // Step 2: Process payment
+        let paymentDetails = {};
+        
+        if (this.paymentMethod === 'cash') {
+          paymentDetails = paymentService.processCashPayment(
+            this.totalAmount,
+            this.cashTendered
+          );
+        } else if (this.paymentMethod === 'card') {
+          // TODO: Implement PayMongo card payment
+          paymentDetails = await paymentService.processCardPayment(this.totalAmount);
+        } else if (this.paymentMethod === 'qrph') {
+          // TODO: Implement PayMongo QR PH payment
+          paymentDetails = await paymentService.processQRPHPayment(this.totalAmount);
+        }
+        
+        console.log('💰 Payment processed:', paymentDetails);
+        
+        // Step 3: Create sale
+        console.log('📝 Creating sale...');
+        const sale = await salesAPI.createSale(
+          saleData,
+          this.paymentMethod,
+          paymentDetails
+        );
+        
+        console.log('✅ Sale created:', sale);
+        
+        // Step 4: Delete cart
+        console.log('🗑️ Deleting cart...');
+        await cartAPI.deleteCart(this.cartId);
+        localStorage.removeItem('currentCartId');
+        
+        console.log('✅ Cart deleted');
+        
+        // Step 5: Show success modal
+        this.completedSale = {
+          saleId: sale._id || sale.sale_id,
+          transactionDate: sale.transaction_date || new Date().toISOString(),
+          totalAmount: sale.total_amount,
+          paymentMethod: this.paymentMethod,
+          change: paymentDetails.change || 0,
+          shiftId: sale.shift_id || this.shiftId
+        };
+        
+        this.showSuccessModal = true;
+        
+        console.log('🎉 Order completed successfully!');
+        
+      } catch (error) {
+        console.error('❌ Place order failed:', error);
+        
+        let errorMessage = error.message || 'Unknown error occurred';
+        
+        if (errorMessage.includes('stock')) {
+          errorMessage = 'Some items are out of stock. Please review your cart.';
+        } else if (errorMessage.includes('payment')) {
+          errorMessage = `Payment failed: ${errorMessage}`;
+        }
+        
+        alert(`Order failed: ${errorMessage}\n\nPlease try again.`);
+        
+      } finally {
+        this.isProcessing = false;
+        this.isLoading = false;
+      }
+    },
+    
+    // ================================================================
+    // SUCCESS MODAL & RECEIPT
+    // ================================================================
+    
+    async printReceipt() {
+        try {
+            console.log('🖨️ Printing receipt for sale:', this.completedSale.saleId);
+            
+            // Open backend receipt endpoint in new window
+            const baseUrl = 'http://localhost:8000'; // or your API base URL
+            const receiptUrl = `${baseUrl}/api/v1/pos/sales/${this.completedSale.saleId}/receipt/`;
+            
+            const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600');
+            
+            if (printWindow) {
+            // Wait for content to load, then print
+            printWindow.onload = () => {
+                setTimeout(() => {
+                printWindow.print();
+                }, 500);
+            };
+            } else {
+            alert('Please allow popups to print receipts.');
+            }
+            
+        } catch (error) {
+            console.error('❌ Print receipt failed:', error);
+            alert(`Failed to print receipt: ${error.message}`);
+        }
+        },
+    
+    closeSuccessModal() {
+      this.showSuccessModal = false;
+      this.startNewOrder();
+    },
+    
+    startNewOrder() {
+      console.log('🔄 Starting new order...');
+      this.$router.replace('/new-order');
+    },
+    
+    // ================================================================
+    // NAVIGATION
+    // ================================================================
+    
+    goBack() {
+      if (confirm('Return to order page? Your cart will be saved.')) {
+        this.$router.push('/new-order');
+      }
+    },
+    
+    // ================================================================
+    // UTILITIES
+    // ================================================================
+    
+    formatPrice(price) {
+      return parseFloat(price || 0).toFixed(2);
+    },
+    
+    formatDateTime(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  }
 }
 </script>
-
 
 <style scoped>
 .checkout-page {
@@ -963,5 +1412,293 @@ export default {
     }
 }
 
-/* REMOVED: Dark mode support that was overriding white backgrounds */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.spinner-large {
+  width: 60px;
+  height: 60px;
+  border: 4px solid #e9ecef;
+  border-top-color: #6f42c1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+.loading-overlay p {
+  font-size: 18px;
+  color: #495057;
+  font-weight: 500;
+}
+
+/* Cash Payment Section */
+.cash-payment-section {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+.input-with-currency {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.currency-symbol {
+  position: absolute;
+  left: 15px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #495057;
+  pointer-events: none;
+}
+
+.input-with-currency .form-input {
+  padding-left: 40px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.change-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  margin-top: 15px;
+  border: 2px solid #4ea87a;
+}
+
+.change-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #4ea87a;
+}
+
+/* Payment Placeholder */
+.payment-placeholder {
+  margin-top: 20px;
+  padding: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.placeholder-text {
+  font-size: 16px;
+  color: #856404;
+  margin-bottom: 10px;
+}
+
+.payment-placeholder small {
+  color: #856404;
+  font-size: 14px;
+}
+
+.coming-soon {
+  display: block;
+  font-size: 11px;
+  color: #6c757d;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.payment-option.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Button Spinner */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-left: 8px;
+}
+
+/* Success Modal */
+.success-modal {
+  max-width: 500px;
+}
+
+.success-header {
+  background: linear-gradient(135deg, #4ea87a 0%, #5eb488 100%);
+  color: white;
+  padding: 30px;
+  text-align: center;
+  border-radius: 16px 16px 0 0;
+  position: relative;
+}
+
+.success-icon {
+  width: 80px;
+  height: 80px;
+  background: white;
+  color: #4ea87a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: bold;
+  margin: 0 auto 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.success-header h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.success-header .close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.success-header .close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.success-details {
+  padding: 30px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 16px;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row span {
+  color: #6c757d;
+}
+
+.detail-row strong {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.total-highlight {
+  font-size: 20px;
+  color: #4ea87a !important;
+}
+
+.change-row {
+  background: #f8f9fa;
+  padding: 12px 15px;
+  margin: 10px -30px 0;
+  border-bottom: none;
+}
+
+.change-row strong {
+  color: #4ea87a !important;
+  font-size: 18px;
+}
+
+.success-modal .modal-footer {
+  padding: 20px 30px;
+  gap: 15px;
+}
+
+.success-modal .btn-secondary,
+.success-modal .btn-primary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  font-size: 16px;
+}
+
+/* Animations */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error text */
+.error-text {
+  color: #dc3545;
+  font-size: 13px;
+  display: block;
+  margin-top: 6px;
+}
+
+/* Discount styling */
+.summary-row.discount {
+  color: #4ea87a;
+}
+
+.discount-amount {
+  font-weight: 600;
+}
+
+/* Form Input */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #6f42c1;
+  box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.1);
+}
+
+.form-input:disabled {
+  background: #e9ecef;
+  cursor: not-allowed;
+}
 </style>

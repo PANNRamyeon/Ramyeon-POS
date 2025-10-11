@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 from bson import ObjectId
-from ..database import db_manager  # ✅ Updated import
+from ...database import db_manager  # ✅ Updated import
 
+##THIS IS FOR LEGACY USE AND FOR TESTING
 class SessionManagementService:
     def __init__(self):
         self.db = db_manager.get_database()  # ✅ Get database connection
