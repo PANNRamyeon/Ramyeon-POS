@@ -105,7 +105,7 @@
           <div 
             v-if="viewMode === 'products' && isCustomCategory && customCategoryItems.length < 8"
             class="product-card add-item-card"
-            @click="showProductSelectorModal = true">
+            @click="openProductSelectorModal()">
             <div class="add-item-content">
               <ShoppingBag :size="32" />
               <p>Add Products</p>
@@ -199,7 +199,7 @@
               :key="category.id"
               :class="['tab-btn', { active: selectedSourceCategory === category.id }]"
               @click="selectedSourceCategory = category.id">
-              {{ category.name }} ({{ getProductCountForCategory(category.id) }})
+              {{ category.name }} ({{ productCountsByCategory[category.id] || 0 }})
             </button>
           </div>
           
@@ -282,11 +282,10 @@
           <p>Add items to get started!</p>
         </div>
         
-        <!-- ✅ FIXED: Use productName instead of name -->
         <div v-for="item in cartItems" :key="item.productId" class="cart-item">
           <img :src="item.image" :alt="item.productName" class="cart-item-image" />
           <div class="cart-item-info">
-            <h4>{{ item.productName }}</h4>  <!-- ✅ Changed from item.name -->
+            <h4>{{ item.productName }}</h4>
             <p class="item-price">₱{{ formatPrice(item.price) }}</p>
           </div>
           <div class="cart-item-controls">
@@ -433,31 +432,20 @@ export default {
     await this.loadCategories()
   },
 
-  watch: {
-    selectedSourceCategory(newCategoryId) {
-      if (newCategoryId) {
-        this.loadProductsForSelection()
-      }
-    }
-  },
-
   computed: {
     // Combine backend and custom categories
     categories() {
       return [...this.backendCategories, ...this.customCategories]
     },
 
-    // ✅ Cart items from store
     cartItems() {
       return this.cartStore.items
     },
     
-    // ✅ Cart total from store
     cartTotal() {
       return this.cartStore.total
     },
     
-    // ✅ Total items from store
     totalItems() {
       return this.cartStore.itemCount
     },
@@ -547,19 +535,27 @@ export default {
 
     wouldExceedLimit() {
       return this.customCategoryItems.length + this.selectedProducts.length > 8
-    }
+    },
+
+    // ✅ FIX: Product counts by category (REACTIVE COMPUTED PROPERTY)
+    productCountsByCategory() {
+      const counts = {}
+      
+      this.availableSourceCategories.forEach(category => {
+        counts[category.id] = this.allProducts.filter(
+          product => product.category === category.id
+        ).length
+      })
+      
+      return counts
+    },
   },
 
   methods: {
-    // ================================================================
-    // INITIALIZATION (SIMPLIFIED - NO BACKEND CART)
-    // ================================================================
-    
     async initializeSession() {
       try {
         console.log('🔄 Initializing session...')
         
-        // Get user data
         const userData = JSON.parse(localStorage.getItem('userData') || '{}')
         const cashierId = userData.user_id || userData.id || userData._id
         
@@ -569,11 +565,9 @@ export default {
           throw new Error('No cashier ID found. Please log in again.')
         }
         
-        // Get active shift
         const shiftId = localStorage.getItem('activeShiftId') || null
         console.log('⏰ Shift ID:', shiftId)
         
-        // ✅ Initialize frontend cart (INSTANT - no API call)
         this.cartStore.initializeSession(cashierId, shiftId)
         
         console.log('✅ Session initialized (frontend cart)')
@@ -585,10 +579,48 @@ export default {
       }
     },
 
-    // ================================================================
-    // CATEGORIES
-    // ================================================================
-    
+    // ✅ FIX: Load ALL products when modal opens
+    async openProductSelectorModal() {
+      this.showProductSelectorModal = true
+      
+      // Load ALL products from ALL available categories
+      await this.loadAllProductsForSelection()
+      
+      // Then select the first category
+      if (this.availableSourceCategories.length > 0) {
+        this.selectedSourceCategory = this.availableSourceCategories[0].id
+      }
+    },
+
+    // ✅ FIX: New method to load all products at once
+    async loadAllProductsForSelection() {
+      try {
+        this.productsLoading = true
+        
+        console.log('📦 Loading products from all categories...')
+        
+        // Fetch products from ALL available source categories in parallel
+        const productPromises = this.availableSourceCategories.map(category => 
+          productsAPI.getProductsByCategory(category.id)
+        )
+        
+        // Wait for all requests to complete
+        const allCategoryProducts = await Promise.all(productPromises)
+        
+        // Flatten all products into a single array
+        this.allProducts = allCategoryProducts.flat()
+        
+        console.log('✅ Loaded all products:', this.allProducts.length)
+        console.log('📊 Products by category:', this.productCountsByCategory)
+        
+      } catch (error) {
+        console.error('Failed to load all products:', error)
+        this.error = error.message
+      } finally {
+        this.productsLoading = false
+      }
+    },
+
     async loadCategories() {
       try {
         this.loading = true
@@ -653,29 +685,10 @@ export default {
       }
     },
 
-    async loadProductsForSelection() {
-      if (!this.selectedSourceCategory) return
-      
-      try {
-        this.productsLoading = true
-        const products = await productsAPI.getProductsByCategory(this.selectedSourceCategory)
-        this.allProducts = products
-      } catch (error) {
-        console.error('Failed to load products for selection:', error)
-        this.error = error.message
-      } finally {
-        this.productsLoading = false
-      }
-    },
-
     generateSubcategoryImage(subcategoryName) {
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(subcategoryName)}&size=200&background=A07BE3&color=fff`
     },
 
-    // ================================================================
-    // CUSTOM CATEGORIES
-    // ================================================================
-    
     createCategory() {
       if (!this.newCategory.name.trim()) return
       
@@ -724,6 +737,7 @@ export default {
       this.selectedProducts = []
       this.productSearchQuery = ''
       this.selectedSourceCategory = null
+      this.allProducts = []
     },
 
     toggleProductSelection(product) {
@@ -746,10 +760,6 @@ export default {
         )
       }
       return false
-    },
-
-    getProductCountForCategory(categoryId) {
-      return this.allProducts.filter(product => product.category === categoryId).length
     },
 
     addSelectedProductsToCategory() {
@@ -786,10 +796,6 @@ export default {
       }
     },
 
-    // ================================================================
-    // NAVIGATION
-    // ================================================================
-    
     handleProductClick(product) {
       if (product.isSubcategory) {
         this.selectSubcategory(product.subcategoryData)
@@ -839,29 +845,20 @@ export default {
       }
     },
 
-    // ================================================================
-    // CART MANAGEMENT (FRONTEND ONLY - INSTANT!)
-    // ================================================================
-    
     addToCart(product) {
       try {
         console.log('🛒 Adding to cart (frontend):', product.name)
         
-        // ✅ Validate product has required fields
         if (!product.id || !product.name || !product.price) {
           throw new Error('Invalid product data')
         }
         
-        // ✅ Check stock (client-side validation)
         if (product.stock <= 0) {
           alert(`${product.name} is out of stock!`)
           return
         }
         
-        // ✅ INSTANT UPDATE - No API call!
         this.cartStore.addItem(product)
-        
-        // Show cart sidebar
         this.showCart = true
         
         console.log('✅ Item added instantly')
@@ -894,8 +891,6 @@ export default {
       }
       
       console.log('🛒 Proceeding to checkout...')
-      
-      // ✅ Just navigate - checkout page will handle validation
       this.$router.push('/checkout')
     },
 
@@ -907,10 +902,6 @@ export default {
       this.showCart = true
     },
 
-    // ================================================================
-    // UTILITIES
-    // ================================================================
-    
     formatPrice(price) {
       return parseFloat(price || 0).toFixed(2)
     }
@@ -920,7 +911,4 @@ export default {
 
 <style scoped>
 @import '@/assets/styles/NewOrder.css'
-
-
-
 </style>

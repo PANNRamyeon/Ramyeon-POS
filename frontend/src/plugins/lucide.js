@@ -40,7 +40,9 @@ import {
   Filter, 
   Settings, 
   ChevronLeft, 
-  Archive
+  Archive,
+  ToggleLeft,
+  ToggleRight 
 } from 'lucide-vue-next'
 
 export default {
