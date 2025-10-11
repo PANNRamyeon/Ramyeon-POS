@@ -274,7 +274,7 @@
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <div class="modal-body surface-primary">
+          <div class="modal-body">
             <div v-if="selectedOrder">
               <!-- Order Information -->
               <div class="order-info-grid">
@@ -466,11 +466,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
-import { tablePagination } from '@/helpers/pagination.js'
-import historyAPIService from '@/services/apiHistory.js'
-import TableTemplate from '@/components/common/TableTemplate.vue'
-import PaginationControls from '@/components/common/PaginationControls.vue'
+import historyAPIService from '@/services/apiHistory.js';
 
 export default {
   name: 'History',
@@ -559,9 +555,9 @@ export default {
         console.error('Error loading history:', error)
         this.error = error.message || 'Failed to load transaction history'
       } finally {
-        loading.value = false
+        this.loading = false
       }
-    }
+    },
 
     async goToPage(page) {
       if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
@@ -604,10 +600,10 @@ export default {
         'Voided': 'status-cancelled',
         'Refunded': 'status-refunded'
       }
-      return classes[status] || 'badge-inactive'
-    }
+      return classes[status] || 'status-default'
+    },
 
-    const formatDate = (dateString) => {
+    formatDate(dateString) {
       const date = new Date(dateString)
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
@@ -616,7 +612,7 @@ export default {
         hour: '2-digit',
         minute: '2-digit'
       })
-    }
+    },
 
     formatCurrency(value) {
       return parseFloat(value).toFixed(2)
@@ -719,18 +715,13 @@ export default {
 <style scoped>
 .history-container {
   padding: 1.5rem;
+  background-color: #f8f9fa;
   min-height: 100vh;
 }
 
 .history-contents {
+  background: white;
   border-radius: 0.75rem;
-  overflow: hidden;
-  padding: 0 2rem 2rem 2rem; /* Add padding: top right bottom left */
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   padding: 2rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
@@ -1020,7 +1011,6 @@ export default {
   min-width: 36px;
   height: 36px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   border: 1px solid #d1d5db;
@@ -1131,6 +1121,7 @@ export default {
 
 .item-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   padding: 0.875rem;
   background: white;
