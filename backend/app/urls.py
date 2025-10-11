@@ -89,6 +89,7 @@ from .kpi_views.Backoffice.product_views import (
     ProductExportView,
     BulkCreateProductsView,
     ImportTemplateView,
+    ProductBatchView
 )
 
 from .kpi_views.Backoffice.category_views import (
@@ -272,6 +273,7 @@ urlpatterns = [
     # ========== PRODUCT MANAGEMENT ==========
     # Product CRUD (static paths first)
     path('products/', ProductListView.as_view(), name='product-list'),  # GET (list), POST (create)
+    path('products/batch/', ProductBatchView.as_view(), name='product-batch'),
     path('products/sku/<str:sku>/', ProductBySkuView.as_view(), name='product-by-sku'),  # GET by SKU
     path('products/deleted/', DeletedProductsView.as_view(), name='deleted-products'),  # GET deleted products
     

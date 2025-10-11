@@ -27,73 +27,59 @@ class SalesAPIService {
   // SALE CREATION
   // ================================================================
   
-  /**
+    /**
    * Create a new POS sale
-   * @param {Object} saleData - Complete sale data from prepareCheckout
-   * @param {string} paymentMethod - 'cash', 'card', or 'qrph'
-   * @param {Object} paymentDetails - Additional payment info (cash tendered, etc.)
+   * @param {Object} saleData - Complete sale data including payment details
    * @returns {Object} Created sale with sale_id
    */
-    async createSale(saleData, paymentMethod, paymentDetails = {}) {
+  async createSale(saleData) {
     try {
-      console.log('💳 API: Creating sale...', { paymentMethod, saleData });
+      console.log('💳 API: Creating sale...', saleData)
       
-      // ✅ Get cashier_id and shift_id from localStorage
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      const cashierId = userData.user_id || userData.id || userData._id;
-      const shiftId = localStorage.getItem('activeShiftId');
-      
-      console.log('👤 Cashier ID:', cashierId);
-      console.log('⏰ Shift ID:', shiftId);
-      
-      // Validate we have cashier_id
-      if (!cashierId) {
-        throw new Error('Cashier ID not found. Please log in again.');
+      // ✅ Validate required fields
+      if (!saleData.payment_method) {
+        throw new Error('Payment method is required')
       }
       
-      // ✅ Prepare payload with cashier_id and shift_id
-      const payload = {
-        items: saleData.items,
-        subtotal: saleData.subtotal,
-        tax_amount: saleData.tax_amount,
-        discount_amount: saleData.discount_amount || 0,
-        total_amount: saleData.total_amount,
-        payment_method: paymentMethod,
-        payment_details: paymentDetails,
-        customer_id: saleData.customer_id || null,
-        promotion_applied: saleData.promotion_applied || null,
-        cashier_id: cashierId,  // ✅ Add cashier_id
-        shift_id: shiftId || null  // ✅ Add shift_id (from localStorage)
-      };
+      if (!saleData.cashier_id) {
+        throw new Error('Cashier ID is required')
+      }
       
-      console.log('📤 Sending payload:', payload);
+      console.log('👤 Cashier ID:', saleData.cashier_id)
+      console.log('⏰ Shift ID:', saleData.shift_id)
+      console.log('💳 Payment method:', saleData.payment_method)
       
-      const response = await api.post('/pos/sales/create/', payload);
+      // ✅ Send saleData as-is (it already has everything)
+      const payload = saleData
       
-      console.log('✅ Sale created:', response.data);
+      console.log('📤 Sending payload:', payload)
+      
+      const response = await api.post('/pos/sales/create/', payload)
+      
+      console.log('✅ Sale created:', response.data)
       
       // Extract sale data
       if (response.data.success && response.data.data) {
-        return response.data.data;
+        return response.data.data
       }
       
       // Fallback if response format is different
-      return response.data;
+      return response.data
       
     } catch (error) {
-      console.error('❌ Create sale failed:', error);
+      console.error('❌ Create sale failed:', error)
       
-      let errorMessage = 'Failed to create sale';
+      let errorMessage = 'Failed to create sale'
       
       if (error.response?.data) {
         errorMessage = error.response.data.error || 
                       error.response.data.message || 
-                      errorMessage;
+                      errorMessage
       } else {
-        errorMessage = error.message;
+        errorMessage = error.message
       }
       
-      throw new Error(errorMessage);
+      throw new Error(errorMessage)
     }
   }
   

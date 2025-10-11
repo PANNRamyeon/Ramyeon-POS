@@ -82,25 +82,28 @@
       <div class="checkout-summary">
         <h2>Order Summary</h2>
         
-        <div class="summary-details">
-          <div class="summary-row">
-            <span>Items ({{ totalItems }})</span>
-            <span>₱{{ formatPrice(subtotal) }}</span>
-          </div>
-          <div class="summary-row">
-            <span>Tax (12%)</span>
-            <span>₱{{ formatPrice(taxAmount) }}</span>
-          </div>
-          <div v-if="discountAmount > 0" class="summary-row discount">
-            <span>Discount</span>
-            <span class="discount-amount">-₱{{ formatPrice(discountAmount) }}</span>
-          </div>
-          <div class="summary-divider"></div>
-          <div class="summary-row total">
-            <span>Total</span>
-            <span>₱{{ formatPrice(totalAmount) }}</span>
-          </div>
+        <div class="summary-row">
+          <span>Subtotal:</span>
+          <span>₱{{ formatPrice(subtotal) }}</span>
         </div>
+        
+        <div v-if="appliedPromotion" class="summary-row text-success">
+          <span>
+            <i class="lucide-tag"></i> {{ appliedPromotion.name }}
+          </span>
+          <span>-₱{{ formatPrice(discountAmount) }}</span>
+        </div>
+        
+        <div class="summary-row">
+          <span>Tax (12%):</span>
+          <span>₱{{ formatPrice(taxAmount) }}</span>
+        </div>
+        
+        <div class="summary-row total">
+          <strong>TOTAL:</strong>
+          <strong>₱{{ formatPrice(totalAmount) }}</strong>
+        </div>
+       
         
         <!-- Payment Method Selection -->
         <div class="payment-section">
@@ -253,30 +256,28 @@
 </template>
 
 <script>
-import cartAPI from '@/services/apiCart.js';
-import salesAPI from '@/services/apiSales.js';
-import paymentService from '@/services/apiPayment.js';
+import { useCartStore } from '@/stores/cartStores'
+import apiSales from '@/services/apiSales'
+import apiProducts from '@/services/apiProducts'
 
 export default {
   name: 'Checkout',
   
+  setup() {
+    const cartStore = useCartStore()
+    return { cartStore }
+  },
+  
   data() {
     return {
-      // Cart data
-      cartId: null,
-      cartItems: [],
-      subtotal: 0,
-      taxAmount: 0,
-      discountAmount: 0,
-      totalAmount: 0,
-      shiftId: null,
-      
       // Loading states
       isLoading: false,
       loadingMessage: 'Loading...',
       isProcessing: false,
-      quantityUpdating: false,
       
+      // Stock validation
+      validationErrors: [],
+      quantityUpdating: false,
       // Payment
       paymentMethod: 'cash',
       cashTendered: 0,
@@ -296,205 +297,174 @@ export default {
   },
   
   computed: {
+    // ✅ All cart data from store
+    cartItems() {
+      return this.cartStore.items
+    },
+    
+    subtotal() {
+      return this.cartStore.subtotal
+    },
+    
+    taxAmount() {
+      return this.cartStore.taxAmount
+    },
+    
+    discountAmount() {
+      return this.cartStore.discountAmount
+    },
+    
+    totalAmount() {
+      return this.cartStore.total
+    },
+    
     totalItems() {
-      return this.cartItems.reduce((total, item) => total + item.quantity, 0);
+      return this.cartStore.itemCount
     },
     
     changeAmount() {
-      if (this.paymentMethod !== 'cash') return 0;
-      return Math.max(0, this.cashTendered - this.totalAmount);
+      if (this.paymentMethod !== 'cash') return 0
+      return Math.max(0, this.cashTendered - this.totalAmount)
     },
     
     canPlaceOrder() {
-      if (this.cartItems.length === 0) return false;
-      if (this.isProcessing) return false;
+      if (this.cartItems.length === 0) return false
+      if (this.isProcessing) return false
+      if (this.validationErrors.length > 0) return false
       
       // Validate based on payment method
       if (this.paymentMethod === 'cash') {
-        return this.cashTendered >= this.totalAmount;
+        return this.cashTendered >= this.totalAmount
       }
       
-      // Card and QR PH are not yet implemented
+      // Card and QR PH not implemented yet
       if (this.paymentMethod === 'card' || this.paymentMethod === 'qrph') {
-        return false; // Disable until implemented
+        return false
       }
       
-      return true;
+      return true
     }
   },
   
   async mounted() {
-    await this.initializeCheckout();
+    await this.validateStock()
   },
   
   methods: {
     // ================================================================
-    // INITIALIZATION
+    // STOCK VALIDATION
     // ================================================================
     
-    async initializeCheckout() {
+    async validateStock() {
       try {
-        this.isLoading = true;
-        this.loadingMessage = 'Loading cart...';
+        this.isLoading = true
+        this.loadingMessage = 'Validating stock...'
         
-        // ✅ Get cartId from route params (URL)
-        this.cartId = this.$route.params.cartId;
+        console.log('🔍 Validating stock for', this.cartItems.length, 'items...')
         
-        console.log('🛒 Initializing checkout with cart:', this.cartId);
-        
-        if (!this.cartId) {
-          throw new Error('No cart ID provided');
+        if (this.cartItems.length === 0) {
+          console.warn('⚠️ Cart is empty')
+          this.$router.replace('/new-order')
+          return
         }
         
-        // Fetch fresh cart data (validates stock)
-        const cart = await cartAPI.getCart(this.cartId);
+        // ✅ Get all product IDs
+        const productIds = this.cartItems.map(item => item.productId)
         
-        console.log('✅ Cart loaded:', cart);
+        console.log('📦 Product IDs to validate:', productIds)
+        console.log('🛒 Cart items:', this.cartItems)  // ✅ ADD THIS
         
-        // Update component data
-        this.updateCartData(cart);
+        // ✅ Batch fetch products (single API call)
+        const products = await apiProducts.getProductsBatch(productIds)
         
-        // Get shift ID from localStorage
-        this.shiftId = localStorage.getItem('activeShiftId');
+        console.log('✅ Products fetched:', products)
+        console.log('📋 Product IDs from API:', products.map(p => p.id || p._id))  // ✅ ADD THIS
         
-        console.log('⏰ Shift ID:', this.shiftId);
+        // ✅ Build product map for quick lookup
+        const productMap = {}
+        products.forEach(product => {
+          const productId = product.id || product._id  // ✅ Try both
+          console.log(`📌 Mapping product: ${productId}`, product)  // ✅ ADD THIS
+          productMap[productId] = product
+        })
         
-      } catch (error) {
-        console.error('❌ Checkout initialization failed:', error);
+        console.log('🗺️ Product map keys:', Object.keys(productMap))  // ✅ ADD THIS
         
-        // Handle specific errors
-        if (error.message.includes('not found')) {
-          alert('Cart session expired. Returning to order page...');
-          this.$router.replace('/new-order');
-        } else if (error.message.includes('stock')) {
-          alert('Some items are no longer available. Please review your cart.');
-          this.$router.replace('/new-order');
+        // ✅ Validate each item
+        const errors = []
+        
+        for (const item of this.cartItems) {
+          console.log(`🔎 Looking up item.productId: "${item.productId}"`)  // ✅ ADD THIS
+          
+          const product = productMap[item.productId]
+          
+          if (!product) {
+            console.error('❌ Product not found:', item.productId)
+            console.error('   Available keys:', Object.keys(productMap))  // ✅ ADD THIS
+            errors.push(`Product "${item.productName}" not found`)
+          } else {
+            const availableStock = product.stock || 0
+            
+            console.log(`📊 ${item.productName}: Available=${availableStock}, Requested=${item.quantity}`)
+            
+            if (availableStock < item.quantity) {
+              errors.push(
+                `Insufficient stock for "${item.productName}". ` +
+                `Available: ${availableStock}, Requested: ${item.quantity}`
+              )
+            }
+          }
+        }
+        
+        if (errors.length > 0) {
+          this.validationErrors = errors
+          console.error('❌ Stock validation errors:', errors)
+          alert('Stock validation failed:\n\n' + errors.join('\n') + '\n\nPlease update your cart.')
+          this.$router.replace('/new-order')
         } else {
-          alert(`Failed to load checkout: ${error.message}`);
-          this.$router.replace('/new-order');
+          console.log('✅ Stock validation passed')
+          this.validationErrors = []
         }
         
+      } catch (error) {
+        console.error('❌ Stock validation failed:', error)
+        alert(`Failed to validate stock: ${error.message}\n\nPlease try again.`)
+        this.$router.replace('/new-order')
       } finally {
-        this.isLoading = false;
+        this.isLoading = false
       }
-    },
-    
-    updateCartData(cart) {
-      this.cartItems = cart.items || [];
-      this.subtotal = cart.subtotal || 0;
-      this.taxAmount = cart.taxAmount || 0;
-      this.discountAmount = cart.discountAmount || 0;
-      this.totalAmount = cart.total || 0;
-      
-      console.log('📊 Cart updated:', {
-        items: this.cartItems.length,
-        subtotal: this.subtotal,
-        tax: this.taxAmount,
-        total: this.totalAmount
-      });
     },
     
     // ================================================================
-    // CART MANAGEMENT
+    // CART UPDATES (Store methods)
     // ================================================================
     
-    async increaseQuantity(item) {
-      if (this.quantityUpdating) return;
-      
-      try {
-        this.quantityUpdating = true;
-        console.log('➕ Increasing quantity:', item.name);
-        
-        const newQuantity = item.quantity + 1;
-        const updatedCart = await cartAPI.updateItemQuantity(
-          this.cartId,
-          item.productId,
-          newQuantity
-        );
-        
-        this.updateCartData(updatedCart);
-        
-      } catch (error) {
-        console.error('❌ Increase quantity failed:', error);
-        alert(`Failed to update quantity: ${error.message}`);
-      } finally {
-        this.quantityUpdating = false;
-      }
+    increaseQuantity(item) {
+      this.cartStore.increaseQuantity(item.productId)
     },
     
-    async decreaseQuantity(item) {
-      if (this.quantityUpdating) return;
-      
-      if (item.quantity <= 1) {
-        await this.removeItem(item);
-        return;
-      }
-      
-      try {
-        this.quantityUpdating = true;
-        console.log('➖ Decreasing quantity:', item.name);
-        
-        const newQuantity = item.quantity - 1;
-        const updatedCart = await cartAPI.updateItemQuantity(
-          this.cartId,
-          item.productId,
-          newQuantity
-        );
-        
-        this.updateCartData(updatedCart);
-        
-      } catch (error) {
-        console.error('❌ Decrease quantity failed:', error);
-        alert(`Failed to update quantity: ${error.message}`);
-      } finally {
-        this.quantityUpdating = false;
-      }
+    decreaseQuantity(item) {
+      this.cartStore.decreaseQuantity(item.productId)
     },
     
     async removeItem(item) {
-      if (this.quantityUpdating) return;
+      if (!confirm(`Remove ${item.productName} from cart?`)) return
       
-      if (!confirm(`Remove ${item.name} from cart?`)) return;
+      this.cartStore.removeItem(item.productId)
       
-      try {
-        this.quantityUpdating = true;
-        console.log('🗑️ Removing item:', item.name);
-        
-        const updatedCart = await cartAPI.removeItem(this.cartId, item.productId);
-        this.updateCartData(updatedCart);
-        
-        // If cart is empty, redirect back
-        if (this.cartItems.length === 0) {
-          alert('Cart is now empty. Returning to order page...');
-          this.$router.replace('/new-order');
-        }
-        
-      } catch (error) {
-        console.error('❌ Remove item failed:', error);
-        alert(`Failed to remove item: ${error.message}`);
-      } finally {
-        this.quantityUpdating = false;
+      // If cart is empty, redirect
+      if (this.cartStore.isEmpty) {
+        alert('Cart is now empty. Returning to order page...')
+        this.$router.replace('/new-order')
       }
     },
     
     async clearCart() {
-      if (!confirm('Are you sure you want to clear your entire cart?')) return;
+      if (!confirm('Are you sure you want to clear your entire cart?')) return
       
-      try {
-        this.isLoading = true;
-        this.loadingMessage = 'Clearing cart...';
-        
-        await cartAPI.clearCart(this.cartId);
-        
-        alert('Cart cleared. Returning to order page...');
-        this.$router.replace('/new-order');
-        
-      } catch (error) {
-        console.error('❌ Clear cart failed:', error);
-        alert(`Failed to clear cart: ${error.message}`);
-      } finally {
-        this.isLoading = false;
-      }
+      this.cartStore.clearCart()
+      alert('Cart cleared. Returning to order page...')
+      this.$router.replace('/new-order')
     },
     
     // ================================================================
@@ -502,118 +472,114 @@ export default {
     // ================================================================
     
     validateCashPayment() {
-      this.cashValidationError = null;
+      this.cashValidationError = null
       
       if (this.cashTendered <= 0) {
-        this.cashValidationError = 'Please enter cash tendered amount';
-        return false;
+        this.cashValidationError = 'Please enter cash tendered amount'
+        return false
       }
       
       if (this.cashTendered < this.totalAmount) {
-        const shortage = this.totalAmount - this.cashTendered;
-        this.cashValidationError = `Insufficient. Need ₱${this.formatPrice(shortage)} more`;
-        return false;
+        const shortage = this.totalAmount - this.cashTendered
+        this.cashValidationError = `Insufficient. Need ₱${this.formatPrice(shortage)} more`
+        return false
       }
       
-      return true;
+      return true
     },
     
     async placeOrder() {
       if (!this.canPlaceOrder) {
-        alert('Please complete payment details before placing order.');
-        return;
+        alert('Please complete payment details before placing order.')
+        return
       }
       
       // Final validation
       if (this.paymentMethod === 'cash' && !this.validateCashPayment()) {
-        return;
+        return
       }
       
       // Confirm order
       const confirmMessage = this.paymentMethod === 'cash' 
         ? `Confirm order:\nTotal: ₱${this.formatPrice(this.totalAmount)}\nCash: ₱${this.formatPrice(this.cashTendered)}\nChange: ₱${this.formatPrice(this.changeAmount)}`
-        : `Confirm order:\nTotal: ₱${this.formatPrice(this.totalAmount)}\nPayment: ${this.paymentMethod.toUpperCase()}`;
+        : `Confirm order:\nTotal: ₱${this.formatPrice(this.totalAmount)}\nPayment: ${this.paymentMethod.toUpperCase()}`
       
-      if (!confirm(confirmMessage)) return;
+      if (!confirm(confirmMessage)) return
       
       try {
-        this.isProcessing = true;
-        this.isLoading = true;
-        this.loadingMessage = 'Processing order...';
+        this.isProcessing = true
+        this.isLoading = true
+        this.loadingMessage = 'Processing order...'
         
-        console.log('💳 Processing order...');
+        console.log('💳 Processing order...')
         
-        // Step 1: Prepare checkout (get sale data)
-        console.log('📋 Preparing checkout...');
-        const saleData = await cartAPI.prepareCheckout(this.cartId);
+        // ✅ Step 1: Re-validate stock (final check)
+        await this.validateStock()
         
-        console.log('✅ Sale data prepared:', saleData);
-        
-        // Step 2: Process payment
-        let paymentDetails = {};
-        
-        if (this.paymentMethod === 'cash') {
-          paymentDetails = paymentService.processCashPayment(
-            this.totalAmount,
-            this.cashTendered
-          );
-        } else if (this.paymentMethod === 'card') {
-          // TODO: Implement PayMongo card payment
-          paymentDetails = await paymentService.processCardPayment(this.totalAmount);
-        } else if (this.paymentMethod === 'qrph') {
-          // TODO: Implement PayMongo QR PH payment
-          paymentDetails = await paymentService.processQRPHPayment(this.totalAmount);
+        if (this.validationErrors.length > 0) {
+          throw new Error('Stock validation failed')
         }
         
-        console.log('💰 Payment processed:', paymentDetails);
+        // ✅ Step 2: Get checkout data from store
+        const saleData = this.cartStore.getCheckoutData()
         
-        // Step 3: Create sale
-        console.log('📝 Creating sale...');
-        const sale = await salesAPI.createSale(
-          saleData,
-          this.paymentMethod,
-          paymentDetails
-        );
+        console.log('📋 Sale data prepared:', saleData)
         
-        console.log('✅ Sale created:', sale);
+        // ✅ Step 3: Add payment details to saleData
+        saleData.payment_method = this.paymentMethod
+        saleData.payment_details = {
+          method: this.paymentMethod,
+          amount_paid: this.paymentMethod === 'cash' ? this.cashTendered : this.totalAmount,
+          change: this.paymentMethod === 'cash' ? this.changeAmount : 0,
+          status: 'completed',
+          transaction_id: `${this.paymentMethod.toUpperCase()}-${Date.now()}`,
+          timestamp: new Date().toISOString()
+        }
         
-        // Step 4: Delete cart
-        console.log('🗑️ Deleting cart...');
-        await cartAPI.deleteCart(this.cartId);
-        localStorage.removeItem('currentCartId');
+        console.log('💰 Payment details added:', saleData.payment_details)
         
-        console.log('✅ Cart deleted');
+        // ✅ Step 4: Create sale (pass ONLY saleData)
+        console.log('📝 Creating sale...')
+        const result = await apiSales.createSale(saleData)  // ✅ ONLY ONE PARAMETER
         
-        // Step 5: Show success modal
+        console.log('✅ Sale created:', result)
+        
+        // ✅ Step 5: Clear frontend cart
+        this.cartStore.clearCart()
+        
+        console.log('🗑️ Cart cleared')
+        
+        // ✅ Step 6: Show success modal
         this.completedSale = {
-          saleId: sale._id || sale.sale_id,
-          transactionDate: sale.transaction_date || new Date().toISOString(),
-          totalAmount: sale.total_amount,
+          saleId: result._id || result.sale_id,
+          transactionDate: result.transaction_date || new Date().toISOString(),
+          totalAmount: result.total_amount,
           paymentMethod: this.paymentMethod,
-          change: paymentDetails.change || 0,
-          shiftId: sale.shift_id || this.shiftId
-        };
+          change: this.changeAmount,
+          shiftId: result.shift_id || saleData.shift_id
+        }
         
-        this.showSuccessModal = true;
+        this.showSuccessModal = true
         
-        console.log('🎉 Order completed successfully!');
+        console.log('🎉 Order completed successfully!')
         
       } catch (error) {
-        console.error('❌ Place order failed:', error);
+        console.error('❌ Place order failed:', error)
         
-        let errorMessage = error.message || 'Unknown error occurred';
+        let errorMessage = error.message || 'Unknown error occurred'
         
         if (errorMessage.includes('stock')) {
-          errorMessage = 'Some items are out of stock. Please review your cart.';
+          errorMessage = 'Some items are out of stock. Please review your cart.'
+          this.$router.replace('/new-order')
         } else if (errorMessage.includes('payment')) {
-          errorMessage = `Payment failed: ${errorMessage}`;
+          errorMessage = `Payment failed: ${errorMessage}`
         }
         
-        alert(`Order failed: ${errorMessage}\n\nPlease try again.`);
+        alert(`Order failed: ${errorMessage}\n\nPlease try again.`)
         
       } finally {
-        this.isProcessing = false;
-        this.isLoading = false;
+        this.isProcessing = false
+        this.isLoading = false
       }
     },
     
@@ -621,41 +587,42 @@ export default {
     // SUCCESS MODAL & RECEIPT
     // ================================================================
     
-    async printReceipt() {
-        try {
-            console.log('🖨️ Printing receipt for sale:', this.completedSale.saleId);
-            
-            // Open backend receipt endpoint in new window
-            const baseUrl = 'http://localhost:8000'; // or your API base URL
-            const receiptUrl = `${baseUrl}/api/v1/pos/sales/${this.completedSale.saleId}/receipt/`;
-            
-            const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600');
-            
-            if (printWindow) {
-            // Wait for content to load, then print
-            printWindow.onload = () => {
-                setTimeout(() => {
-                printWindow.print();
-                }, 500);
-            };
-            } else {
-            alert('Please allow popups to print receipts.');
-            }
-            
-        } catch (error) {
-            console.error('❌ Print receipt failed:', error);
-            alert(`Failed to print receipt: ${error.message}`);
+  async printReceipt() {
+    try {
+      console.log('🖨️ Printing receipt for sale:', this.completedSale.saleId)
+      
+      // ✅ Use import.meta.env for Vite (NOT process.env)
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+      const receiptUrl = `${baseUrl}/pos/sales/${this.completedSale.saleId}/receipt/`
+      
+      console.log('📄 Opening receipt:', receiptUrl)
+      
+      const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600')
+      
+      if (printWindow) {
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print()
+          }, 500)
         }
-        },
+      } else {
+        alert('Please allow popups to print receipts.')
+      }
+      
+    } catch (error) {
+      console.error('❌ Print receipt failed:', error)
+      alert(`Failed to print receipt: ${error.message}`)
+    }
+  },
     
     closeSuccessModal() {
-      this.showSuccessModal = false;
-      this.startNewOrder();
+      this.showSuccessModal = false
+      this.startNewOrder()
     },
     
     startNewOrder() {
-      console.log('🔄 Starting new order...');
-      this.$router.replace('/new-order');
+      console.log('🔄 Starting new order...')
+      this.$router.replace('/new-order')
     },
     
     // ================================================================
@@ -664,7 +631,7 @@ export default {
     
     goBack() {
       if (confirm('Return to order page? Your cart will be saved.')) {
-        this.$router.push('/new-order');
+        this.$router.push('/new-order')
       }
     },
     
@@ -673,19 +640,19 @@ export default {
     // ================================================================
     
     formatPrice(price) {
-      return parseFloat(price || 0).toFixed(2);
+      return parseFloat(price || 0).toFixed(2)
     },
     
     formatDateTime(dateString) {
-      if (!dateString) return '';
-      const date = new Date(dateString);
+      if (!dateString) return ''
+      const date = new Date(dateString)
       return date.toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-      });
+      })
     }
   }
 }
