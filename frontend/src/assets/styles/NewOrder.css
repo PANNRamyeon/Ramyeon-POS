@@ -996,6 +996,259 @@
   margin-bottom: 1rem;
 }
 
+.customer-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.75rem;
+}
+
+.customer-search {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.customer-search .form-control {
+  flex: 1;
+  font-size: 14px;
+  padding: 0.5rem;
+}
+
+.customer-search .btn {
+  white-space: nowrap;
+  font-size: 14px;
+  padding: 0.5rem 1rem;
+}
+
+/* Customer Info Card */
+.customer-info-card {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 0.5rem;
+}
+
+.customer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.customer-details h5 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.customer-username {
+  margin: 0;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-remove:hover {
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Loyalty Points Display */
+.loyalty-points-display {
+  background-color: white;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.points-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.points-label {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.points-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #6f42c1;
+}
+
+.points-cash {
+  font-size: 13px;
+  color: #28a745;
+  font-weight: 600;
+}
+
+/* Points Redemption */
+.points-redemption {
+  margin-top: 0.75rem;
+}
+
+.redemption-input-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.points-input {
+  flex: 1;
+  font-size: 14px;
+  padding: 0.5rem;
+}
+
+.redemption-info {
+  display: block;
+  color: #6c757d;
+  font-size: 12px;
+  margin-top: 0.25rem;
+}
+
+.points-insufficient {
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.points-insufficient small {
+  color: #dc3545;
+  font-size: 12px;
+}
+
+/* Applied Discount */
+.applied-discount {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.discount-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.discount-info span:first-child {
+  font-size: 12px;
+  color: #155724;
+  font-weight: 500;
+}
+
+.discount-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #28a745;
+}
+
+.btn-remove-discount {
+  background: none;
+  border: none;
+  color: #155724;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+
+.btn-remove-discount:hover {
+  background-color: rgba(21, 87, 36, 0.1);
+}
+
+/* Promo Section */
+.promo-section {
+  margin-bottom: 1.5rem;
+}
+
+/* Cart Summary Breakdown */
+.summary-breakdown {
+  margin-bottom: 1rem;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 14px;
+}
+
+.discount-row {
+  color: #28a745;
+}
+
+.discount-text {
+  font-weight: 600;
+}
+
+.total-row {
+  border-top: 2px solid #e9ecef;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.total-amount {
+  color: #6f42c1;
+  font-size: 20px;
+}
+
+/* Alerts */
+.alert {
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 0.5rem;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  border: 1px solid #f5c2c7;
+  color: #842029;
+}
+
+.alert-success {
+  background-color: #d1e7dd;
+  border: 1px solid #badbcc;
+  color: #0f5132;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #0f5132;
+}
+
+.btn-close:hover {
+  color: #000;
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }

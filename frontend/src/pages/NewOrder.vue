@@ -282,11 +282,10 @@
           <p>Add items to get started!</p>
         </div>
         
-        <!-- ✅ FIXED: Use productName instead of name -->
         <div v-for="item in cartItems" :key="item.productId" class="cart-item">
           <img :src="item.image" :alt="item.productName" class="cart-item-image" />
           <div class="cart-item-info">
-            <h4>{{ item.productName }}</h4>  <!-- ✅ Changed from item.name -->
+            <h4>{{ item.productName }}</h4>
             <p class="item-price">₱{{ formatPrice(item.price) }}</p>
           </div>
           <div class="cart-item-controls">
@@ -313,25 +312,138 @@
         </div>
       </div>
       
-      <!-- Cart Summary -->
+      <!-- Cart Footer -->
       <div class="cart-footer">
-        <div class="input-group" style="margin-bottom: 20px;">
-          <input 
-            type="text" 
-            class="form-control" 
-            placeholder="Enter promo code"
-            v-model="promoCode"
-            style="gap: 10px;"
-          >
-          <button class="btn btn-primary" type="button" @click="applyPromotion">
-            Apply
-          </button>
+        
+        <!-- Customer Lookup & Points Section -->
+        <div class="customer-section">
+          <h4 class="section-title">Customer (Optional)</h4>
+          
+          <!-- Customer Search -->
+          <div v-if="!selectedCustomer" class="customer-search">
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Enter customer username or email"
+              v-model="customerSearchQuery"
+              @keyup.enter="searchCustomer"
+            />
+            <button 
+              class="btn btn-primary" 
+              type="button" 
+              @click="searchCustomer"
+              :disabled="customerSearching || !customerSearchQuery.trim()"
+            >
+              {{ customerSearching ? 'Searching...' : 'Find' }}
+            </button>
+          </div>
+
+          <!-- Customer Found -->
+          <div v-if="selectedCustomer" class="customer-info-card">
+            <div class="customer-header">
+              <div class="customer-details">
+                <h5>{{ selectedCustomer.full_name }}</h5>
+                <p class="customer-username">@{{ selectedCustomer.username }}</p>
+              </div>
+              <button class="btn-remove" @click="clearCustomer" title="Remove customer">
+                <X :size="16" />
+              </button>
+            </div>
+            
+            <!-- Loyalty Points Display -->
+            <div class="loyalty-points-display">
+              <div class="points-info">
+                <span class="points-label">Available Points:</span>
+                <span class="points-value">{{ selectedCustomer.loyalty_points || 0 }} pts</span>
+                <span class="points-cash">(₱{{ formatPrice((selectedCustomer.loyalty_points || 0) / 4) }})</span>
+              </div>
+              
+              <!-- Points Redemption -->
+              <div v-if="selectedCustomer.loyalty_points >= 200" class="points-redemption">
+                <div class="redemption-input-group">
+                  <input 
+                    type="number" 
+                    class="form-control points-input" 
+                    placeholder="Points to use"
+                    v-model.number="pointsToRedeem"
+                    :max="Math.min(selectedCustomer.loyalty_points, maxRedeemablePoints)"
+                    min="0"
+                    step="100"
+                  />
+                  <button 
+                    class="btn btn-success btn-sm" 
+                    @click="applyPointsDiscount"
+                    :disabled="!canRedeemPoints"
+                  >
+                    Use Points
+                  </button>
+                </div>
+                <small class="redemption-info">
+                  Min: 200 pts (₱50) • Max: 50% of cart ({{ maxRedeemablePoints }} pts)
+                </small>
+              </div>
+              
+              <div v-else class="points-insufficient">
+                <small>Need 200+ points to redeem (₱50 minimum)</small>
+              </div>
+            </div>
+
+            <!-- Applied Points Discount -->
+            <div v-if="appliedPointsDiscount > 0" class="applied-discount">
+              <div class="discount-info">
+                <span>Points Discount:</span>
+                <span class="discount-amount">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
+              </div>
+              <button class="btn-remove-discount" @click="removePointsDiscount">
+                <X :size="14" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Customer Search Error -->
+          <div v-if="customerSearchError" class="alert alert-danger">
+            {{ customerSearchError }}
+          </div>
         </div>
+
+        <!-- Promo Code Section -->
+        <div class="promo-section">
+          <h4 class="section-title">Promo Code</h4>
+          <div class="input-group">
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Enter promo code"
+              v-model="promoCode"
+            />
+            <button class="btn btn-primary" type="button" @click="applyPromotion">
+              Apply
+            </button>
+          </div>
+          <div v-if="appliedPromotion" class="alert alert-success mt-2">
+            ✅ {{ appliedPromotion.name }} applied
+            <button @click="removePromotion" class="btn-close"></button>
+          </div>
+        </div>
+
+        <!-- Cart Summary -->
         <div class="cart-summary">
-          <div class="cart-info">
+          <div class="summary-breakdown">
+            <div class="cart-info">
             <div class="item-count">{{ totalItems }} items</div>
             <div class="cart-total">₱{{ formatPrice(cartTotal) }}</div>
           </div>
+            <div v-if="appliedPointsDiscount > 0" class="summary-row discount-row">
+              <span>Points Discount ({{ pointsRedeemed }} pts)</span>
+              <span class="discount-text">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
+            </div>
+            <div v-if="appliedPromotion" class="summary-row discount-row">
+              <span>Promo Discount</span>
+              <span class="discount-text">-₱{{ formatPrice(promoDiscount) }}</span>
+            </div>
+            
+          </div>
+          
           <button 
             class="pay-btn" 
             @click="checkout"
@@ -339,10 +451,6 @@
             <span>Checkout →</span>
           </button>
         </div>
-         <div v-if="appliedPromotion" class="alert alert-success mt-2">
-            ✅ {{ appliedPromotion.name }} applied
-            <button @click="removePromotion" class="btn-close"></button>
-          </div>
       </div>
     </div>
         
@@ -358,6 +466,7 @@
 import { useCartStore } from '@/stores/cartStores'
 import categoriesAPI from '@/services/apiCategory.js'
 import productsAPI from '@/services/apiProducts.js'
+import { api } from '@/services/api.js'
 
 export default {
   name: 'NewOrder',
@@ -412,6 +521,19 @@ export default {
       selectedProducts: [],
       productSearchQuery: '',
       
+      // Promo code
+      promoCode: '',
+      appliedPromotion: null,
+      
+      // Customer & Loyalty Points
+      customerSearchQuery: '',
+      customerSearching: false,
+      customerSearchError: null,
+      selectedCustomer: null,
+      pointsToRedeem: 0,
+      pointsRedeemed: 0,
+      appliedPointsDiscount: 0,
+      
       // Icon options for custom categories
       iconOptions: [
         { name: 'Package' },
@@ -447,19 +569,51 @@ export default {
       return [...this.backendCategories, ...this.customCategories]
     },
 
-    // ✅ Cart items from store
+    // Cart items from store
     cartItems() {
       return this.cartStore.items
     },
     
-    // ✅ Cart total from store
-    cartTotal() {
+    // Cart subtotal
+    cartSubtotal() {
       return this.cartStore.total
     },
     
-    // ✅ Total items from store
+    // Total items from store
     totalItems() {
       return this.cartStore.itemCount
+    },
+    
+    // Max redeemable points (50% of cart)
+    maxRedeemablePoints() {
+      const maxDiscount = this.cartSubtotal * 0.5
+      const maxPoints = Math.floor(maxDiscount * 4)
+      
+      if (this.selectedCustomer) {
+        return Math.min(maxPoints, this.selectedCustomer.loyalty_points)
+      }
+      return 0
+    },
+    
+    // Can redeem points validation
+    canRedeemPoints() {
+      if (!this.pointsToRedeem || !this.selectedCustomer) return false
+      if (this.pointsToRedeem < 200) return false
+      if (this.pointsToRedeem > this.selectedCustomer.loyalty_points) return false
+      if (this.pointsToRedeem > this.maxRedeemablePoints) return false
+      return true
+    },
+    
+    // Promo discount
+    promoDiscount() {
+      if (!this.appliedPromotion) return 0
+      // Add your promo calculation logic here
+      return 0
+    },
+    
+    // Final total with all discounts
+    finalTotal() {
+      return Math.max(0, this.cartSubtotal - this.appliedPointsDiscount - this.promoDiscount)
     },
 
     filteredProducts() {
@@ -552,14 +706,13 @@ export default {
 
   methods: {
     // ================================================================
-    // INITIALIZATION (SIMPLIFIED - NO BACKEND CART)
+    // INITIALIZATION
     // ================================================================
     
     async initializeSession() {
       try {
         console.log('🔄 Initializing session...')
         
-        // Get user data
         const userData = JSON.parse(localStorage.getItem('userData') || '{}')
         const cashierId = userData.user_id || userData.id || userData._id
         
@@ -569,14 +722,12 @@ export default {
           throw new Error('No cashier ID found. Please log in again.')
         }
         
-        // Get active shift
         const shiftId = localStorage.getItem('activeShiftId') || null
         console.log('⏰ Shift ID:', shiftId)
         
-        // ✅ Initialize frontend cart (INSTANT - no API call)
         this.cartStore.initializeSession(cashierId, shiftId)
         
-        console.log('✅ Session initialized (frontend cart)')
+        console.log('✅ Session initialized')
         
       } catch (error) {
         console.error('❌ Session initialization failed:', error)
@@ -840,31 +991,94 @@ export default {
     },
 
     // ================================================================
-    // CART MANAGEMENT (FRONTEND ONLY - INSTANT!)
+    // CUSTOMER LOOKUP & LOYALTY POINTS
+    // ================================================================
+    
+    async searchCustomer() {
+      if (!this.customerSearchQuery.trim()) return
+      
+      try {
+        this.customerSearching = true
+        this.customerSearchError = null
+        
+        const query = this.customerSearchQuery.trim()
+        
+        const response = await api.get('/customers/search/', {
+          params: { query }
+        })
+        
+        if (response.data.success && response.data.data.customers.length > 0) {
+          const customer = response.data.data.customers[0]
+          this.selectedCustomer = customer
+          this.customerSearchQuery = ''
+          
+          console.log('✅ Customer found:', customer.full_name)
+        } else {
+          this.customerSearchError = 'Customer not found. Please check the username/email.'
+        }
+        
+      } catch (error) {
+        console.error('❌ Customer search failed:', error)
+        this.customerSearchError = error.response?.data?.message || 'Failed to search customer'
+      } finally {
+        this.customerSearching = false
+      }
+    },
+    
+    clearCustomer() {
+      this.selectedCustomer = null
+      this.customerSearchQuery = ''
+      this.customerSearchError = null
+      this.removePointsDiscount()
+    },
+    
+    applyPointsDiscount() {
+      if (!this.canRedeemPoints) {
+        alert('Invalid points amount')
+        return
+      }
+      
+      const discount = this.pointsToRedeem / 4
+      
+      if (discount > this.cartSubtotal) {
+        alert('Points discount cannot exceed cart total')
+        return
+      }
+      
+      this.pointsRedeemed = this.pointsToRedeem
+      this.appliedPointsDiscount = discount
+      this.pointsToRedeem = 0
+      
+      console.log(`✅ Applied ${this.pointsRedeemed} points (₱${discount.toFixed(2)} discount)`)
+    },
+    
+    removePointsDiscount() {
+      this.pointsRedeemed = 0
+      this.appliedPointsDiscount = 0
+      this.pointsToRedeem = 0
+    },
+
+    // ================================================================
+    // CART MANAGEMENT
     // ================================================================
     
     addToCart(product) {
       try {
-        console.log('🛒 Adding to cart (frontend):', product.name)
+        console.log('🛒 Adding to cart:', product.name)
         
-        // ✅ Validate product has required fields
         if (!product.id || !product.name || !product.price) {
           throw new Error('Invalid product data')
         }
         
-        // ✅ Check stock (client-side validation)
         if (product.stock <= 0) {
           alert(`${product.name} is out of stock!`)
           return
         }
         
-        // ✅ INSTANT UPDATE - No API call!
         this.cartStore.addItem(product)
-        
-        // Show cart sidebar
         this.showCart = true
         
-        console.log('✅ Item added instantly')
+        console.log('✅ Item added')
         
       } catch (error) {
         console.error('❌ Add to cart failed:', error)
@@ -873,18 +1087,25 @@ export default {
     },
     
     removeFromCart(item) {
-      console.log('🗑️ Removing from cart (frontend):', item.productName)
       this.cartStore.removeItem(item.productId)
     },
     
     increaseQuantity(item) {
-      console.log('➕ Increasing quantity (frontend):', item.productName)
       this.cartStore.increaseQuantity(item.productId)
     },
     
     decreaseQuantity(item) {
-      console.log('➖ Decreasing quantity (frontend):', item.productName)
       this.cartStore.decreaseQuantity(item.productId)
+    },
+    
+    applyPromotion() {
+      // Add your promo code logic here
+      console.log('Applying promo code:', this.promoCode)
+    },
+    
+    removePromotion() {
+      this.appliedPromotion = null
+      this.promoCode = ''
     },
     
     checkout() {
@@ -895,7 +1116,18 @@ export default {
       
       console.log('🛒 Proceeding to checkout...')
       
-      // ✅ Just navigate - checkout page will handle validation
+      // Store customer and points info for checkout page
+      if (this.selectedCustomer) {
+        sessionStorage.setItem('checkoutCustomer', JSON.stringify({
+          customer_id: this.selectedCustomer._id,
+          full_name: this.selectedCustomer.full_name,
+          pointsRedeemed: this.pointsRedeemed,
+          pointsDiscount: this.appliedPointsDiscount
+        }))
+      } else {
+        sessionStorage.removeItem('checkoutCustomer')
+      }
+      
       this.$router.push('/checkout')
     },
 
