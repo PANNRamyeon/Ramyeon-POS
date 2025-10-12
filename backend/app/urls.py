@@ -194,6 +194,23 @@ from .kpi_views.Backoffice.sales_log_views import (
     SalesLogSummaryView
 )
 
+from .kpi_views.POS.online_transaction_views import (
+    CalculatePointsPreviewView,
+    CancelOrderView,
+    CompleteOrderView,
+    CreateOnlineOrderView,
+    GetAllOrdersView,
+    GetCustomerOrdersView,
+    GetCustomerPointsView,
+    GetOrderSummaryView,
+    GetOrderView,
+    GetPointsHistoryView,
+    MarkReadyForDeliveryView,
+    UpdateOrderStatusView,
+    UpdatePaymentStatusView,
+    ValidateStockView,
+)
+
 urlpatterns = [
     # ========== SYSTEM & HEALTH ==========
     path('', SystemStatusView.as_view(), name='system-status'),  # Root endpoint
@@ -409,4 +426,39 @@ urlpatterns = [
     path('saleslogs/<str:log_id>/', SalesLogDetailView.as_view()),  # GET & DELETE
     path('saleslogs/<str:log_id>/update/', SalesLogUpdateView.as_view()),
 
-  ]
+
+    # ================================================================
+    # ONLINE ORDERS URLs
+    # ================================================================
+
+    # === VALIDATION & PREVIEW (Static paths first) ===
+    path('online/orders/validate-stock/', ValidateStockView.as_view(), name='validate_stock'),
+    path('online/orders/calculate-points/', CalculatePointsPreviewView.as_view(), name='calculate_points_preview'),
+
+    # === REPORTING (Static paths) ===
+    path('online/orders/summary/', GetOrderSummaryView.as_view(), name='get_order_summary'),
+
+    # === ORDER CREATION (Static path) ===
+    path('online/orders/create/', CreateOnlineOrderView.as_view(), name='create_online_order'),
+
+    # === CUSTOMER ORDERS (Specific structure) ===
+    path('online/orders/customer/<str:customer_id>/', GetCustomerOrdersView.as_view(), name='get_customer_orders'),
+
+    # === LIST ALL ORDERS (No params) ===
+    path('online/orders/', GetAllOrdersView.as_view(), name='get_all_online_orders'),
+
+    # === SINGLE ORDER (Parameterized - after all static paths) ===
+    path('online/orders/<str:order_id>/',GetOrderView.as_view(), name='get_online_order'),
+
+    # === ORDER ACTIONS (Order ID + action suffix) ===
+    path('online/orders/<str:order_id>/cancel/',CancelOrderView.as_view(), name='cancel_online_order'),
+    path('online/orders/<str:order_id>/status/', UpdateOrderStatusView.as_view(), name='update_order_status'),
+    path('online/orders/<str:order_id>/payment/', UpdatePaymentStatusView.as_view(), name='update_payment_status'),
+    path('online/orders/<str:order_id>/ready-for-delivery/', MarkReadyForDeliveryView.as_view(), name='mark_ready_for_delivery'),
+    path('online/orders/<str:order_id>/complete/', CompleteOrderView.as_view(), name='complete_order'),
+
+    # === LOYALTY POINTS (Customer-specific) ===
+    path('customers/<str:customer_id>/points/', GetCustomerPointsView.as_view(), name='get_customer_points'),
+    path('customers/<str:customer_id>/points/history/', GetPointsHistoryView.as_view(), name='get_points_history'), 
+
+]
