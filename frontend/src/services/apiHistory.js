@@ -15,18 +15,36 @@ class HistoryAPIService {
     throw new Error(message);
   }
 
-  // Transform transaction data to match frontend component structure
-  transformTransaction(transaction) {
+  // Transform POS transaction data
+  transformPOSTransaction(transaction) {
     return {
       id: transaction._id,
       itemCount: transaction.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
       status: this.formatStatus(transaction.status),
       date: transaction.transaction_date || transaction.created_at,
       paymentMethod: this.formatPaymentMethod(transaction.payment_method),
-      saleType: transaction.source === 'pos' ? 'POS' : 'Manual',
+      saleType: 'POS',
+      source: 'POS',
       total: transaction.total_amount,
-      // Keep original data for modal details
       originalData: transaction
+    };
+  }
+
+  // Transform Online order data
+  transformOnlineOrder(order) {
+    return {
+      id: order._id,
+      itemCount: order.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
+      status: this.formatOnlineStatus(order.order_status),
+      date: order.order_date || order.created_at,
+      paymentMethod: this.formatPaymentMethod(order.payment_method),
+      paymentStatus: this.formatPaymentStatus(order.payment_status),
+      saleType: 'Online',
+      source: 'Online',
+      total: order.total_amount,
+      customer: order.customer_id,
+      deliveryAddress: order.delivery_address,
+      originalData: order
     };
   }
 
@@ -36,11 +54,37 @@ class HistoryAPIService {
     const statusMap = {
       'completed': 'Completed',
       'pending': 'Pending',
-      'voided': 'Cancelled',
+      'voided': 'Voided',
       'cancelled': 'Cancelled',
       'refunded': 'Refunded'
     };
     return statusMap[status.toLowerCase()] || status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  // Format online order status
+  formatOnlineStatus(status) {
+    if (!status) return 'Unknown';
+    const statusMap = {
+      'pending': 'Pending',
+      'confirmed': 'Confirmed',
+      'processing': 'Processing',
+      'on_the_way': 'On the Way',
+      'completed': 'Completed',
+      'cancelled': 'Cancelled'
+    };
+    return statusMap[status.toLowerCase()] || status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  // Format payment status
+  formatPaymentStatus(paymentStatus) {
+    if (!paymentStatus) return 'Unknown';
+    const statusMap = {
+      'pending': 'Pending',
+      'paid': 'Paid',
+      'failed': 'Failed',
+      'refunded': 'Refunded'
+    };
+    return statusMap[paymentStatus.toLowerCase()] || paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1);
   }
 
   // Format payment method to proper case
@@ -52,50 +96,76 @@ class HistoryAPIService {
       'credit_card': 'Credit Card',
       'debit_card': 'Debit Card',
       'gcash': 'GCash',
-      'paymaya': 'PayMaya'
+      'paymaya': 'PayMaya',
+      'cod': 'Cash on Delivery',
+      'gcash_paymongo': 'GCash (PayMongo)',
+      'bank_paymongo': 'Bank Transfer (PayMongo)'
     };
     return methodMap[method.toLowerCase()] || method.charAt(0).toUpperCase() + method.slice(1);
   }
 
   /**
-   * Load transaction history with optional filters and pagination
-   * Uses: GET /api/v1/pos/sales/
+   * Load ALL transaction history (POS + Online) with filters and pagination
+   * Fetches from both endpoints and merges results
    */
   async loadHistory(params = {}) {
     try {
-      const queryParams = new URLSearchParams({
-        page: params.page || 1,
-        page_size: params.pageSize || 20,
-        ...(params.dateFrom && { date_from: params.dateFrom }),
-        ...(params.dateTo && { date_to: params.dateTo }),
-        ...(params.status && { status: params.status }),
-        ...(params.paymentMethod && { payment_method: params.paymentMethod }),
-        ...(params.cashierId && { cashier_id: params.cashierId }),
-        ...(params.shiftId && { shift_id: params.shiftId }),
-        ...(params.search && { search: params.search })
-      });
+      this.loading = true;
+      this.error = null;
 
-      // ✅ CORRECT ENDPOINT
-      const response = await api.get(`/pos/sales/?${queryParams}`);
-      const data = this.handleResponse(response);
+      // Determine which sources to fetch based on filter
+      const fetchPOS = !params.source || params.source === '' || params.source === 'POS';
+      const fetchOnline = !params.source || params.source === '' || params.source === 'Online';
 
-      // Handle paginated response
-      if (data.data && data.pagination) {
-        return {
-          transactions: data.data.map(t => this.transformTransaction(t)),
-          totalCount: data.pagination.total_count,
-          currentPage: data.pagination.current_page,
-          totalPages: data.pagination.total_pages
-        };
+      let allTransactions = [];
+
+      // Fetch POS transactions
+      if (fetchPOS) {
+        try {
+          const posData = await this.fetchPOSTransactions(params);
+          allTransactions = allTransactions.concat(posData);
+        } catch (error) {
+          console.warn('Error fetching POS transactions:', error);
+        }
       }
 
-      // Handle non-paginated response
-      const salesData = Array.isArray(data.data) ? data.data : data.data?.sales || [];
+      // Fetch Online orders
+      if (fetchOnline) {
+        try {
+          const onlineData = await this.fetchOnlineOrders(params);
+          allTransactions = allTransactions.concat(onlineData);
+        } catch (error) {
+          console.warn('Error fetching online orders:', error);
+        }
+      }
+
+      // Sort by date (newest first)
+      allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      // Apply client-side search filter if provided
+      if (params.search && params.search.trim() !== '') {
+        const searchTerm = params.search.toLowerCase();
+        allTransactions = allTransactions.filter(txn => 
+          txn.id.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      // Calculate pagination
+      const page = params.page || 1;
+      const pageSize = params.pageSize || 20;
+      const totalCount = allTransactions.length;
+      const totalPages = Math.ceil(totalCount / pageSize);
+      
+      // Paginate results
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedTransactions = allTransactions.slice(startIndex, endIndex);
+
       return {
-        transactions: salesData.map(t => this.transformTransaction(t)),
-        totalCount: salesData.length,
-        currentPage: params.page || 1,
-        totalPages: Math.ceil(salesData.length / (params.pageSize || 20))
+        transactions: paginatedTransactions,
+        totalCount: totalCount,
+        currentPage: page,
+        totalPages: totalPages
       };
 
     } catch (error) {
@@ -104,22 +174,73 @@ class HistoryAPIService {
   }
 
   /**
-   * Get single sale details
-   * Uses: GET /api/v1/pos/sales/{sale_id}/
+   * Fetch POS transactions only
+   */
+  async fetchPOSTransactions(params = {}) {
+    const queryParams = new URLSearchParams({
+      page: 1,
+      page_size: 1000, // Fetch large amount for client-side pagination
+      ...(params.dateFrom && { date_from: params.dateFrom }),
+      ...(params.dateTo && { date_to: params.dateTo }),
+      ...(params.status && { status: params.status }),
+      ...(params.paymentMethod && { payment_method: params.paymentMethod }),
+      ...(params.cashierId && { cashier_id: params.cashierId }),
+      ...(params.shiftId && { shift_id: params.shiftId })
+    });
+
+    const response = await api.get(`/pos/sales/?${queryParams}`);
+    const data = this.handleResponse(response);
+
+    const salesData = data.data?.sales || data.data || [];
+    return Array.isArray(salesData) 
+      ? salesData.map(t => this.transformPOSTransaction(t))
+      : [];
+  }
+
+  /**
+   * Fetch Online orders only
+   */
+  async fetchOnlineOrders(params = {}) {
+    const queryParams = new URLSearchParams({
+      limit: 1000, // Fetch large amount for client-side pagination
+      ...(params.dateFrom && { start_date: params.dateFrom }),
+      ...(params.dateTo && { end_date: params.dateTo }),
+      ...(params.status && { status: params.status }),
+      ...(params.paymentMethod && { payment_method: params.paymentMethod })
+    });
+
+    const response = await api.get(`/online/orders/?${queryParams}`);
+    const data = this.handleResponse(response);
+
+    const ordersData = data.data?.orders || [];
+    return Array.isArray(ordersData) 
+      ? ordersData.map(o => this.transformOnlineOrder(o))
+      : [];
+  }
+
+  /**
+   * Get single transaction details (works for both POS and Online)
    */
   async getSaleDetails(saleId) {
     try {
-      const response = await api.get(`/pos/sales/${saleId}/`);
-      const data = this.handleResponse(response);
-      return this.transformTransaction(data.data);
+      // Try POS first
+      try {
+        const response = await api.get(`/pos/sales/${saleId}/`);
+        const data = this.handleResponse(response);
+        return this.transformPOSTransaction(data.data);
+      } catch (posError) {
+        // If POS fails, try Online
+        const response = await api.get(`/online/orders/${saleId}/`);
+        const data = this.handleResponse(response);
+        return this.transformOnlineOrder(data.data.order);
+      }
     } catch (error) {
       this.handleError(error);
     }
   }
 
   /**
-   * Get daily sales summary
-   * Uses: GET /api/v1/pos/sales/daily-summary/
+   * Get daily sales summary (POS only for now)
    */
   async getDailySummary(date, cashierId = null) {
     try {
@@ -136,27 +257,26 @@ class HistoryAPIService {
   }
 
   /**
-   * Export sales to CSV
-   * Uses: GET /api/v1/pos/sales/export/
+   * Export sales to CSV (POS + Online)
    */
   async exportToCSV(params = {}) {
     try {
-      const queryParams = new URLSearchParams({
-        ...(params.dateFrom && { date_from: params.dateFrom }),
-        ...(params.dateTo && { date_to: params.dateTo }),
-        ...(params.status && { status: params.status }),
-        ...(params.cashierId && { cashier_id: params.cashierId })
+      // Fetch all transactions
+      const allData = await this.loadHistory({
+        ...params,
+        page: 1,
+        pageSize: 10000 // Get all records
       });
 
-      const response = await api.get(`/pos/sales/export/?${queryParams}`, {
-        responseType: 'blob'
-      });
-
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // Convert to CSV
+      const csvContent = this.convertToCSV(allData.transactions);
+      
+      // Create download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `sales_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `transactions_export_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -169,8 +289,26 @@ class HistoryAPIService {
   }
 
   /**
-   * Void a sale (requires manager approval)
-   * Uses: POST /api/v1/pos/sales/{sale_id}/void/
+   * Convert transactions to CSV format
+   */
+  convertToCSV(transactions) {
+    const headers = ['Transaction ID', 'Date', 'Type', 'Status', 'Payment Method', 'Items', 'Total'];
+    const rows = transactions.map(txn => [
+      txn.id,
+      new Date(txn.date).toLocaleString(),
+      txn.saleType,
+      txn.status,
+      txn.paymentMethod,
+      txn.itemCount,
+      txn.total
+    ]);
+
+    const csvRows = [headers, ...rows];
+    return csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  }
+
+  /**
+   * Void a POS sale (requires manager approval)
    */
   async voidSale(saleId, voidReason, managerId) {
     try {
@@ -185,8 +323,22 @@ class HistoryAPIService {
   }
 
   /**
-   * Get receipt data
-   * Uses: GET /api/v1/pos/sales/{sale_id}/receipt/
+   * Cancel an online order
+   */
+  async cancelOnlineOrder(orderId, cancellationReason, cancelledBy) {
+    try {
+      const response = await api.post(`/online/orders/${orderId}/cancel/`, {
+        cancellation_reason: cancellationReason,
+        cancelled_by: cancelledBy
+      });
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  /**
+   * Get receipt data (POS only)
    */
   async getReceipt(saleId) {
     try {

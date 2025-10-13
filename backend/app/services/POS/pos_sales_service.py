@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from ...database import db_manager
 from ..Backoffice.product_service import ProductService
 from notifications.services import notification_service
@@ -15,6 +15,7 @@ class POSSalesService:
         self.db = db_manager.get_database()
         self.sales_collection = self.db.sales 
         self.products_collection = self.db.products
+        self.customers_collection = self.db.customers  # ✅ ADD THIS
         self.product_service = ProductService()
         self.batch_service = BatchService()
 
@@ -43,12 +44,262 @@ class POSSalesService:
             return f"SALE-{count:06d}"
 
     # ================================================================
+    # LOYALTY POINTS MANAGEMENT
+    # ================================================================
+    
+    def calculate_loyalty_points_earned(self, subtotal_after_discount):
+        """
+        Calculate loyalty points earned (20% of subtotal after discount)
+        
+        Args:
+            subtotal_after_discount: Subtotal after all discounts
+        
+        Returns:
+            int: Points to be earned
+        """
+        return int(subtotal_after_discount * 0.20)
+    
+    def calculate_points_discount(self, points_to_redeem):
+        """
+        Convert points to discount amount
+        4 points = ₱1 discount
+        
+        Args:
+            points_to_redeem: Number of points customer wants to use
+        
+        Returns:
+            float: Discount amount in pesos
+        """
+        return points_to_redeem / 4.0
+    
+    def validate_points_redemption(self, customer_id, points_to_redeem, subtotal):
+        """
+        Validate loyalty points redemption
+        
+        Args:
+            customer_id: Customer ID
+            points_to_redeem: Points customer wants to use
+            subtotal: Order subtotal
+        
+        Returns:
+            dict: {'valid': bool, 'error': str}
+        """
+        try:
+            if points_to_redeem == 0:
+                return {'valid': True, 'error': None}
+            
+            # ✅ CHANGED: Minimum redemption from 200 to 100 points
+            if points_to_redeem < 100:
+                return {
+                    'valid': False,
+                    'error': 'Minimum redemption is 100 points (₱25)'
+                }
+            
+            # Get customer
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                return {'valid': False, 'error': 'Customer not found'}
+            
+            # Check if customer has enough points
+            available_points = customer.get('loyalty_points', 0)
+            
+            if available_points < points_to_redeem:
+                return {
+                    'valid': False,
+                    'error': f'Insufficient points. Available: {available_points}, Requested: {points_to_redeem}'
+                }
+            
+            # Check max discount (50% of subtotal)
+            points_discount = self.calculate_points_discount(points_to_redeem)
+            max_discount = subtotal * 0.50
+            
+            if points_discount > max_discount:
+                max_points = int(max_discount * 4)  # Convert back to points
+                return {
+                    'valid': False,
+                    'error': f'Points discount cannot exceed 50% of subtotal. Maximum: {max_points} points'
+                }
+            
+            return {'valid': True, 'error': None}
+            
+        except Exception as e:
+            logger.error(f"Points validation error: {str(e)}")
+            return {'valid': False, 'error': str(e)}
+    
+    def deduct_customer_points(self, customer_id, points_to_deduct, sale_id):
+        """
+        Deduct loyalty points from customer balance
+        
+        Args:
+            customer_id: Customer ID
+            points_to_deduct: Points to deduct
+            sale_id: Sale ID for transaction history
+        """
+        try:
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                raise ValueError(f"Customer {customer_id} not found")
+            
+            current_balance = customer.get('loyalty_points', 0)
+            new_balance = current_balance - points_to_deduct
+            
+            # Create points transaction
+            points_transaction = {
+                'transaction_id': sale_id,
+                'transaction_type': 'redeemed',
+                'points': -points_to_deduct,
+                'balance_before': current_balance,
+                'balance_after': new_balance,
+                'description': f"Redeemed {points_to_deduct} points on sale {sale_id}",
+                'created_at': datetime.utcnow()
+            }
+            
+            # Update customer
+            self.customers_collection.update_one(
+                {'_id': customer_id},
+                {
+                    '$set': {
+                        'loyalty_points': new_balance,
+                        'last_updated': datetime.utcnow()
+                    },
+                    '$push': {'points_transactions': points_transaction}
+                }
+            )
+            
+            logger.info(f"✅ Deducted {points_to_deduct} points from {customer_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error deducting points: {str(e)}")
+            raise
+    
+    def award_loyalty_points(self, customer_id, points_to_award, sale_id, order_amount):
+        """
+        Award loyalty points to customer when sale is completed
+        
+        Args:
+            customer_id: Customer ID
+            points_to_award: Points to award
+            sale_id: Sale ID
+            order_amount: Sale total amount after discount
+        """
+        try:
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                raise ValueError(f"Customer {customer_id} not found")
+            
+            current_balance = customer.get('loyalty_points', 0)
+            new_balance = current_balance + points_to_award
+            
+            # Points expire in 12 months
+            expires_at = datetime.utcnow() + timedelta(days=365)
+            
+            # Create points transaction
+            points_transaction = {
+                'transaction_id': sale_id,
+                'transaction_type': 'earned',
+                'points': points_to_award,
+                'balance_before': current_balance,
+                'balance_after': new_balance,
+                'description': f"Earned from sale {sale_id} (₱{order_amount:.2f} purchase)",
+                'earned_at': datetime.utcnow(),
+                'expires_at': expires_at,
+                'status': 'active',
+                'created_at': datetime.utcnow()
+            }
+            
+            # Update customer
+            self.customers_collection.update_one(
+                {'_id': customer_id},
+                {
+                    '$set': {
+                        'loyalty_points': new_balance,
+                        'last_purchase': datetime.utcnow(),
+                        'last_updated': datetime.utcnow()
+                    },
+                    '$push': {'points_transactions': points_transaction}
+                }
+            )
+            
+            logger.info(f"✅ Awarded {points_to_award} points to {customer_id}")
+            
+            # Send notification (optional)
+            try:
+                notification_service.create_notification(
+                    title="Loyalty Points Earned!",
+                    message=f"You earned {points_to_award} points from your purchase! New balance: {new_balance} points (₱{new_balance/4:.2f})",
+                    priority="low",
+                    notification_type="loyalty",
+                    metadata={
+                        'customer_id': customer_id,
+                        'sale_id': sale_id,
+                        'points_earned': points_to_award,
+                        'new_balance': new_balance
+                    }
+                )
+            except Exception as notif_error:
+                logger.warning(f"Failed to send notification: {notif_error}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error awarding points: {str(e)}")
+            raise
+    
+    def refund_customer_points(self, customer_id, points_to_refund, sale_id):
+        """
+        Refund loyalty points when sale is voided
+        
+        Args:
+            customer_id: Customer ID
+            points_to_refund: Points to refund
+            sale_id: Sale ID
+        """
+        try:
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                raise ValueError(f"Customer {customer_id} not found")
+            
+            current_balance = customer.get('loyalty_points', 0)
+            new_balance = current_balance + points_to_refund
+            
+            # Create points transaction
+            points_transaction = {
+                'transaction_id': f"{sale_id}-VOID",
+                'transaction_type': 'refunded',
+                'points': points_to_refund,
+                'balance_before': current_balance,
+                'balance_after': new_balance,
+                'description': f"Refunded {points_to_refund} points from voided sale {sale_id}",
+                'created_at': datetime.utcnow()
+            }
+            
+            # Update customer
+            self.customers_collection.update_one(
+                {'_id': customer_id},
+                {
+                    '$set': {
+                        'loyalty_points': new_balance,
+                        'last_updated': datetime.utcnow()
+                    },
+                    '$push': {'points_transactions': points_transaction}
+                }
+            )
+            
+            logger.info(f"✅ Refunded {points_to_refund} points to {customer_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error refunding points: {str(e)}")
+            raise
+
+    # ================================================================
     # CORE SALES OPERATIONS
     # ================================================================
     
     def create_sale(self, sale_data, cashier_id):
         """
-        Create a new POS sale transaction with FIFO batch deduction
+        Create a new POS sale transaction with FIFO batch deduction and loyalty points
         
         Args:
             sale_data: Dictionary containing sale information
@@ -69,37 +320,118 @@ class POSSalesService:
             print(f"   Items: {len(sale_data.get('items', []))}")
             print(f"{'='*60}\n")
             
-            # Build sale record
+            # ✅ Step 1: Get customer if provided
+            customer_id = sale_data.get('customer_id')
+            customer = None
+            
+            if customer_id:
+                customer = self.customers_collection.find_one({'_id': customer_id})
+                print(f"👤 Customer: {customer.get('full_name') if customer else 'Not found'}\n")
+            
+            # ✅ Step 2: Calculate initial subtotal and discount breakdown
+            subtotal = sale_data.get('subtotal', 0)
+            promotion_discount = sale_data.get('promotion_discount', 0)
+            points_discount = sale_data.get('points_discount', 0)
+            total_discount = promotion_discount + points_discount
+            
+            print(f"💵 Pricing Breakdown:")
+            print(f"   Subtotal: ₱{subtotal:.2f}")
+            if promotion_discount > 0:
+                print(f"   Promo Discount: -₱{promotion_discount:.2f}")
+            if points_discount > 0:
+                print(f"   Points Discount: -₱{points_discount:.2f}")
+            print(f"   Total Discount: -₱{total_discount:.2f}")
+            
+            # ✅ Step 3: Validate and deduct points if used
+            points_to_redeem = sale_data.get('loyalty_points_used', 0)
+            
+            if customer_id and points_to_redeem > 0:
+                print(f"\n🎁 Processing points redemption: {points_to_redeem} points")
+                
+                # Calculate subtotal after promotion discount for validation
+                subtotal_after_promo = subtotal - promotion_discount
+                
+                print(f"   💰 Subtotal after promo: ₱{subtotal_after_promo:.2f}")
+                print(f"   💰 Points discount requested: ₱{points_discount:.2f}")
+                
+                # Validate points redemption using subtotal AFTER promotion
+                points_validation = self.validate_points_redemption(
+                    customer_id,
+                    points_to_redeem,
+                    subtotal_after_promo  # ✅ FIXED: Use subtotal after promotion
+                )
+                
+                if not points_validation['valid']:
+                    raise ValueError(f"Points validation failed: {points_validation['error']}")
+                
+                # Deduct points from customer
+                self.deduct_customer_points(customer_id, points_to_redeem, sale_id)
+                print(f"   ✅ Points deducted successfully")
+                print(f"   💳 Customer balance updated")
+            
+            # ✅ Step 4: Calculate loyalty points to be earned
+            # Points earned on subtotal after ALL discounts (before tax)
+            subtotal_after_all_discounts = subtotal - total_discount
+            loyalty_points_earned = 0
+            
+            if customer_id:
+                loyalty_points_earned = self.calculate_loyalty_points_earned(subtotal_after_all_discounts)
+                print(f"\n✨ Loyalty points calculation:")
+                print(f"   Subtotal: ₱{subtotal:.2f}")
+                print(f"   Total discounts: -₱{total_discount:.2f}")
+                print(f"   Base for points: ₱{subtotal_after_all_discounts:.2f}")
+                print(f"   Points to earn: {loyalty_points_earned} points (20%)")
+            
+            # ✅ Step 5: Build sale record with loyalty tracking
             sale_record = {
                 '_id': sale_id,
                 'transaction_date': transaction_date,
                 'cashier_id': cashier_id,
                 'shift_id': sale_data.get('shift_id'),
-                'customer_id': sale_data.get('customer_id'),
+                'customer_id': customer_id,
                 'items': [],  # Will be populated with batch info
-                'subtotal': sale_data.get('subtotal', 0),
+                'subtotal': subtotal,
                 'tax_amount': sale_data.get('tax_amount', 0),
-                'discount_amount': sale_data.get('discount_amount', 0),
+                'discount_amount': total_discount,
+                
+                # ✅ Discount breakdown
+                'discount_breakdown': {
+                    'promotion_discount': promotion_discount,
+                    'points_discount': points_discount,
+                    'total_discount': total_discount
+                },
+                
                 'total_amount': sale_data.get('total_amount', 0),
                 'payment_method': sale_data.get('payment_method'),
                 'payment_details': sale_data.get('payment_details', {}),
-                'promotion_applied': sale_data.get('promotion_applied'),
-                'discount_details': sale_data.get('discount_details', {}),
+                
+                # ✅ Promotion info
+                'promotion_id': sale_data.get('promotion_id'),
+                'promotion_discount': promotion_discount if sale_data.get('promotion_id') else 0,
+                
+                # ✅ Loyalty points tracking
+                'loyalty_points': {
+                    'points_used': points_to_redeem,
+                    'points_earned': loyalty_points_earned,
+                    'points_discount_value': points_discount
+                } if customer_id else None,
+                
                 'status': 'completed',
                 'source': 'pos',
                 'created_at': transaction_date,
                 'updated_at': transaction_date,
-                'is_voided': False
+                'is_voided': False,
+                'points_awarded': False  # Will be set to True after awarding
             }
             
-            # ✅ Process each item with FIFO batch deduction
-            print("Processing items with FIFO batch deduction...\n")
+            # ✅ Step 6: Process each item with FIFO batch deduction
+            print("\n📦 Processing items with FIFO batch deduction...\n")
             
             for item in sale_data.get('items', []):
                 product_id = item.get('product_id')
                 quantity_needed = item.get('quantity', 0)
                 
-                print(f"📦 Processing: {item.get('product_name')} ({product_id}) x{quantity_needed}")
+                print(f"   Processing: {item.get('product_name')} ({product_id}) x{quantity_needed}")
                 
                 # Verify product exists
                 product = self.products_collection.find_one({'_id': product_id})
@@ -131,7 +463,7 @@ class POSSalesService:
                     product_id, 
                     quantity_needed,
                     transaction_date,
-                    transaction_info=transaction_info  # ✅ Pass transaction info
+                    transaction_info=transaction_info
                 )
                 
                 # Add item to sale record with batch tracking
@@ -143,7 +475,7 @@ class POSSalesService:
                     'unit_price': item.get('unit_price'),
                     'subtotal': item.get('subtotal'),
                     'is_taxable': item.get('is_taxable', True),
-                    'batches_used': batch_deductions  # ✅ Track which batches were used
+                    'batches_used': batch_deductions
                 }
                 
                 sale_record['items'].append(sale_item)
@@ -161,17 +493,36 @@ class POSSalesService:
                     }
                 )
                 
-                print(f"   ✅ Product stock updated: {product.get('stock')} → {new_total_stock}\n")
+                print(f"      Stock updated: {product.get('stock')} → {new_total_stock}")
             
-            # Insert sale record
+            # ✅ Step 7: Insert sale record
             self.sales_collection.insert_one(sale_record)
             
-            print(f"{'='*60}")
+            # ✅ Step 8: Award loyalty points to customer
+            if customer_id and loyalty_points_earned > 0:
+                print(f"\n✨ Awarding {loyalty_points_earned} points to customer...")
+                
+                self.award_loyalty_points(
+                    customer_id,
+                    loyalty_points_earned,
+                    sale_id,
+                    subtotal_after_all_discounts  # ✅ FIXED: Use subtotal after all discounts
+                )
+                
+                # Mark points as awarded
+                self.sales_collection.update_one(
+                    {'_id': sale_id},
+                    {'$set': {'points_awarded': True}}
+                )
+                
+                print(f"   ✅ Points awarded successfully")
+            
+            print(f"\n{'='*60}")
             print(f"✅ POS Sale created successfully: {sale_id}")
             print(f"{'='*60}\n")
             
-            # Send notification (optional)
-            # self._send_sale_notification(sale_record, 'sale_completed')
+            # Get updated sale record
+            sale_record = self.sales_collection.find_one({'_id': sale_id})
             
             return {
                 'success': True,
@@ -181,20 +532,37 @@ class POSSalesService:
             
         except ValueError as e:
             print(f"❌ Validation error: {str(e)}")
+            
+            # Rollback: Refund points if they were deducted
+            if 'points_to_redeem' in locals() and points_to_redeem > 0 and customer_id:
+                try:
+                    self.refund_customer_points(customer_id, points_to_redeem, f"{sale_id}-ROLLBACK")
+                    print(f"   ↩️ Points refunded due to error")
+                except:
+                    pass
+            
             raise
             
         except Exception as e:
             print(f"❌ Unexpected error creating POS sale: {str(e)}")
             import traceback
             traceback.print_exc()
+            
+            # Rollback: Refund points if they were deducted
+            if 'points_to_redeem' in locals() and points_to_redeem > 0 and customer_id:
+                try:
+                    self.refund_customer_points(customer_id, points_to_redeem, f"{sale_id}-ROLLBACK")
+                    print(f"   ↩️ Points refunded due to error")
+                except:
+                    pass
+            
             raise Exception(f"Error creating POS sale: {str(e)}")
         
     def get_sale_by_id(self, sale_id):
         """Get a POS sale by string ID"""
         try:
-            # ✅ Direct string lookup - no ObjectId conversion
             sale = self.sales_collection.find_one({'_id': sale_id})
-            return sale  # Already clean, no conversion needed
+            return sale
             
         except Exception as e:
             raise Exception(f"Error fetching POS sale: {str(e)}")
@@ -214,7 +582,7 @@ class POSSalesService:
                 .limit(limit)
             )
             
-            return sales  # Already clean with string IDs
+            return sales
             
         except Exception as e:
             raise Exception(f"Error fetching recent sales: {str(e)}")
@@ -265,6 +633,7 @@ class POSSalesService:
     def void_sale(self, sale_id, reason, manager_id):
         """
         Void sale and restore stock to batches with usage_history tracking
+        ALSO refunds loyalty points if they were used
         
         Args:
             sale_id: Sale ID (SALE-######)
@@ -298,6 +667,8 @@ class POSSalesService:
             }
             
             # ✅ Restore stock to batches with tracking
+            print("📦 Restoring stock to batches...\n")
+            
             for item in sale.get('items', []):
                 if 'batches_used' in item:
                     print(f"   Restoring: {item['product_name']} x{item['quantity']}")
@@ -306,7 +677,7 @@ class POSSalesService:
                     self.batch_service.restore_stock_to_batches(
                         item['batches_used'],
                         datetime.utcnow(),
-                        transaction_info=transaction_info  # ✅ Pass transaction info
+                        transaction_info=transaction_info
                     )
                     
                     # Restore product total stock
@@ -327,7 +698,27 @@ class POSSalesService:
                         
                         print(f"      Stock restored: {product.get('stock')} → {new_stock}")
             
-            # Mark sale as voided
+            print("\n✅ Stock restored to batches\n")
+            
+            # ✅ Refund loyalty points if used
+            points_refunded = False
+            customer_id = sale.get('customer_id')
+            loyalty_info = sale.get('loyalty_points', {})
+            points_used = loyalty_info.get('points_used', 0)
+            
+            if customer_id and points_used > 0:
+                print(f"🎁 Refunding {points_used} loyalty points...")
+                
+                self.refund_customer_points(
+                    customer_id,
+                    points_used,
+                    sale_id
+                )
+                
+                points_refunded = True
+                print("   ✅ Points refunded\n")
+            
+            # ✅ Mark sale as voided
             self.sales_collection.update_one(
                 {'_id': sale_id},
                 {
@@ -337,12 +728,13 @@ class POSSalesService:
                         'voided_by': manager_id,
                         'voided_at': datetime.utcnow(),
                         'status': 'voided',
-                        'updated_at': datetime.utcnow()
+                        'updated_at': datetime.utcnow(),
+                        'points_refunded': points_refunded
                     }
                 }
             )
             
-            print(f"\n{'='*60}")
+            print(f"{'='*60}")
             print(f"✅ Sale voided successfully: {sale_id}")
             print(f"{'='*60}\n")
             

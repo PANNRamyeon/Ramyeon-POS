@@ -1101,27 +1101,60 @@ export default {
     },
     
     calculatePromotionDiscount(promotion) {
-      const targetType = promotion.discount_config?.target_type
-      const targetIds = promotion.discount_config?.target_ids || []
+      // ✅ SAFETY CHECK: Handle missing discount_config
+      if (!promotion.discount_config) {
+        console.warn(`⚠️ Promotion "${promotion.name}" missing discount_config!`)
+        console.warn('   Full promotion object:', promotion)
+        return 0
+      }
+      
+      const targetType = promotion.discount_config.target_type
+      const targetIds = promotion.discount_config.target_ids || []
+      
+      console.log(`   🎯 Target Type: ${targetType}`)
+      console.log(`   🎯 Target IDs:`, targetIds)
       
       let eligibleAmount = 0
       
       if (targetType === 'all') {
         eligibleAmount = this.cartSubtotal
+        console.log(`   💰 All items eligible: ₱${eligibleAmount}`)
       } else if (targetType === 'categories') {
-        eligibleAmount = this.cartItems
-          .filter(item => {
-            const product = this.products.find(p => p.id === item.productId)
-            return product && targetIds.includes(product.category)
-          })
-          .reduce((sum, item) => sum + item.subtotal, 0)
+        // Get eligible items from target categories
+        const eligibleItems = this.cartItems.filter(item => {
+          const product = this.products.find(p => p.id === item.productId)
+          const isEligible = product && targetIds.includes(product.category)
+          
+          if (isEligible) {
+            console.log(`      ✅ ${product.name} (${product.category}) - ₱${item.subtotal}`)
+          }
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Category items eligible: ₱${eligibleAmount}`)
       } else if (targetType === 'products') {
-        eligibleAmount = this.cartItems
-          .filter(item => targetIds.includes(item.productId))
-          .reduce((sum, item) => sum + item.subtotal, 0)
+        // Get eligible items from target products
+        const eligibleItems = this.cartItems.filter(item => {
+          const isEligible = targetIds.includes(item.productId)
+          
+          if (isEligible) {
+            const product = this.products.find(p => p.id === item.productId)
+            console.log(`      ✅ ${product?.name || item.productName} - ₱${item.subtotal}`)
+          }
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Product items eligible: ₱${eligibleAmount}`)
       }
       
-      if (eligibleAmount === 0) return 0
+      if (eligibleAmount === 0) {
+        console.log(`   ❌ No eligible items found`)
+        return 0
+      }
       
       let discount = 0
       

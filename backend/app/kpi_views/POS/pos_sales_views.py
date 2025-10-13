@@ -62,7 +62,7 @@ class POSSalesCreateView(APIView):
                             'error': f'Item {idx + 1} missing required field: {field}'
                         }, status=status.HTTP_400_BAD_REQUEST)
             
-            # ✅ Prepare sale_data (WITHOUT cashier_id - it's a separate parameter)
+            # ✅ Prepare sale_data - include ALL necessary fields
             sale_data = {
                 'items': items,
                 'subtotal': request.data.get('subtotal', 0),
@@ -73,7 +73,19 @@ class POSSalesCreateView(APIView):
                 'payment_details': request.data.get('payment_details', {}),
                 'customer_id': request.data.get('customer_id'),
                 'promotion_applied': request.data.get('promotion_applied'),
-                'shift_id': request.data.get('shift_id')  # ✅ Keep shift_id in sale_data
+                'shift_id': request.data.get('shift_id'),
+                
+                # ✅ LOYALTY POINTS FIELDS
+                'loyalty_points_used': request.data.get('loyalty_points_used', 0),
+                'loyalty_points_earned': request.data.get('loyalty_points_earned', 0),
+                'points_discount': request.data.get('points_discount', 0),
+                
+                # ✅ PROMOTION FIELDS
+                'promotion_id': request.data.get('promotion_id'),
+                'promotion_discount': request.data.get('promotion_discount', 0),
+                
+                # ✅ COMBINED DISCOUNT
+                'discount': request.data.get('discount', 0)
             }
             
             print(f"💰 Sale data prepared:")
@@ -81,6 +93,8 @@ class POSSalesCreateView(APIView):
             print(f"   Payment: {sale_data['payment_method']}")
             print(f"   Shift ID: {sale_data.get('shift_id')}")
             print(f"   Items: {len(sale_data['items'])}")
+            print(f"   Points Used: {sale_data.get('loyalty_points_used', 0)}")
+            print(f"   Points Discount: ₱{sale_data.get('points_discount', 0)}")
             
             # ✅ Create the sale (TWO parameters: sale_data and cashier_id)
             result = pos_service.create_sale(sale_data, cashier_id)
@@ -369,6 +383,7 @@ class POSSalesReceiptView(APIView):
                     'error': 'Sale not found'
                 }, status=status.HTTP_404_NOT_FOUND)
             
+            # ✅ Build receipt data with discount breakdown and loyalty points
             receipt_data = {
                 'sale_id': sale.get('_id'),
                 'transaction_date': sale.get('transaction_date'),
@@ -380,11 +395,22 @@ class POSSalesReceiptView(APIView):
                 'subtotal': sale.get('subtotal', 0),
                 'tax_amount': sale.get('tax_amount', 0),
                 'discount_amount': sale.get('discount_amount', 0),
+                
+                # ✅ Discount breakdown
+                'discount_breakdown': sale.get('discount_breakdown', {
+                    'promotion_discount': 0,
+                    'points_discount': 0,
+                    'total_discount': 0
+                }),
+                
                 'total_amount': sale.get('total_amount', 0),
                 'payment_method': sale.get('payment_method'),
                 'payment_details': sale.get('payment_details', {}),
                 'status': sale.get('status'),
-                'customer_id': sale.get('customer_id')
+                'customer_id': sale.get('customer_id'),
+                
+                # ✅ Loyalty points info
+                'loyalty_points': sale.get('loyalty_points')
             }
             
             return Response({

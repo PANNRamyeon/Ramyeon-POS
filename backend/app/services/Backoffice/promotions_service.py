@@ -889,10 +889,10 @@ class PromotionService:
             now = datetime.utcnow()
             
             query = {
-                'status': 'active',                    # ✅ Check status
-                'isDeleted': {'$ne': True},           # ✅ Not deleted
-                'start_date': {'$lte': now},          # ✅ Started
-                'end_date': {'$gte': now}             # ✅ Not ended
+                'status': 'active',
+                'isDeleted': {'$ne': True},
+                'start_date': {'$lte': now},
+                'end_date': {'$gte': now}
             }
             
             # Debug logging
@@ -903,19 +903,28 @@ class PromotionService:
             
             logger.info(f"Found {len(active_promotions)} active promotions")
             
-            # Serialize ObjectId to string for JSON
+            # ✅ SERIALIZE ALL PROMOTIONS BEFORE RETURNING
+            serialized_promotions = []
             for promo in active_promotions:
-                if '_id' in promo and not isinstance(promo['_id'], str):
-                    promo['_id'] = str(promo['_id'])
+                serialized_promo = self._serialize_promotion_data(promo.copy())
+                serialized_promotions.append(serialized_promo)
+                
+                # ✅ DEBUG: Log what we're returning
+                logger.info(f"Serialized promotion: {promo.get('name')}")
+                logger.info(f"  - Has discount_config: {'discount_config' in serialized_promo}")
+                if 'discount_config' in serialized_promo:
+                    logger.info(f"  - discount_config: {serialized_promo['discount_config']}")
             
             return {
                 'success': True,
-                'promotions': active_promotions,
-                'count': len(active_promotions)
+                'promotions': serialized_promotions,  # ✅ Use serialized data
+                'count': len(serialized_promotions)
             }
             
         except Exception as e:
             logger.error(f"Error getting active promotions: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False, 
                 'message': f'Error retrieving active promotions: {str(e)}',

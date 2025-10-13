@@ -109,7 +109,6 @@
           <div v-if="selectedCustomer" class="customer-info-card">
             <div class="customer-header">
               <div class="customer-details">
-                <!-- ✅ FIX: Make sure we're using the correct data binding -->
                 <h5>{{ selectedCustomer.full_name }}</h5>
                 <p class="customer-username">@{{ selectedCustomer.username }}</p>
                 <p v-if="selectedCustomer.email" class="customer-email">{{ selectedCustomer.email }}</p>
@@ -143,8 +142,9 @@
                 </div>
               </button>
 
+              <!-- ✅ CHANGED: from >= 200 to >= 100 -->
               <button 
-                v-if="selectedCustomer.loyalty_points >= 200"
+                v-if="selectedCustomer.loyalty_points >= 100"
                 :class="['points-action-btn', { active: pointsMode === 'use' }]"
                 @click="setPointsMode('use')"
                 type="button"
@@ -157,26 +157,29 @@
                 </div>
               </button>
 
+              <!-- ✅ CHANGED: text from 200+ to 100+ -->
               <div v-else class="points-insufficient-notice">
-                <small>💡 Need 200+ points to redeem</small>
+                <small>💡 Need 100+ points to redeem</small>
               </div>
             </div>
 
+            <!-- ✅ CHANGED: condition from >= 200 to >= 100 -->
             <!-- Points Redemption Panel -->
-            <div v-if="pointsMode === 'use' && selectedCustomer.loyalty_points >= 200" class="points-redemption-panel">
+            <div v-if="pointsMode === 'use' && selectedCustomer.loyalty_points >= 100" class="points-redemption-panel">
               <div class="redemption-header">
                 <h6>Redeem Points</h6>
                 <button class="btn-text" @click="setPointsMode('earn')" :disabled="isProcessing">Cancel</button>
               </div>
               
               <div class="redemption-input-group">
+                <!-- ✅ CHANGED: min from 200 to 100 -->
                 <input 
                   type="number" 
                   class="form-control points-input" 
                   placeholder="Enter points amount"
                   v-model.number="pointsToRedeem"
                   :max="Math.min(selectedCustomer.loyalty_points, maxRedeemablePoints)"
-                  min="200"
+                  min="100"
                   step="100"
                   :disabled="isProcessing"
                 />
@@ -189,10 +192,11 @@
                 </button>
               </div>
               
+              <!-- ✅ CHANGED: text from "200 pts (₱50)" to "100 pts (₱25)" -->
               <div class="redemption-info-box">
                 <div class="info-row">
                   <span>Minimum:</span>
-                  <span>200 pts (₱50)</span>
+                  <span>100 pts (₱25)</span>
                 </div>
                 <div class="info-row">
                   <span>Maximum:</span>
@@ -552,20 +556,30 @@ export default {
       return this.cartStore.itemCount
     },
     
-    // Points calculations
+    // ✅ UPDATED: Points calculations
     maxRedeemablePoints() {
-      const maxDiscount = this.subtotalAfterPromo * 0.5
-      const maxPoints = Math.floor(maxDiscount * 4)
+      if (!this.selectedCustomer) return 0
       
-      if (this.selectedCustomer) {
-        return Math.min(maxPoints, this.selectedCustomer.loyalty_points)
-      }
-      return 0
+      // Base amount: subtotal after promotion (before tax and points)
+      const baseAmount = this.subtotalAfterPromo
+      
+      // Max discount: 50% of base amount
+      const maxDiscountAmount = baseAmount * 0.5
+      
+      // Convert to points (4 points = ₱1)
+      const maxPointsFromCart = Math.floor(maxDiscountAmount * 4)
+      
+      // Cannot exceed customer's available points
+      const customerPoints = this.selectedCustomer.loyalty_points || 0
+      const finalMaxPoints = Math.min(maxPointsFromCart, customerPoints)
+      
+      return finalMaxPoints
     },
     
+    // ✅ UPDATED: Changed minimum from 200 to 100
     canRedeemPoints() {
       if (!this.pointsToRedeem || !this.selectedCustomer) return false
-      if (this.pointsToRedeem < 200) return false
+      if (this.pointsToRedeem < 100) return false  // ✅ CHANGED: from 200 to 100
       if (this.pointsToRedeem > this.selectedCustomer.loyalty_points) return false
       if (this.pointsToRedeem > this.maxRedeemablePoints) return false
       return true
@@ -764,7 +778,7 @@ export default {
     
     applyPointsDiscount() {
       if (!this.canRedeemPoints) {
-        alert('Invalid points amount')
+        alert('Invalid points amount. Please enter between 100 and ' + this.maxRedeemablePoints + ' points.')
         return
       }
       
@@ -928,33 +942,47 @@ export default {
           throw new Error('Stock validation failed')
         }
         
+        // ✅ Get base checkout data from cart
         const saleData = this.cartStore.getCheckoutData()
         
-        // Add customer info
+        // ✅ CRITICAL: Override with actual checkout values
+        saleData.subtotal = this.cartSubtotal
+        saleData.tax_amount = this.taxAmount
+        saleData.total_amount = this.grandTotal
+        
+        // ✅ Add customer info with points
         if (this.selectedCustomer) {
           saleData.customer_id = this.selectedCustomer._id
           saleData.loyalty_points_used = this.pointsRedeemed
           saleData.loyalty_points_earned = this.pointsWillEarn
+          
+          console.log('👤 Customer Info:')
+          console.log('   ID:', this.selectedCustomer._id)
+          console.log('   Points to Use:', this.pointsRedeemed)
+          console.log('   Points to Earn:', this.pointsWillEarn)
         }
         
-        // Add promotion info
+        // ✅ Add promotion discount
         if (this.appliedPromotion) {
           saleData.promotion_id = this.appliedPromotion._id
           saleData.promotion_discount = this.promoDiscount
+          console.log('🎉 Promotion:', this.appliedPromotion.name, '-₱' + this.formatPrice(this.promoDiscount))
+        } else {
+          saleData.promotion_discount = 0
         }
         
-        // Add points discount
+        // ✅ Add points discount
         if (this.appliedPointsDiscount > 0) {
           saleData.points_discount = this.appliedPointsDiscount
+          console.log('🎁 Points Discount: -₱' + this.formatPrice(this.appliedPointsDiscount))
+        } else {
+          saleData.points_discount = 0
         }
         
-        // Update total with all discounts
-        saleData.subtotal = this.cartSubtotal
+        // ✅ Calculate total discount
         saleData.discount = this.promoDiscount + this.appliedPointsDiscount
-        saleData.tax_amount = this.taxAmount
-        saleData.total_amount = this.grandTotal
         
-        // Add payment details
+        // ✅ Add payment details
         saleData.payment_method = this.paymentMethod
         saleData.payment_details = {
           method: this.paymentMethod,
@@ -964,6 +992,17 @@ export default {
           transaction_id: `${this.paymentMethod.toUpperCase()}-${Date.now()}`,
           timestamp: new Date().toISOString()
         }
+        
+        // ✅ DEBUG: Log what we're sending
+        console.log('📝 Final Sale Data:')
+        console.log('   Subtotal:', saleData.subtotal)
+        console.log('   Promotion Discount:', saleData.promotion_discount)
+        console.log('   Points Discount:', saleData.points_discount)
+        console.log('   Total Discount:', saleData.discount)
+        console.log('   Tax:', saleData.tax_amount)
+        console.log('   Grand Total:', saleData.total_amount)
+        console.log('   Points Used:', saleData.loyalty_points_used)
+        console.log('   Points Earned:', saleData.loyalty_points_earned)
         
         console.log('📝 Creating sale:', saleData)
         

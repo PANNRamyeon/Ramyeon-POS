@@ -30,46 +30,22 @@
       <div class="settings-section">
         <div class="section-header">
           <h2>Profile Information</h2>
-          <button type="button" class="btn btn-primary" @click="toggleEditProfile">
-            {{ isEditingProfile ? 'Cancel' : 'Edit Profile' }}
-          </button>
         </div>
         
         <div class="profile-info">
           <div class="info-row">
             <label>Full Name</label>
-            <input 
-              v-if="isEditingProfile"
-              class="form-control" 
-              type="text" 
-              v-model="editForm.full_name"
-              placeholder="Enter full name"
-            />
-            <span v-else class="info-value">{{ user.full_name || 'Not set' }}</span>
+            <span class="info-value">{{ user.full_name || 'Not set' }}</span>
           </div>
           
           <div class="info-row">
             <label>Username</label>
-            <input 
-              v-if="isEditingProfile"
-              class="form-control" 
-              type="text" 
-              v-model="editForm.username"
-              placeholder="Enter username"
-            />
-            <span v-else class="info-value">{{ user.username }}</span>
+            <span class="info-value">{{ user.username }}</span>
           </div>
           
           <div class="info-row">
             <label>Email</label>
-            <input 
-              v-if="isEditingProfile"
-              class="form-control" 
-              type="email" 
-              v-model="editForm.email"
-              placeholder="Enter email"
-            />
-            <span v-else class="info-value">{{ user.email }}</span>
+            <span class="info-value">{{ user.email }}</span>
           </div>
           
           <div class="info-row">
@@ -88,15 +64,6 @@
                 {{ formatStatus(user.status) }}
               </span>
             </span>
-          </div>
-          
-          <div v-if="isEditingProfile" class="action-buttons">
-            <button type="button" class="btn btn-secondary" @click="cancelProfileEdit">
-              Cancel
-            </button>
-            <button type="button" class="btn btn-primary" @click="saveProfileChanges">
-              Save Changes
-            </button>
           </div>
         </div>
       </div>
@@ -208,7 +175,6 @@ export default {
   name: 'Settings',
   data() {
     return {
-      isEditingProfile: false,
       isEditingPassword: false,
       darkMode: false,
       loading: true,
@@ -223,11 +189,6 @@ export default {
         full_name: '',
         role: '',
         status: ''
-      },
-      editForm: {
-        full_name: '',
-        username: '',
-        email: ''
       },
       passwordForm: {
         currentPassword: '',
@@ -246,32 +207,11 @@ export default {
     }
   },
   methods: {
-    toggleEditProfile() {
-      this.isEditingProfile = !this.isEditingProfile;
-      if (this.isEditingProfile) {
-        // Copy current user data to edit form
-        this.editForm = {
-          full_name: this.user.full_name,
-          username: this.user.username,
-          email: this.user.email
-        };
-      }
-    },
-    
     toggleEditPassword() {
       this.isEditingPassword = !this.isEditingPassword;
       if (!this.isEditingPassword) {
         this.resetPasswordForm();
       }
-    },
-    
-    cancelProfileEdit() {
-      this.isEditingProfile = false;
-      this.editForm = {
-        full_name: this.user.full_name,
-        username: this.user.username,
-        email: this.user.email
-      };
     },
     
     cancelPasswordChange() {
@@ -287,46 +227,6 @@ export default {
       };
       this.passwordMismatch = false;
       this.clearErrors();
-    },
-    
-    async saveProfileChanges() {
-      try {
-        this.errorMessage = '';
-        this.successMessage = '';
-        
-        // Validate form
-        if (!this.editForm.username || !this.editForm.email) {
-          this.errorMessage = 'Username and email are required';
-          return;
-        }
-        
-        const updateData = {
-          username: this.editForm.username,
-          email: this.editForm.email,
-          full_name: this.editForm.full_name,
-          role: this.user.role,
-          status: this.user.status
-        };
-        
-        const result = await apiSettings.updateUser(this.user.id, updateData);
-        
-        // Update local user data
-        this.user.full_name = this.editForm.full_name;
-        this.user.username = this.editForm.username;
-        this.user.email = this.editForm.email;
-        
-        this.successMessage = 'Profile updated successfully';
-        this.isEditingProfile = false;
-        
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          this.successMessage = '';
-        }, 3000);
-        
-      } catch (error) {
-        console.error('Profile update error:', error);
-        this.errorMessage = error.message;
-      }
     },
     
     toggleDark() {
@@ -350,13 +250,6 @@ export default {
         this.error = null;
         
         this.user = await apiSettings.getCurrentUser();
-        
-        // Initialize edit form with user data
-        this.editForm = {
-          full_name: this.user.full_name,
-          username: this.user.username,
-          email: this.user.email
-        };
         
       } catch (error) {
         this.error = error.message;
