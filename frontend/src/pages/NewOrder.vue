@@ -315,133 +315,112 @@
       <!-- Cart Footer -->
       <div class="cart-footer">
         
-        <!-- Customer Lookup & Points Section -->
-        <div class="customer-section">
-          <h4 class="section-title">Customer (Optional)</h4>
+       <!-- Manual Promo Code with Smart Suggestions -->
+        <div class="promo-section">
+          <h4 class="section-title">Have a Promo Code?</h4>
           
-          <!-- Customer Search -->
-          <div v-if="!selectedCustomer" class="customer-search">
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Enter customer username or email"
-              v-model="customerSearchQuery"
-              @keyup.enter="searchCustomer"
-            />
-            <button 
-              class="btn btn-primary" 
-              type="button" 
-              @click="searchCustomer"
-              :disabled="customerSearching || !customerSearchQuery.trim()"
-            >
-              {{ customerSearching ? 'Searching...' : 'Find' }}
-            </button>
-          </div>
-
-          <!-- Customer Found -->
-          <div v-if="selectedCustomer" class="customer-info-card">
-            <div class="customer-header">
-              <div class="customer-details">
-                <h5>{{ selectedCustomer.full_name }}</h5>
-                <p class="customer-username">@{{ selectedCustomer.username }}</p>
-              </div>
-              <button class="btn-remove" @click="clearCustomer" title="Remove customer">
-                <X :size="16" />
+          <div class="promo-input-wrapper">
+            <div class="input-group">
+              <input 
+                type="text" 
+                class="form-control" 
+                placeholder="Enter promo code or select below"
+                v-model="promoCode"
+                @focus="showPromoSuggestions = true"
+                @blur="hidePromoSuggestionsDelayed"
+                @input="filterPromoSuggestions"
+              />
+              <button 
+                class="btn btn-primary" 
+                type="button" 
+                @click="applyPromoCodeManually"
+                :disabled="!promoCode.trim()"
+              >
+                Apply
               </button>
             </div>
             
-            <!-- Loyalty Points Display -->
-            <div class="loyalty-points-display">
-              <div class="points-info">
-                <span class="points-label">Available Points:</span>
-                <span class="points-value">{{ selectedCustomer.loyalty_points || 0 }} pts</span>
-                <span class="points-cash">(₱{{ formatPrice((selectedCustomer.loyalty_points || 0) / 4) }})</span>
+            <!-- Promo Suggestions Dropdown -->
+            <div 
+              v-if="showPromoSuggestions && filteredPromoSuggestions.length > 0" 
+              class="promo-suggestions-dropdown"
+            >
+              <div class="suggestions-header">
+                <span class="suggestions-title">✨ Available Promotions</span>
+                <span class="suggestions-count">{{ filteredPromoSuggestions.length }}</span>
               </div>
               
-              <!-- Points Redemption -->
-              <div v-if="selectedCustomer.loyalty_points >= 200" class="points-redemption">
-                <div class="redemption-input-group">
-                  <input 
-                    type="number" 
-                    class="form-control points-input" 
-                    placeholder="Points to use"
-                    v-model.number="pointsToRedeem"
-                    :max="Math.min(selectedCustomer.loyalty_points, maxRedeemablePoints)"
-                    min="0"
-                    step="100"
-                  />
-                  <button 
-                    class="btn btn-success btn-sm" 
-                    @click="applyPointsDiscount"
-                    :disabled="!canRedeemPoints"
-                  >
-                    Use Points
-                  </button>
+              <div class="suggestions-list">
+                <div 
+                  v-for="promo in filteredPromoSuggestions" 
+                  :key="promo._id"
+                  class="suggestion-item"
+                  @mousedown.prevent="selectPromoFromSuggestion(promo)"
+                >
+                  <div class="suggestion-icon">🎁</div>
+                  <div class="suggestion-content">
+                    <div class="suggestion-name">{{ promo.name }}</div>
+                    <div class="suggestion-description">{{ promo.description }}</div>
+                    <div class="suggestion-details">
+                      <span class="suggestion-discount">
+                        {{ formatPromotionValue(promo) }}
+                      </span>
+                      <span class="suggestion-target">
+                        {{ formatPromotionTarget(promo) }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="suggestion-savings">
+                    <div class="savings-label">Save</div>
+                    <div class="savings-amount">₱{{ formatPrice(promo.calculatedDiscount) }}</div>
+                  </div>
                 </div>
-                <small class="redemption-info">
-                  Min: 200 pts (₱50) • Max: 50% of cart ({{ maxRedeemablePoints }} pts)
-                </small>
               </div>
               
-              <div v-else class="points-insufficient">
-                <small>Need 200+ points to redeem (₱50 minimum)</small>
+              <div v-if="availablePromotions.length === 0" class="no-suggestions">
+                <span>🔍 No promotions available for your cart</span>
               </div>
             </div>
-
-            <!-- Applied Points Discount -->
-            <div v-if="appliedPointsDiscount > 0" class="applied-discount">
-              <div class="discount-info">
-                <span>Points Discount:</span>
-                <span class="discount-amount">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
+          </div>
+          
+          <!-- Applied Promo Display -->
+          <div v-if="appliedPromotion" class="applied-promo-display">
+            <div class="applied-promo-content">
+              <span class="applied-icon">✅</span>
+              <div class="applied-info">
+                <span class="applied-name">{{ appliedPromotion.name }}</span>
+                <span class="applied-savings">-₱{{ formatPrice(promoDiscount) }}</span>
               </div>
-              <button class="btn-remove-discount" @click="removePointsDiscount">
-                <X :size="14" />
-              </button>
             </div>
-          </div>
-
-          <!-- Customer Search Error -->
-          <div v-if="customerSearchError" class="alert alert-danger">
-            {{ customerSearchError }}
-          </div>
-        </div>
-
-        <!-- Promo Code Section -->
-        <div class="promo-section">
-          <h4 class="section-title">Promo Code</h4>
-          <div class="input-group">
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Enter promo code"
-              v-model="promoCode"
-            />
-            <button class="btn btn-primary" type="button" @click="applyPromotion">
-              Apply
+            <button class="btn-remove-promo" @click="removePromotion">
+              <X :size="16" />
             </button>
-          </div>
-          <div v-if="appliedPromotion" class="alert alert-success mt-2">
-            ✅ {{ appliedPromotion.name }} applied
-            <button @click="removePromotion" class="btn-close"></button>
           </div>
         </div>
 
         <!-- Cart Summary -->
         <div class="cart-summary">
-          <div class="summary-breakdown">
-            <div class="cart-info">
+          <!-- Subtotal -->
+          <div class="cart-info">
             <div class="item-count">{{ totalItems }} items</div>
-            <div class="cart-total">₱{{ formatPrice(cartTotal) }}</div>
+            <div class="cart-total">₱{{ formatPrice(cartSubtotal) }}</div>
           </div>
-            <div v-if="appliedPointsDiscount > 0" class="summary-row discount-row">
-              <span>Points Discount ({{ pointsRedeemed }} pts)</span>
-              <span class="discount-text">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
-            </div>
-            <div v-if="appliedPromotion" class="summary-row discount-row">
-              <span>Promo Discount</span>
-              <span class="discount-text">-₱{{ formatPrice(promoDiscount) }}</span>
+          
+          <!-- Promo Discount -->
+          <div v-if="promoDiscount > 0" class="discounts-section">
+            <div class="discount-row">
+              <span class="discount-label">
+                {{ appliedPromotion.name }}
+              </span>
+              <span class="discount-amount">-₱{{ formatPrice(promoDiscount) }}</span>
             </div>
             
+            <div class="discount-divider"></div>
+            
+            <div class="final-total-row">
+              <span class="final-label">Total</span>
+              <span class="final-amount">₱{{ formatPrice(finalTotal) }}</span>
+            </div>
           </div>
           
           <button 
@@ -521,18 +500,13 @@ export default {
       selectedProducts: [],
       productSearchQuery: '',
       
-      // Promo code
+      // Promotions
       promoCode: '',
       appliedPromotion: null,
-      
-      // Customer & Loyalty Points
-      customerSearchQuery: '',
-      customerSearching: false,
-      customerSearchError: null,
-      selectedCustomer: null,
-      pointsToRedeem: 0,
-      pointsRedeemed: 0,
-      appliedPointsDiscount: 0,
+      availablePromotions: [],
+      showOtherPromotions: false,
+      showPromoSuggestions: false, 
+      filteredPromoSuggestions: [],
       
       // Icon options for custom categories
       iconOptions: [
@@ -560,6 +534,14 @@ export default {
       if (newCategoryId) {
         this.loadProductsForSelection()
       }
+    },
+    
+    // Watch cart changes to update available promotions
+    'cartStore.items': {
+      handler() {
+        this.fetchAvailablePromotions()
+      },
+      deep: true
     }
   },
 
@@ -584,36 +566,63 @@ export default {
       return this.cartStore.itemCount
     },
     
-    // Max redeemable points (50% of cart)
-    maxRedeemablePoints() {
-      const maxDiscount = this.cartSubtotal * 0.5
-      const maxPoints = Math.floor(maxDiscount * 4)
-      
-      if (this.selectedCustomer) {
-        return Math.min(maxPoints, this.selectedCustomer.loyalty_points)
-      }
-      return 0
-    },
-    
-    // Can redeem points validation
-    canRedeemPoints() {
-      if (!this.pointsToRedeem || !this.selectedCustomer) return false
-      if (this.pointsToRedeem < 200) return false
-      if (this.pointsToRedeem > this.selectedCustomer.loyalty_points) return false
-      if (this.pointsToRedeem > this.maxRedeemablePoints) return false
-      return true
-    },
-    
-    // Promo discount
+    // Calculate promo discount
     promoDiscount() {
       if (!this.appliedPromotion) return 0
-      // Add your promo calculation logic here
-      return 0
+      
+      const promotion = this.appliedPromotion
+      const targetType = promotion.discount_config?.target_type
+      const targetIds = promotion.discount_config?.target_ids || []
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+      } else if (targetType === 'categories') {
+        eligibleAmount = this.cartItems
+          .filter(item => {
+            const product = this.products.find(p => p.id === item.productId)
+            return product && targetIds.includes(product.category)
+          })
+          .reduce((sum, item) => sum + item.subtotal, 0)
+      } else if (targetType === 'products') {
+        eligibleAmount = this.cartItems
+          .filter(item => targetIds.includes(item.productId))
+          .reduce((sum, item) => sum + item.subtotal, 0)
+      }
+      
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+      }
+      
+      return Math.round(discount * 100) / 100
     },
     
-    // Final total with all discounts
+    // Final total with discounts
     finalTotal() {
-      return Math.max(0, this.cartSubtotal - this.appliedPointsDiscount - this.promoDiscount)
+      return Math.max(0, this.cartSubtotal - this.promoDiscount)
+    },
+    
+    // Best promotion (highest discount)
+    bestPromotion() {
+      if (this.availablePromotions.length === 0) return null
+      
+      return this.availablePromotions.reduce((best, current) => {
+        return current.calculatedDiscount > best.calculatedDiscount ? current : best
+      })
+    },
+    
+    // Other promotions (excluding best)
+    otherPromotions() {
+      if (!this.bestPromotion) return this.availablePromotions
+      
+      return this.availablePromotions.filter(
+        promo => promo._id !== this.bestPromotion._id
+      )
     },
 
     filteredProducts() {
@@ -991,71 +1000,228 @@ export default {
     },
 
     // ================================================================
-    // CUSTOMER LOOKUP & LOYALTY POINTS
+    // PROMOTIONS
     // ================================================================
     
-    async searchCustomer() {
-      if (!this.customerSearchQuery.trim()) return
+    async fetchAvailablePromotions() {
+      if (this.cartItems.length === 0) {
+        this.availablePromotions = []
+        this.filteredPromoSuggestions = []
+        return
+      }
       
       try {
-        this.customerSearching = true
-        this.customerSearchError = null
+        console.log('🎟️ Fetching available promotions...')
+        console.log('📦 Cart items:', this.cartItems.length)
         
-        const query = this.customerSearchQuery.trim()
+        // ✅ USE BACKOFFICE ENDPOINT
+        const response = await api.get('/promotions/active/')
         
-        const response = await api.get('/customers/search/', {
-          params: { query }
-        })
+        console.log('📦 Full response:', response)
+        console.log('📦 Response data:', response.data)
         
-        if (response.data.success && response.data.data.customers.length > 0) {
-          const customer = response.data.data.customers[0]
-          this.selectedCustomer = customer
-          this.customerSearchQuery = ''
+        // Parse response - Backoffice structure
+        let allPromotions = []
+        
+        if (response && response.data) {
+          if (response.data.success === true) {
+            // Backoffice returns: { success: true, promotions: [...], count: n }
+            allPromotions = response.data.promotions || []
+            console.log('✅ Found promotions in response.data.promotions')
+          } else {
+            console.warn('⚠️ Success is not true')
+          }
+        }
+        
+        console.log('📋 Parsed promotions:', allPromotions)
+        console.log('📋 Promotions count:', allPromotions.length)
+        
+        if (!Array.isArray(allPromotions)) {
+          console.error('❌ allPromotions is not an array:', typeof allPromotions)
+          this.availablePromotions = []
+          this.filteredPromoSuggestions = []
+          return
+        }
+        
+        if (allPromotions.length === 0) {
+          console.warn('⚠️ No promotions found')
+          this.availablePromotions = []
+          this.filteredPromoSuggestions = []
+          return
+        }
+        
+        console.log('🔄 Calculating discounts for promotions...')
+        console.log('📦 Current cart items:', this.cartItems)
+        console.log('📦 Current products:', this.products)
+        
+        // Calculate discount for each promotion
+        const applicablePromotions = []
+        
+        for (const promo of allPromotions) {
+          try {
+            console.log(`\n  🎁 Checking: ${promo.name}`)
+            console.log(`     Type: ${promo.type} (${promo.discount_value}${promo.type === 'percentage' ? '%' : ' PHP'})`)
+            console.log(`     Target: ${promo.discount_config?.target_type}`)
+            console.log(`     Target IDs:`, promo.discount_config?.target_ids)
+            
+            const discount = this.calculatePromotionDiscount(promo)
+            console.log(`     💰 Calculated discount: ₱${discount}`)
+            
+            if (discount > 0) {
+              applicablePromotions.push({
+                ...promo,
+                calculatedDiscount: discount,
+                isApplicable: true
+              })
+              console.log(`     ✅ APPLICABLE - Added to list`)
+            } else {
+              console.log(`     ❌ NOT APPLICABLE - Discount is 0`)
+            }
+          } catch (calcError) {
+            console.error(`❌ Error calculating discount for ${promo.name}:`, calcError)
+          }
+        }
+        
+        // Sort by discount amount
+        applicablePromotions.sort((a, b) => b.calculatedDiscount - a.calculatedDiscount)
+        
+        this.availablePromotions = applicablePromotions
+        this.filteredPromoSuggestions = applicablePromotions
+        
+        console.log(`\n✅ FINAL RESULT: Found ${applicablePromotions.length} applicable promotions`)
+        console.log('📊 Applicable promotions:', applicablePromotions)
+        
+      } catch (error) {
+        console.error('❌ Failed to fetch promotions:', error)
+        console.error('❌ Error details:', error.response?.data)
+        
+        this.availablePromotions = []
+        this.filteredPromoSuggestions = []
+      }
+    },
+    
+    calculatePromotionDiscount(promotion) {
+      const targetType = promotion.discount_config?.target_type
+      const targetIds = promotion.discount_config?.target_ids || []
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+      } else if (targetType === 'categories') {
+        eligibleAmount = this.cartItems
+          .filter(item => {
+            const product = this.products.find(p => p.id === item.productId)
+            return product && targetIds.includes(product.category)
+          })
+          .reduce((sum, item) => sum + item.subtotal, 0)
+      } else if (targetType === 'products') {
+        eligibleAmount = this.cartItems
+          .filter(item => targetIds.includes(item.productId))
+          .reduce((sum, item) => sum + item.subtotal, 0)
+      }
+      
+      if (eligibleAmount === 0) return 0
+      
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+      }
+      
+      return Math.round(discount * 100) / 100
+    },
+    
+    async applyPromotionById(promotionId) {
+      try {
+        const promotion = this.availablePromotions.find(p => p._id === promotionId)
+        
+        if (!promotion) {
+          alert('Promotion not found')
+          return
+        }
+        
+        // Validate promotion is still active
+        const now = new Date()
+        const startDate = new Date(promotion.start_date)
+        const endDate = new Date(promotion.end_date)
+        
+        if (now < startDate) {
+          alert('This promotion has not started yet')
+          return
+        }
+        
+        if (now > endDate) {
+          alert('This promotion has expired')
+          return
+        }
+        
+        this.appliedPromotion = promotion
+        console.log('✅ Applied promotion:', promotion.name)
+        
+      } catch (error) {
+        console.error('❌ Failed to apply promotion:', error)
+        alert('Failed to apply promotion')
+      }
+    },
+    
+    async applyPromoCodeManually() {
+      if (!this.promoCode.trim()) {
+        alert('Please enter a promo code')
+        return
+      }
+      
+      try {
+        console.log('🎟️ Applying manual promo code:', this.promoCode)
+        
+        // Find promotion by name/code in available promotions first
+        const foundPromo = this.availablePromotions.find(
+          p => p.name.toLowerCase() === this.promoCode.trim().toLowerCase()
+        )
+        
+        if (foundPromo) {
+          this.applyPromotionById(foundPromo._id)
+          this.promoCode = ''
+          return
+        }
+        
+        // If not found in available, try API
+        const response = await api.get('/promotions/active/')
+        
+        if (response.data.success) {
+          const allPromotions = response.data.data.promotions || []
+          const matchingPromo = allPromotions.find(
+            p => p.name.toLowerCase() === this.promoCode.trim().toLowerCase()
+          )
           
-          console.log('✅ Customer found:', customer.full_name)
-        } else {
-          this.customerSearchError = 'Customer not found. Please check the username/email.'
+          if (matchingPromo) {
+            // Check if it applies to cart
+            const discount = this.calculatePromotionDiscount(matchingPromo)
+            
+            if (discount > 0) {
+              this.appliedPromotion = matchingPromo
+              this.promoCode = ''
+              console.log('✅ Manual promo applied:', matchingPromo.name)
+            } else {
+              alert('This promo code does not apply to items in your cart')
+            }
+          } else {
+            alert('Invalid promo code')
+          }
         }
         
       } catch (error) {
-        console.error('❌ Customer search failed:', error)
-        this.customerSearchError = error.response?.data?.message || 'Failed to search customer'
-      } finally {
-        this.customerSearching = false
+        console.error('❌ Manual promo failed:', error)
+        alert('Failed to apply promo code')
       }
     },
     
-    clearCustomer() {
-      this.selectedCustomer = null
-      this.customerSearchQuery = ''
-      this.customerSearchError = null
-      this.removePointsDiscount()
-    },
-    
-    applyPointsDiscount() {
-      if (!this.canRedeemPoints) {
-        alert('Invalid points amount')
-        return
-      }
-      
-      const discount = this.pointsToRedeem / 4
-      
-      if (discount > this.cartSubtotal) {
-        alert('Points discount cannot exceed cart total')
-        return
-      }
-      
-      this.pointsRedeemed = this.pointsToRedeem
-      this.appliedPointsDiscount = discount
-      this.pointsToRedeem = 0
-      
-      console.log(`✅ Applied ${this.pointsRedeemed} points (₱${discount.toFixed(2)} discount)`)
-    },
-    
-    removePointsDiscount() {
-      this.pointsRedeemed = 0
-      this.appliedPointsDiscount = 0
-      this.pointsToRedeem = 0
+    removePromotion() {
+      this.appliedPromotion = null
+      this.promoCode = ''
+      console.log('🗑️ Promotion removed')
     },
 
     // ================================================================
@@ -1098,16 +1264,6 @@ export default {
       this.cartStore.decreaseQuantity(item.productId)
     },
     
-    applyPromotion() {
-      // Add your promo code logic here
-      console.log('Applying promo code:', this.promoCode)
-    },
-    
-    removePromotion() {
-      this.appliedPromotion = null
-      this.promoCode = ''
-    },
-    
     checkout() {
       if (this.cartStore.isEmpty) {
         alert('Your cart is empty!')
@@ -1116,16 +1272,15 @@ export default {
       
       console.log('🛒 Proceeding to checkout...')
       
-      // Store customer and points info for checkout page
-      if (this.selectedCustomer) {
-        sessionStorage.setItem('checkoutCustomer', JSON.stringify({
-          customer_id: this.selectedCustomer._id,
-          full_name: this.selectedCustomer.full_name,
-          pointsRedeemed: this.pointsRedeemed,
-          pointsDiscount: this.appliedPointsDiscount
+      // Store promotion info for checkout
+      if (this.appliedPromotion) {
+        sessionStorage.setItem('appliedPromotion', JSON.stringify({
+          promotion_id: this.appliedPromotion._id,
+          promotion_name: this.appliedPromotion.name,
+          discount_amount: this.promoDiscount
         }))
       } else {
-        sessionStorage.removeItem('checkoutCustomer')
+        sessionStorage.removeItem('appliedPromotion')
       }
       
       this.$router.push('/checkout')
@@ -1137,7 +1292,62 @@ export default {
 
     openCart() {
       this.showCart = true
+      // Fetch promotions when cart opens
+      this.fetchAvailablePromotions()
     },
+    filterPromoSuggestions() {
+      const searchQuery = this.promoCode.toLowerCase().trim()
+      
+      if (!searchQuery) {
+        // Show all available promotions if input is empty
+        this.filteredPromoSuggestions = this.availablePromotions
+      } else {
+        // Filter promotions by name or description
+        this.filteredPromoSuggestions = this.availablePromotions.filter(promo => 
+          promo.name.toLowerCase().includes(searchQuery) ||
+          promo.description.toLowerCase().includes(searchQuery)
+        )
+      }
+    },
+    
+    hidePromoSuggestionsDelayed() {
+      // Delay hiding to allow click events to fire
+      setTimeout(() => {
+        this.showPromoSuggestions = false
+      }, 200)
+    },
+    
+    selectPromoFromSuggestion(promo) {
+      this.promoCode = promo.name
+      this.showPromoSuggestions = false
+      this.applyPromotionById(promo._id)
+    },
+    
+    formatPromotionValue(promo) {
+      if (promo.type === 'percentage') {
+        return `${promo.discount_value}% OFF`
+      } else if (promo.type === 'fixed') {
+        return `₱${this.formatPrice(promo.discount_value)} OFF`
+      }
+      return 'Discount'
+    },
+    
+    formatPromotionTarget(promo) {
+      const targetType = promo.discount_config?.target_type
+      
+      if (targetType === 'all') {
+        return 'All items'
+      } else if (targetType === 'categories') {
+        const count = promo.discount_config?.target_ids?.length || 0
+        return `${count} ${count === 1 ? 'category' : 'categories'}`
+      } else if (targetType === 'products') {
+        const count = promo.discount_config?.target_ids?.length || 0
+        return `${count} ${count === 1 ? 'product' : 'products'}`
+      }
+      return 'Selected items'
+    },
+    
+    
 
     // ================================================================
     // UTILITIES
@@ -1152,7 +1362,5 @@ export default {
 
 <style scoped>
 @import '@/assets/styles/NewOrder.css'
-
-
 
 </style>

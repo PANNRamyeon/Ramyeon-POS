@@ -434,7 +434,7 @@ class OnlineTransactionService:
     
     def create_online_order(self, order_data, customer_id):
         """
-        Create a new online order with FIFO batch deduction
+        Create a new online order with FIFO batch deduction and usage_history tracking
         
         Args:
             order_data: Dictionary containing order information
@@ -449,7 +449,7 @@ class OnlineTransactionService:
             transaction_date = datetime.utcnow()
             
             print(f"\n{'='*60}")
-            print(f"🛒 Creating online order: {order_id}")
+            print(f"🛒 Creating Online Order: {order_id}")
             print(f"   Customer: {customer_id}")
             print(f"   Items: {len(order_data.get('items', []))}")
             print(f"{'='*60}\n")
@@ -526,8 +526,7 @@ class OnlineTransactionService:
             print(f"   Subtotal after discount: ₱{subtotal_after_discount:.2f}")
             
             # Step 4: Calculate fees
-            delivery_fee = 50.00  # Fixed delivery fee
-            
+            delivery_fee = 50.00
             payment_method = order_data.get('payment_method', 'cod')
             service_fee_data = self.calculate_service_fee(
                 subtotal_after_discount,
@@ -548,7 +547,7 @@ class OnlineTransactionService:
             print(f"Step 4: Loyalty points to earn: {loyalty_points_earned} points\n")
             
             # Step 7: Build order record
-            print("Step 5: Processing order items with FIFO...")
+            print("Step 5: Processing order items with FIFO...\n")
             
             order_record = {
                 '_id': order_id,
@@ -608,11 +607,19 @@ class OnlineTransactionService:
                 
                 print(f"📦 Processing: {item['product_name']} ({product_id}) x{quantity_needed}")
                 
-                # Deduct from batches using FIFO
+                # ✅ PREPARE TRANSACTION INFO FOR USAGE_HISTORY
+                transaction_info = {
+                    'transaction_id': order_id,
+                    'adjusted_by': customer_id,
+                    'source': 'online_order'
+                }
+                
+                # ✅ Deduct from batches using FIFO with transaction tracking
                 batch_deductions = self.batch_service.deduct_stock_fifo(
                     product_id,
                     quantity_needed,
-                    transaction_date
+                    transaction_date,
+                    transaction_info=transaction_info  # ✅ Pass transaction info
                 )
                 
                 # Add batches_used to item
@@ -657,7 +664,8 @@ class OnlineTransactionService:
                 'message': 'Order created successfully',
                 'data': {
                     'order': order_record,
-                    'order_id': order_id
+                    'order_id': order_id,
+                    'auto_confirmed': payment_method == 'cod'
                 }
             }
             
@@ -665,7 +673,7 @@ class OnlineTransactionService:
             print(f"❌ Validation error: {str(e)}")
             
             # Rollback: Refund points if they were deducted
-            if points_to_redeem > 0:
+            if 'points_to_redeem' in locals() and points_to_redeem > 0:
                 try:
                     self.refund_customer_points(customer_id, points_to_redeem, f"{order_id}-ROLLBACK")
                 except:
@@ -679,7 +687,7 @@ class OnlineTransactionService:
             traceback.print_exc()
             
             # Rollback: Refund points if they were deducted
-            if points_to_redeem > 0:
+            if 'points_to_redeem' in locals() and points_to_redeem > 0:
                 try:
                     self.refund_customer_points(customer_id, points_to_redeem, f"{order_id}-ROLLBACK")
                 except:
@@ -693,7 +701,7 @@ class OnlineTransactionService:
     
     def cancel_online_order(self, order_id, cancellation_reason, cancelled_by):
         """
-        Cancel order and restore stock to batches
+        Cancel order and restore stock to batches with usage_history tracking
         
         Args:
             order_id: Order ID (ONLINE-######)
@@ -705,7 +713,7 @@ class OnlineTransactionService:
         """
         try:
             print(f"\n{'='*60}")
-            print(f"🚫 Cancelling order: {order_id}")
+            print(f"🚫 Cancelling Order: {order_id}")
             print(f"   Cancelled by: {cancelled_by}")
             print(f"   Reason: {cancellation_reason}")
             print(f"{'='*60}\n")
@@ -724,23 +732,30 @@ class OnlineTransactionService:
             if current_status not in ['pending', 'confirmed']:
                 raise ValueError(
                     f"Cannot cancel order in '{current_status}' status. "
-                    f"Orders can only be cancelled when 'pending' or 'confirmed'. "
-                    f"Please contact customer via phone for special cases."
+                    f"Orders can only be cancelled when 'pending' or 'confirmed'."
                 )
             
             print("✅ Order validation passed\n")
             
+            # ✅ PREPARE TRANSACTION INFO FOR RESTORATION
+            transaction_info = {
+                'transaction_id': f"{order_id}-CANCEL",
+                'adjusted_by': cancelled_by,
+                'reason': f"Order cancelled: {cancellation_reason}"
+            }
+            
             # Step 2: Restore stock to batches
-            print("Step 1: Restoring stock to batches...")
+            print("Step 1: Restoring stock to batches...\n")
             
             for item in order.get('items', []):
                 if 'batches_used' in item:
                     print(f"   Restoring: {item['product_name']} x{item['quantity']}")
                     
-                    # Restore to batches using batch service
+                    # ✅ Restore to batches using batch service with tracking
                     self.batch_service.restore_stock_to_batches(
                         item['batches_used'],
-                        datetime.utcnow()
+                        datetime.utcnow(),
+                        transaction_info=transaction_info  # ✅ Pass transaction info
                     )
                     
                     # Update product total stock
@@ -761,7 +776,7 @@ class OnlineTransactionService:
                         
                         print(f"      Stock restored: {product.get('stock')} → {new_stock}")
             
-            print("✅ Stock restored to batches\n")
+            print("\n✅ Stock restored to batches\n")
             
             # Step 3: Refund loyalty points if used
             points_refunded = False
@@ -784,7 +799,7 @@ class OnlineTransactionService:
             if order['payment_status'] == 'paid':
                 payment_status_update['payment_status'] = 'refunded'
                 print("Step 3: Marking payment for refund...")
-                print("✅ Payment marked for refund (process via PayMongo dashboard)\n")
+                print("✅ Payment marked for refund\n")
             
             # Step 5: Update order to cancelled
             print("Step 4: Updating order status...")

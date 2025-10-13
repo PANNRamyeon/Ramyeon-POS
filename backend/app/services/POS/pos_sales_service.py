@@ -63,9 +63,9 @@ class POSSalesService:
             transaction_date = datetime.utcnow()
             
             print(f"\n{'='*60}")
-            print(f"💰 Creating sale: {sale_id}")
+            print(f"💰 Creating POS Sale: {sale_id}")
             print(f"   Cashier: {cashier_id}")
-            print(f"   Total: ₱{sale_data.get('total_amount', 0)}")
+            print(f"   Total: ₱{sale_data.get('total_amount', 0):.2f}")
             print(f"   Items: {len(sale_data.get('items', []))}")
             print(f"{'='*60}\n")
             
@@ -76,7 +76,7 @@ class POSSalesService:
                 'cashier_id': cashier_id,
                 'shift_id': sale_data.get('shift_id'),
                 'customer_id': sale_data.get('customer_id'),
-                'items': [],  # ✅ Will be populated with batch info
+                'items': [],  # Will be populated with batch info
                 'subtotal': sale_data.get('subtotal', 0),
                 'tax_amount': sale_data.get('tax_amount', 0),
                 'discount_amount': sale_data.get('discount_amount', 0),
@@ -93,6 +93,8 @@ class POSSalesService:
             }
             
             # ✅ Process each item with FIFO batch deduction
+            print("Processing items with FIFO batch deduction...\n")
+            
             for item in sale_data.get('items', []):
                 product_id = item.get('product_id')
                 quantity_needed = item.get('quantity', 0)
@@ -105,11 +107,31 @@ class POSSalesService:
                 if not product:
                     raise ValueError(f"Product {product_id} not found")
                 
-                # ✅ Deduct from batches using FIFO (BATCH SERVICE)
+                # Check stock availability
+                stock_check = self.batch_service.check_batch_availability(
+                    product_id,
+                    quantity_needed
+                )
+                
+                if not stock_check['available']:
+                    raise ValueError(
+                        f"Insufficient stock for {item.get('product_name')}. "
+                        f"Available: {stock_check['total_stock']}, Requested: {quantity_needed}"
+                    )
+                
+                # ✅ PREPARE TRANSACTION INFO FOR USAGE_HISTORY
+                transaction_info = {
+                    'transaction_id': sale_id,
+                    'adjusted_by': cashier_id,
+                    'source': 'pos_sale'
+                }
+                
+                # ✅ Deduct from batches using FIFO with transaction tracking
                 batch_deductions = self.batch_service.deduct_stock_fifo(
                     product_id, 
                     quantity_needed,
-                    transaction_date
+                    transaction_date,
+                    transaction_info=transaction_info  # ✅ Pass transaction info
                 )
                 
                 # Add item to sale record with batch tracking
@@ -145,8 +167,11 @@ class POSSalesService:
             self.sales_collection.insert_one(sale_record)
             
             print(f"{'='*60}")
-            print(f"✅ Sale created successfully: {sale_id}")
+            print(f"✅ POS Sale created successfully: {sale_id}")
             print(f"{'='*60}\n")
+            
+            # Send notification (optional)
+            # self._send_sale_notification(sale_record, 'sale_completed')
             
             return {
                 'success': True,
@@ -159,7 +184,7 @@ class POSSalesService:
             raise
             
         except Exception as e:
-            print(f"❌ Unexpected error creating sale: {str(e)}")
+            print(f"❌ Unexpected error creating POS sale: {str(e)}")
             import traceback
             traceback.print_exc()
             raise Exception(f"Error creating POS sale: {str(e)}")
@@ -238,33 +263,69 @@ class POSSalesService:
     # ================================================================
     
     def void_sale(self, sale_id, reason, manager_id):
-        """Void sale and restore stock to batches"""
+        """
+        Void sale and restore stock to batches with usage_history tracking
+        
+        Args:
+            sale_id: Sale ID (SALE-######)
+            reason: Reason for voiding
+            manager_id: Manager who approved void
+        
+        Returns:
+            Updated sale document
+        """
         try:
+            print(f"\n{'='*60}")
+            print(f"🚫 Voiding Sale: {sale_id}")
+            print(f"   Manager: {manager_id}")
+            print(f"   Reason: {reason}")
+            print(f"{'='*60}\n")
+            
             # Get sale
             sale = self.get_sale_by_id(sale_id)
+            
             if not sale:
                 raise ValueError(f"Sale {sale_id} not found")
             
             if sale.get('is_voided'):
                 raise ValueError(f"Sale {sale_id} is already voided")
             
-            # ✅ Restore stock to batches
+            # ✅ PREPARE TRANSACTION INFO FOR RESTORATION
+            transaction_info = {
+                'transaction_id': f"{sale_id}-VOID",
+                'adjusted_by': manager_id,
+                'reason': f"Sale voided: {reason}"
+            }
+            
+            # ✅ Restore stock to batches with tracking
             for item in sale.get('items', []):
                 if 'batches_used' in item:
+                    print(f"   Restoring: {item['product_name']} x{item['quantity']}")
+                    
                     # Restore to batches using batch service
                     self.batch_service.restore_stock_to_batches(
                         item['batches_used'],
-                        datetime.utcnow()
+                        datetime.utcnow(),
+                        transaction_info=transaction_info  # ✅ Pass transaction info
                     )
                     
                     # Restore product total stock
                     product = self.products_collection.find_one({'_id': item['product_id']})
+                    
                     if product:
                         new_stock = product.get('stock', 0) + item['quantity']
+                        
                         self.products_collection.update_one(
                             {'_id': item['product_id']},
-                            {'$set': {'stock': new_stock}}
+                            {
+                                '$set': {
+                                    'stock': new_stock,
+                                    'updated_at': datetime.utcnow()
+                                }
+                            }
                         )
+                        
+                        print(f"      Stock restored: {product.get('stock')} → {new_stock}")
             
             # Mark sale as voided
             self.sales_collection.update_one(
@@ -275,10 +336,15 @@ class POSSalesService:
                         'void_reason': reason,
                         'voided_by': manager_id,
                         'voided_at': datetime.utcnow(),
-                        'status': 'voided'
+                        'status': 'voided',
+                        'updated_at': datetime.utcnow()
                     }
                 }
             )
+            
+            print(f"\n{'='*60}")
+            print(f"✅ Sale voided successfully: {sale_id}")
+            print(f"{'='*60}\n")
             
             return self.get_sale_by_id(sale_id)
             

@@ -888,12 +888,25 @@ class PromotionService:
         try:
             now = datetime.utcnow()
             
-            active_promotions = list(self.collection.find({
-                'is_active': True,
-                'status': 'active',
-                'start_date': {'$lte': now},
-                'end_date': {'$gte': now}
-            }).sort('created_at', -1))
+            query = {
+                'status': 'active',                    # ✅ Check status
+                'isDeleted': {'$ne': True},           # ✅ Not deleted
+                'start_date': {'$lte': now},          # ✅ Started
+                'end_date': {'$gte': now}             # ✅ Not ended
+            }
+            
+            # Debug logging
+            logger.info(f"Querying active promotions with: {query}")
+            logger.info(f"Current server time (UTC): {now}")
+            
+            active_promotions = list(self.collection.find(query).sort('created_at', -1))
+            
+            logger.info(f"Found {len(active_promotions)} active promotions")
+            
+            # Serialize ObjectId to string for JSON
+            for promo in active_promotions:
+                if '_id' in promo and not isinstance(promo['_id'], str):
+                    promo['_id'] = str(promo['_id'])
             
             return {
                 'success': True,
@@ -903,7 +916,12 @@ class PromotionService:
             
         except Exception as e:
             logger.error(f"Error getting active promotions: {e}")
-            return {'success': False, 'message': f'Error retrieving active promotions: {str(e)}'}
+            return {
+                'success': False, 
+                'message': f'Error retrieving active promotions: {str(e)}',
+                'promotions': [],
+                'count': 0
+            }
 
     def get_promotion_by_id(self, promotion_id):
         """Retrieve specific promotion by PROM-#### ID"""
