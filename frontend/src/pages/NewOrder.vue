@@ -105,7 +105,7 @@
           <div 
             v-if="viewMode === 'products' && isCustomCategory && customCategoryItems.length < 8"
             class="product-card add-item-card"
-            @click="showProductSelectorModal = true">
+            @click="openProductSelectorModal()">
             <div class="add-item-content">
               <ShoppingBag :size="32" />
               <p>Add Products</p>
@@ -199,7 +199,7 @@
               :key="category.id"
               :class="['tab-btn', { active: selectedSourceCategory === category.id }]"
               @click="selectedSourceCategory = category.id">
-              {{ category.name }} ({{ getProductCountForCategory(category.id) }})
+              {{ category.name }} ({{ productCountsByCategory[category.id] || 0 }})
             </button>
           </div>
           
@@ -741,10 +741,48 @@ export default {
       }
     },
 
-    // ================================================================
-    // CATEGORIES
-    // ================================================================
-    
+    // ✅ FIX: Load ALL products when modal opens
+    async openProductSelectorModal() {
+      this.showProductSelectorModal = true
+      
+      // Load ALL products from ALL available categories
+      await this.loadAllProductsForSelection()
+      
+      // Then select the first category
+      if (this.availableSourceCategories.length > 0) {
+        this.selectedSourceCategory = this.availableSourceCategories[0].id
+      }
+    },
+
+    // ✅ FIX: New method to load all products at once
+    async loadAllProductsForSelection() {
+      try {
+        this.productsLoading = true
+        
+        console.log('📦 Loading products from all categories...')
+        
+        // Fetch products from ALL available source categories in parallel
+        const productPromises = this.availableSourceCategories.map(category => 
+          productsAPI.getProductsByCategory(category.id)
+        )
+        
+        // Wait for all requests to complete
+        const allCategoryProducts = await Promise.all(productPromises)
+        
+        // Flatten all products into a single array
+        this.allProducts = allCategoryProducts.flat()
+        
+        console.log('✅ Loaded all products:', this.allProducts.length)
+        console.log('📊 Products by category:', this.productCountsByCategory)
+        
+      } catch (error) {
+        console.error('Failed to load all products:', error)
+        this.error = error.message
+      } finally {
+        this.productsLoading = false
+      }
+    },
+
     async loadCategories() {
       try {
         this.loading = true
@@ -809,29 +847,10 @@ export default {
       }
     },
 
-    async loadProductsForSelection() {
-      if (!this.selectedSourceCategory) return
-      
-      try {
-        this.productsLoading = true
-        const products = await productsAPI.getProductsByCategory(this.selectedSourceCategory)
-        this.allProducts = products
-      } catch (error) {
-        console.error('Failed to load products for selection:', error)
-        this.error = error.message
-      } finally {
-        this.productsLoading = false
-      }
-    },
-
     generateSubcategoryImage(subcategoryName) {
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(subcategoryName)}&size=200&background=A07BE3&color=fff`
     },
 
-    // ================================================================
-    // CUSTOM CATEGORIES
-    // ================================================================
-    
     createCategory() {
       if (!this.newCategory.name.trim()) return
       
@@ -880,6 +899,7 @@ export default {
       this.selectedProducts = []
       this.productSearchQuery = ''
       this.selectedSourceCategory = null
+      this.allProducts = []
     },
 
     toggleProductSelection(product) {
@@ -902,10 +922,6 @@ export default {
         )
       }
       return false
-    },
-
-    getProductCountForCategory(categoryId) {
-      return this.allProducts.filter(product => product.category === categoryId).length
     },
 
     addSelectedProductsToCategory() {
@@ -942,10 +958,6 @@ export default {
       }
     },
 
-    // ================================================================
-    // NAVIGATION
-    // ================================================================
-    
     handleProductClick(product) {
       if (product.isSubcategory) {
         this.selectSubcategory(product.subcategoryData)

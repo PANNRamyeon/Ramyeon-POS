@@ -20,8 +20,8 @@
       <p>Loading user data...</p>
     </div>
     
-    <div v-else-if="error" class="error">
-      <p>{{ error }}</p>
+    <div v-else-if="error" class="error-state">
+      <p class="text-error">{{ error }}</p>
       <button @click="loadUserData()" class="btn btn-secondary">Retry</button>
     </div>
     
@@ -169,7 +169,7 @@
 </template>
 
 <script>
-import apiSettings from '@/services/apiSettings';
+import apiSettings from '@/services/apiSettings'
 
 export default {
   name: 'Settings',
@@ -182,6 +182,7 @@ export default {
       errorMessage: '',
       successMessage: '',
       passwordMismatch: false,
+      isDarkMode: false, // Changed to reactive data property
       user: {
         id: '',
         email: '',
@@ -246,21 +247,20 @@ export default {
     
     async loadUserData() {
       try {
-        this.loading = true;
-        this.error = null;
+        this.loading = true
+        this.error = null
         
         this.user = await apiSettings.getCurrentUser();
         
       } catch (error) {
-        this.error = error.message;
+        this.error = error.message
         
-        // Handle authentication errors
         if (error.message.includes('Authentication failed')) {
-          this.$router.push('/login');
+          this.$router.push('/login')
         }
         
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
     
@@ -278,36 +278,36 @@ export default {
       this.errorMessage = '';
       
       if (!this.passwordForm.currentPassword) {
-        this.errorMessage = 'Current password is required';
-        return false;
+        this.errorMessage = 'Current password is required'
+        return false
       }
       
       if (!this.passwordForm.newPassword) {
-        this.errorMessage = 'New password is required';
-        return false;
+        this.errorMessage = 'New password is required'
+        return false
       }
       
       if (!this.passwordForm.confirmPassword) {
-        this.errorMessage = 'Please confirm your new password';
-        return false;
+        this.errorMessage = 'Please confirm your new password'
+        return false
       }
       
       if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
-        this.errorMessage = 'New passwords do not match';
-        return false;
+        this.errorMessage = 'New passwords do not match'
+        return false
       }
       
       if (this.passwordForm.newPassword.length < 6) {
-        this.errorMessage = 'New password must be at least 6 characters';
-        return false;
+        this.errorMessage = 'New password must be at least 6 characters'
+        return false
       }
       
       if (this.passwordForm.newPassword === this.passwordForm.currentPassword) {
-        this.errorMessage = 'New password must be different from current password';
-        return false;
+        this.errorMessage = 'New password must be different from current password'
+        return false
       }
       
-      return true;
+      return true
     },
     
     async handlePasswordUpdate() {
@@ -317,7 +317,7 @@ export default {
         this.successMessage = '';
         
         if (!this.validatePasswordForm()) {
-          return false;
+          return false
         }
 
         const updateData = {
@@ -704,8 +704,8 @@ export default {
   color: var(--error);
 }
 
-.error button {
-  margin-top: 1rem;
+.custom-toggle:hover .toggle-track {
+  opacity: 0.8;
 }
 
 .alert {

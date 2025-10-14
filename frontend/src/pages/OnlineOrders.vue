@@ -75,7 +75,7 @@
             <h1 style="font-weight: bold; font-size: 30px;">Order</h1>
             <h2># {{ selectedOrder._id }}</h2>
           </div>
-          <button @click="selectedOrder = null" class="close-btn">
+          <button @click="selectedOrder = null" class="close-btn hover-accent transition-theme-fast">
             <CircleX :size="24" />
           </button>
         </div>
@@ -133,7 +133,7 @@
         <!-- Payment Section (COD only) -->
         <div v-if="selectedOrder.payment_method === 'cod'" class="payment-section">
           <div class="payment-row">
-            <span class="cash-label">Cash Received</span>
+            <span class="cash-label text-success">Cash Received</span>
             <label class="toggle-switch">
               <input 
                 type="checkbox" 
@@ -559,11 +559,11 @@ export default {
 }
 
 .oo-contents {
-  padding: 0;
+  padding: 2rem 0 2rem 2rem; /* Add top and bottom padding */
   display: flex;
   height: 74vh;
   gap: 0.5rem;
-}
+} 
 
 /* Left Side */
 .oo-left {
@@ -576,7 +576,7 @@ export default {
   list-style: none;
   padding: 0;
   margin: 0;
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 2px solid var(--border-secondary);
 }
 
 .nav-item {
@@ -588,19 +588,20 @@ export default {
   border: none;
   padding: 0.75rem 1.5rem;
   cursor: pointer;
-  color: #6c757d;
   font-weight: 500;
   border-bottom: 2px solid transparent;
-  transition: all 0.2s ease;
+  color: var(--text-secondary);
 }
 
 .nav-link:hover {
-  color: #495057;
+  color: var(--text-primary) !important;
 }
 
 .nav-link.active {
-  color: #6f42c1;
-  border-bottom-color: #6f42c1;
+  color: var(--primary) !important;
+  border-bottom-color: var(--primary);
+  background-color: var(--surface-primary);
+  border-radius: 0.5rem 0.5rem 0 0;
 }
 
 .tab-content {
@@ -621,10 +622,7 @@ export default {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  background-color: white;
   border-radius: 12px;
-  border: 1px solid #e9ecef;
-  transition: all 0.2s ease;
   margin-top: 20px;
   cursor: pointer;
 }
@@ -657,11 +655,9 @@ export default {
   font-size: 30px;
   font-weight: 600;
   margin: 0;
-  color: #2d3748;
 }
 
 .cardtop h2 {
-  color: #6b7280;
   font-size: 20px;
   font-weight: 500;
   margin: 0;
@@ -677,7 +673,6 @@ export default {
   font-size: 16px;
   font-weight: 500;
   margin: 0;
-  color: #6b7280;
 }
 
 .cdbot-right {
@@ -690,7 +685,6 @@ export default {
   font-size: 24px;
   font-weight: 700;
   margin: 0;
-  color: #2d3748;
 }
 
 .badge {
@@ -815,7 +809,6 @@ export default {
 }
 
 .orbb-card {
-  background-color: #f8f9fa;
   height: 50px;
   border-radius: 8px;
   display: flex;
@@ -847,7 +840,6 @@ export default {
 .customer-section {
   margin: 1rem;
   padding: 1rem;
-  background-color: #f8f9fa;
   border-radius: 10px;
 }
 
@@ -858,7 +850,6 @@ export default {
 }
 
 .location-icon {
-  color: #6f42c1;
   margin-right: 0.5rem;
   flex-shrink: 0;
 }
@@ -870,10 +861,6 @@ export default {
 
 .community {
   font-weight: 600;
-}
-
-.address {
-  color: #666;
 }
 
 .phone-row {
@@ -899,7 +886,6 @@ export default {
 }
 
 .cash-label {
-  color: #28a745;
   font-weight: 600;
 }
 
@@ -922,7 +908,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: var(--neutral-medium);
   transition: .4s;
   border-radius: 24px;
 }
@@ -940,7 +926,7 @@ export default {
 }
 
 input:checked + .slider {
-  background-color: #6f42c1;
+  background-color: var(--primary);
 }
 
 input:checked + .slider:before {

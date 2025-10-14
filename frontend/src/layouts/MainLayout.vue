@@ -1,5 +1,5 @@
 <template>
-  <div class="app-layout">
+  <div class="app-layout surface-tertiary transition-theme">
     <!-- Sidebar Component -->
     <Sidebar 
       @menu-changed="handleMenuChange"
@@ -9,11 +9,11 @@
     <!-- Main Content Area -->
     <main class="main-content">
       <!-- Header Bar -->
-      <header class="content-header">
+      <header class="content-header surface-primary border-bottom-theme shadow-sm transition-theme">
         <div class="header-content">
           <!-- Left Side - Date/Time and Page Title -->
           <div class="header-left">
-            <div class="datetime-display">
+            <div class="datetime-display text-secondary">
               {{ currentDateTime }}
             </div>
           </div>
@@ -21,7 +21,7 @@
       </header>
       
       <!-- Page Content - This will now show the routed component -->
-      <div class="page-content">
+      <div class="page-content surface-tertiary transition-theme">
         <router-view />
       </div>
     </main>
@@ -353,7 +353,6 @@ export default {
   width: 100vw;
   margin: 0;
   padding: 0;
-  background-color: #f8f9fa;
 }
 
 .main-content {
@@ -371,8 +370,6 @@ export default {
   background: white;
   height: 100px;
   padding: 0 2.5rem;
-  border-bottom: 1px solid #e9ecef;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -393,7 +390,6 @@ export default {
 }
 
 .datetime-display {
-  color: #6c757d;
   font-size: 0.875rem;
   font-weight: 500;
   letter-spacing: 0.025em;
@@ -401,7 +397,6 @@ export default {
 }
 
 .content-header h1 {
-  color: #495057;
   font-size: 1.875rem;
   font-weight: 600;
   margin: 0;

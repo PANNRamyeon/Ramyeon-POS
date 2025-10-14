@@ -40,7 +40,9 @@ import {
   Filter, 
   Settings, 
   ChevronLeft, 
-  Archive
+  Archive,
+  ToggleLeft,
+  ToggleRight 
 } from 'lucide-vue-next'
 
 export default {
@@ -81,6 +83,8 @@ export default {
     app.component('ShoppingBag', ShoppingBag)
     app.component('ShoppingCart', ShoppingCart)
     app.component('Soup', Soup)
+    app.component('ToggleLeft', ToggleLeft)
+    app.component('ToggleRight', ToggleRight)
     app.component('Trash2', Trash2)
     app.component('Unlock', Unlock)
     app.component('Upload', Upload)
