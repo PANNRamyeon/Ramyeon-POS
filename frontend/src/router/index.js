@@ -9,7 +9,8 @@ import OnlineOrder from '@/pages/OnlineOrders.vue'
 import NewOrder from '@/pages/NewOrder.vue'
 import Settings from '@/pages/Settings.vue'
 import History from '@/pages/History.vue'
-import Checkout from '@/pages/Checkout.vue' // ✅ Make sure this path is correct
+import Checkout from '@/pages/Checkout.vue'
+import PaymentCallback from '@/components/PaymentCallback.vue'
 
 // Auth guard function
 function requireAuth(to, from, next) {
@@ -82,8 +83,16 @@ const router = createRouter({
           name: 'Checkout',
           component: Checkout,
           meta: { requiresAuth: true }
-        },
+        }
       ]
+    },
+    // Payment callback route (outside MainLayout for cleaner UI)
+    {
+      path: '/pos/payment-callback',
+      name: 'PaymentCallback',
+      component: PaymentCallback,
+      beforeEnter: requireAuth,
+      meta: { requiresAuth: true }
     },
     // Catch all route - redirect to login
     {

@@ -1,72 +1,76 @@
 <template>
-  <div class="checkout-page">
+  <div class="d-flex gap-3 p-3 page-container" style="min-height: 100vh;">
     <!-- Loading Overlay -->
-    <div v-if="isLoading" class="loading-overlay">
-      <div class="spinner-large"></div>
-      <p>{{ loadingMessage }}</p>
+    <div v-if="isLoading" class="loading-overlay position-fixed top-0 start-0 end-0 bottom-0 d-flex flex-column align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.95); z-index: 9999;">
+      <div class="spinner-border text-primary mb-3" role="status" style="width: 60px; height: 60px;">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-secondary fw-medium fs-5">{{ loadingMessage }}</p>
     </div>
 
-    <div class="cp-left">
-      <div class="cpl-header">
-        <button @click="goBack" class="nav-btn" :disabled="isProcessing">
-          <ChevronLeft :size="20"/> 
+    <div class="flex-fill surface-primary shadow-sm rounded-4">
+      <div class="d-flex align-items-center gap-3 p-4 border-bottom-theme">
+        <button @click="goBack" class="btn btn-light rounded-3 p-2 hover-surface transition-theme" :disabled="isProcessing">
+          <ChevronLeft :size="20"/>
         </button>
-        <h1>Checkout</h1>
-        <button class="trash-btn" @click="clearCart" :disabled="isProcessing">
-          <Trash2 :size="25"/> 
+        <h1 class="m-0 fs-2 text-primary fw-semibold">Checkout</h1>
+        <button class="btn btn-light rounded-3 p-2 ms-auto text-danger hover-lift transition-theme" @click="clearCart" :disabled="isProcessing">
+          <Trash2 :size="25"/>
         </button>
       </div>
-      
-      <div class="cpl-contents">
+
+      <div class="p-4 overflow-auto" style="height: calc(100vh - 100px);">
         <!-- Empty Cart State -->
-        <div v-if="cartItems.length === 0" class="empty-cart">
-          <div class="empty-icon">🛒</div>
-          <h3>Your cart is empty</h3>
-          <p>Add some items to get started!</p>
-          <button @click="goBack" class="continue-shopping-btn">
+        <div v-if="cartItems.length === 0" class="d-flex flex-column align-items-center justify-content-center text-center p-5 text-secondary">
+          <div class="fs-1 mb-3" style="opacity: 0.6;">🛒</div>
+          <h3 class="fs-4 mb-2 text-primary">Your cart is empty</h3>
+          <p class="fs-6 mb-4">Add some items to get started!</p>
+          <button @click="goBack" class="btn btn-primary px-4 py-2 rounded-3 fw-semibold">
             Continue Shopping
           </button>
         </div>
-        
+
         <!-- Cart Items -->
-        <div v-else class="cart-items-container">
-          <div class="cart-item-card" v-for="item in cartItems" :key="item.id">
-            <div class="item-image">
-              <img :src="item.image" :alt="item.name" loading="lazy" />
+        <div v-else class="d-flex flex-column gap-3">
+          <div class="card-theme hover-lift transition-theme d-flex align-items-start gap-3 p-3 rounded-3" v-for="item in cartItems" :key="item.id">
+            <div class="rounded-3 overflow-hidden border border-secondary" style="width: 80px; height: 80px; flex-shrink: 0;">
+              <img :src="item.image" :alt="item.name" loading="lazy" class="w-100 h-100" style="object-fit: cover;" />
             </div>
-            
-            <div class="item-info">
-              <h3 class="item-name">{{ item.productName }}</h3>
-              <p class="item-description">SKU: {{ item.sku }}</p>
-              <div class="item-price-unit">₱{{ formatPrice(item.price) }} each</div>
+
+            <div class="flex-fill">
+              <h3 class="fs-5 fw-semibold mb-1 text-primary">{{ item.productName }}</h3>
+              <p class="fs-6 text-secondary mb-2">SKU: {{ item.sku }}</p>
+              <div class="fs-6 text-accent fw-medium">₱{{ formatPrice(item.price) }} each</div>
             </div>
-            
-            <div class="item-controls">
-              <div class="quantity-controls">
-                <button 
-                  class="quantity-btn decrease" 
+
+            <div class="d-flex flex-column align-items-end gap-2">
+              <div class="d-flex align-items-center gap-2 surface-primary border border-secondary rounded-pill p-1">
+                <button
+                  class="btn btn-sm btn-secondary rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style="width: 32px; height: 32px;"
                   @click="decreaseQuantity(item)"
                   :disabled="item.quantity <= 1 || quantityUpdating"
                 >
                   <Minus :size="16" />
                 </button>
-                <span class="quantity">{{ item.quantity }}</span>
-                <button 
-                  class="quantity-btn increase" 
+                <span class="fw-semibold text-primary px-2" style="min-width: 30px; text-align: center;">{{ item.quantity }}</span>
+                <button
+                  class="btn btn-sm btn-primary rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style="width: 32px; height: 32px;"
                   @click="increaseQuantity(item)"
                   :disabled="quantityUpdating"
                 >
                   <Plus :size="16" />
                 </button>
               </div>
-              
-              <div class="item-total-price">
+
+              <div class="fs-5 fw-bold text-primary">
                 ₱{{ formatPrice(item.subtotal) }}
               </div>
-              
-              <button 
-                class="remove-item" 
-                @click="removeItem(item)" 
+
+              <button
+                class="btn btn-link text-danger p-1 rounded-2 hover-lift transition-theme"
+                @click="removeItem(item)"
                 title="Remove item"
                 :disabled="quantityUpdating"
               >
@@ -77,27 +81,28 @@
         </div>
       </div>
     </div>
-    
-    <div class="cp-right">
-      <div class="checkout-summary">
-        <h2>Order Summary</h2>
-        
+
+
+    <div class="surface-primary shadow-sm rounded-4 p-4" style="width: 400px;">
+      <div class="d-flex flex-column h-100">
+        <h2 class="mb-4 fs-4 text-primary fw-semibold">Order Summary</h2>
+
         <!-- Customer Section -->
-        <div class="customer-section">
-          <h3>Customer (Optional)</h3>
-          
+        <div class="mb-4 pb-4 border-bottom-theme">
+          <h3 class="fs-6 fw-semibold mb-3 text-primary">Customer (Optional)</h3>
+
           <!-- Customer Search -->
-          <div v-if="!selectedCustomer" class="customer-search">
-            <input 
-              type="text" 
-              class="form-control" 
+          <div v-if="!selectedCustomer" class="d-flex gap-2">
+            <input
+              type="text"
+              class="form-control input-theme rounded-3"
               placeholder="Enter email or username"
               v-model="customerSearchQuery"
               @keyup.enter="searchCustomer"
               :disabled="isProcessing"
             />
-            <button 
-              class="btn btn-primary btn-sm" 
+            <button
+              class="btn btn-primary btn-sm rounded-3"
               @click="searchCustomer"
               :disabled="customerSearching || !customerSearchQuery.trim() || isProcessing"
             >
@@ -106,64 +111,61 @@
           </div>
 
           <!-- Customer Found -->
-          <div v-if="selectedCustomer" class="customer-info-card">
-            <div class="customer-header">
-              <div class="customer-details">
-                <h5>{{ selectedCustomer.full_name }}</h5>
-                <p class="customer-username">@{{ selectedCustomer.username }}</p>
-                <p v-if="selectedCustomer.email" class="customer-email">{{ selectedCustomer.email }}</p>
+          <div v-if="selectedCustomer" class="surface-secondary rounded-3 p-3">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <h5 class="fs-6 fw-semibold mb-1">{{ selectedCustomer.full_name }}</h5>
+                <p class="fs-6 text-secondary mb-1">@{{ selectedCustomer.username }}</p>
+                <p v-if="selectedCustomer.email" class="fs-6 text-secondary mb-0">{{ selectedCustomer.email }}</p>
               </div>
-              <button class="btn-remove" @click="clearCustomer" :disabled="isProcessing">
+              <button class="btn btn-link text-danger p-1 rounded-2" @click="clearCustomer" :disabled="isProcessing">
                 <X :size="16" />
               </button>
             </div>
-            
+
             <!-- Loyalty Points Display -->
-            <div class="loyalty-points-display">
-              <div class="points-info">
-                <span class="points-label">Available Points:</span>
-                <span class="points-value">{{ selectedCustomer.loyalty_points || 0 }} pts</span>
-                <span class="points-cash">(₱{{ formatPrice((selectedCustomer.loyalty_points || 0) / 4) }})</span>
+            <div class="surface-primary rounded-3 p-2 mb-3">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="fs-7 text-secondary">Available Points:</span>
+                <span class="fs-5 fw-bold text-accent">{{ selectedCustomer.loyalty_points || 0 }} pts</span>
+                <span class="fs-7 text-secondary">(₱{{ formatPrice((selectedCustomer.loyalty_points || 0) / 4) }})</span>
               </div>
             </div>
 
             <!-- Points Action Buttons -->
-            <div class="points-action-buttons">
-              <button 
-                :class="['points-action-btn', { active: pointsMode === 'earn' }]"
+            <div class="d-flex gap-2 mb-3">
+              <button
+                :class="pointsMode === 'earn' ? 'btn btn-primary flex-fill d-flex align-items-center gap-2 p-2 rounded-3' : 'btn btn-outline-secondary flex-fill d-flex align-items-center gap-2 p-2 rounded-3'"
                 @click="setPointsMode('earn')"
                 type="button"
                 :disabled="isProcessing"
               >
-                <div class="action-icon">✨</div>
-                <div class="action-content">
-                  <span class="action-title">Earn Points</span>
-                  <span class="action-subtitle">+{{ pointsWillEarn }} pts</span>
+                <div class="fs-5">✨</div>
+                <div class="d-flex flex-column align-items-start flex-fill">
+                  <span class="fs-7 fw-semibold">Earn Points</span>
+                  <span class="fs-8" style="opacity: 0.8;">+{{ pointsWillEarn }} pts</span>
                 </div>
               </button>
 
-              <!-- ✅ CHANGED: from >= 200 to >= 100 -->
-              <button 
+              <button
                 v-if="selectedCustomer.loyalty_points >= 100"
-                :class="['points-action-btn', { active: pointsMode === 'use' }]"
+                :class="pointsMode === 'use' ? 'btn btn-primary flex-fill d-flex align-items-center gap-2 p-2 rounded-3' : 'btn btn-outline-secondary flex-fill d-flex align-items-center gap-2 p-2 rounded-3'"
                 @click="setPointsMode('use')"
                 type="button"
                 :disabled="isProcessing"
               >
-                <div class="action-icon">🎁</div>
-                <div class="action-content">
-                  <span class="action-title">Use Points</span>
-                  <span class="action-subtitle">Up to {{ maxRedeemablePoints }} pts</span>
+                <div class="fs-5">🎁</div>
+                <div class="d-flex flex-column align-items-start flex-fill">
+                  <span class="fs-7 fw-semibold">Use Points</span>
+                  <span class="fs-8" style="opacity: 0.8;">Up to {{ maxRedeemablePoints }} pts</span>
                 </div>
               </button>
 
-              <!-- ✅ CHANGED: text from 200+ to 100+ -->
-              <div v-else class="points-insufficient-notice">
+              <div v-else class="flex-fill d-flex align-items-center justify-content-center p-2 status-warning rounded-3 border-2 border-dashed">
                 <small>💡 Need 100+ points to redeem</small>
               </div>
             </div>
 
-            <!-- ✅ CHANGED: condition from >= 200 to >= 100 -->
             <!-- Points Redemption Panel -->
             <div v-if="pointsMode === 'use' && selectedCustomer.loyalty_points >= 100" class="points-redemption-panel">
               <div class="redemption-header">
@@ -172,7 +174,6 @@
               </div>
               
               <div class="redemption-input-group">
-                <!-- ✅ CHANGED: min from 200 to 100 -->
                 <input 
                   type="number" 
                   class="form-control points-input" 
@@ -192,7 +193,6 @@
                 </button>
               </div>
               
-              <!-- ✅ CHANGED: text from "200 pts (₱50)" to "100 pts (₱25)" -->
               <div class="redemption-info-box">
                 <div class="info-row">
                   <span>Minimum:</span>
@@ -258,193 +258,251 @@
         </div>
 
         <!-- Promotion Display -->
-        <div v-if="appliedPromotion" class="promotion-section">
-          <h3>Applied Promotion</h3>
-          <div class="promotion-card">
-            <div class="promotion-content">
-              <span class="promotion-icon">🎉</span>
-              <div class="promotion-info">
-                <span class="promotion-name">{{ appliedPromotion.name }}</span>
-                <span class="promotion-savings">Save ₱{{ formatPrice(promoDiscount) }}</span>
+        <div v-if="appliedPromotion" class="mb-4 pb-4 border-bottom-theme">
+          <h3 class="fs-6 fw-semibold mb-3 text-primary">Applied Promotion</h3>
+          <div class="rounded-3 p-3" style="background: linear-gradient(135deg, #FFD700, #FFA500);">
+            <div class="d-flex align-items-center gap-3">
+              <span class="fs-4">🎉</span>
+              <div class="d-flex flex-column flex-fill">
+                <span class="fs-6 fw-semibold text-dark">{{ appliedPromotion.name }}</span>
+                <span class="fs-5 fw-bold text-success">Save ₱{{ formatPrice(promoDiscount) }}</span>
               </div>
             </div>
           </div>
         </div>
-        
+
         <!-- Summary -->
-        <div class="summary-details">
-          <div class="summary-row">
-            <span>Subtotal:</span>
-            <span>₱{{ formatPrice(cartSubtotal) }}</span>
-          </div>
-          
-          <div v-if="promoDiscount > 0" class="summary-row discount-row">
-            <span>
-              <i class="lucide-tag"></i> {{ appliedPromotion.name }}
-            </span>
-            <span class="discount-amount">-₱{{ formatPrice(promoDiscount) }}</span>
+        <div class="surface-secondary rounded-3 p-3 mb-4">
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary">
+            <span class="text-secondary">Subtotal:</span>
+            <span class="text-primary">₱{{ formatPrice(cartSubtotal) }}</span>
           </div>
 
-          <div v-if="appliedPointsDiscount > 0" class="summary-row discount-row">
-            <span>
-              <i class="lucide-gift"></i> Points Discount
-            </span>
-            <span class="discount-amount">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
+          <div v-if="promoDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
+            <span>{{ appliedPromotion.name }}</span>
+            <span class="fw-semibold">-₱{{ formatPrice(promoDiscount) }}</span>
           </div>
-          
-          <div class="summary-row">
-            <span>Tax (12%):</span>
-            <span>₱{{ formatPrice(taxAmount) }}</span>
+
+          <div v-if="appliedPointsDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
+            <span>Points Discount</span>
+            <span class="fw-semibold">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
           </div>
-          
-          <div class="summary-row total">
-            <strong>TOTAL:</strong>
-            <strong>₱{{ formatPrice(grandTotal) }}</strong>
+
+          <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary">
+            <span class="text-secondary">Tax (12%):</span>
+            <span class="text-primary">₱{{ formatPrice(taxAmount) }}</span>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center pt-3 fw-bold fs-5">
+            <strong class="text-primary">TOTAL:</strong>
+            <strong class="text-primary">₱{{ formatPrice(grandTotal) }}</strong>
           </div>
         </div>
         
         <!-- Payment Method Selection -->
-        <div class="payment-section">
-          <h3>Payment Method</h3>
-          <div class="payment-options">
-            <label class="payment-option" :class="{ disabled: isProcessing }">
-              <input 
-                type="radio" 
-                name="payment" 
-                value="cash" 
+        <div class="mb-4">
+          <h3 class="fs-6 fw-semibold mb-3 text-primary">Payment Method</h3>
+          <div class="d-flex flex-column gap-2">
+            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+              <input
+                type="radio"
+                name="payment"
+                value="cash"
                 v-model="paymentMethod"
                 :disabled="isProcessing"
+                class="me-3"
+                style="accent-color: var(--primary);"
               >
-              <span class="payment-label">💵 Cash</span>
+              <span class="fs-6 text-primary">💵 Cash</span>
             </label>
-            <label class="payment-option" :class="{ disabled: isProcessing }">
-              <input 
-                type="radio" 
-                name="payment" 
-                value="card" 
+
+            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+              <input
+                type="radio"
+                name="payment"
+                value="gcash"
                 v-model="paymentMethod"
                 :disabled="isProcessing"
+                class="me-3"
+                style="accent-color: var(--primary);"
               >
-              <span class="payment-label">💳 Card (PayMongo)</span>
-              <small class="coming-soon">Coming Soon</small>
+              <span class="fs-6 text-primary">📱 GCash</span>
             </label>
-            <label class="payment-option" :class="{ disabled: isProcessing }">
-              <input 
-                type="radio" 
-                name="payment" 
-                value="qrph" 
+
+            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+              <input
+                type="radio"
+                name="payment"
+                value="paymaya"
                 v-model="paymentMethod"
                 :disabled="isProcessing"
+                class="me-3"
+                style="accent-color: var(--primary);"
               >
-              <span class="payment-label">📱 QR PH (GCash/PayMaya)</span>
-              <small class="coming-soon">Coming Soon</small>
+              <span class="fs-6 text-primary">💳 Maya (PayMaya)</span>
             </label>
           </div>
         </div>
-        
+
         <!-- Cash Payment Details -->
-        <div v-if="paymentMethod === 'cash'" class="cash-payment-section">
-          <div class="form-group">
-            <label>Cash Tendered</label>
+        <div v-if="paymentMethod === 'cash'" class="mt-3 p-3 surface-secondary rounded-3">
+          <div class="mb-3">
+            <label class="form-label fw-semibold text-primary mb-2">Cash Tendered</label>
             <div class="input-with-currency">
-              <span class="currency-symbol">₱</span>
-              <input 
-                type="number" 
-                v-model.number="cashTendered" 
+              <span class="currency-symbol text-primary">₱</span>
+              <input
+                type="number"
+                v-model.number="cashTendered"
                 placeholder="0.00"
                 step="0.01"
                 min="0"
-                class="form-input"
+                class="form-control input-theme rounded-3 fw-semibold fs-5"
                 :disabled="isProcessing"
                 @input="validateCashPayment"
               />
             </div>
-            <small v-if="cashValidationError" class="error-text">
+            <small v-if="cashValidationError" class="d-block mt-2 text-danger fs-7">
               {{ cashValidationError }}
             </small>
           </div>
-          
-          <div v-if="changeAmount >= 0 && cashTendered > 0" class="change-display">
-            <span>Change</span>
-            <span class="change-amount">₱{{ formatPrice(changeAmount) }}</span>
+
+          <div v-if="changeAmount >= 0 && cashTendered > 0" class="d-flex justify-content-between align-items-center p-3 surface-primary rounded-3 border-2 border-success">
+            <span class="text-secondary">Change</span>
+            <span class="fs-4 fw-bold text-success">₱{{ formatPrice(changeAmount) }}</span>
           </div>
         </div>
         
-        <!-- Card Payment Placeholder -->
-        <div v-else-if="paymentMethod === 'card'" class="payment-placeholder">
-          <p class="placeholder-text">
-            💳 Card payment via PayMongo will be available soon!
-          </p>
-          <small>For now, please use cash payment.</small>
+        <!-- GCash Payment Info -->
+        <div v-else-if="paymentMethod === 'gcash'" class="mt-3">
+          <div class="surface-secondary rounded-3 p-4 text-center">
+            <div class="fs-1 mb-3">📱</div>
+            <h4 class="fs-5 fw-semibold mb-2 text-primary">GCash Payment</h4>
+            <p class="text-secondary mb-3">You will be redirected to GCash to complete your payment securely.</p>
+
+            <div class="payment-flow-steps">
+              <div class="flow-step">
+                <span class="step-number bg-primary text-white">1</span>
+                <span class="step-text text-secondary">Click "Place Order"</span>
+              </div>
+              <div class="flow-step">
+                <span class="step-number bg-primary text-white">2</span>
+                <span class="step-text text-secondary">Log in to GCash</span>
+              </div>
+              <div class="flow-step">
+                <span class="step-number bg-primary text-white">3</span>
+                <span class="step-text text-secondary">Confirm payment</span>
+              </div>
+              <div class="flow-step">
+                <span class="step-number bg-primary text-white">4</span>
+                <span class="step-text text-secondary">Return here for receipt</span>
+              </div>
+            </div>
+
+            <div class="status-warning rounded-3 p-2 mt-3 fs-7">
+              <strong>💡 Test Mode:</strong> Use PayMongo test account to simulate GCash payment
+            </div>
+          </div>
         </div>
-        
-        <!-- QR PH Payment Placeholder -->
-        <div v-else-if="paymentMethod === 'qrph'" class="payment-placeholder">
-          <p class="placeholder-text">
-            📱 GCash/PayMaya payment via PayMongo will be available soon!
-          </p>
-          <small>For now, please use cash payment.</small>
+
+        <!-- Maya Payment Info -->
+        <div v-else-if="paymentMethod === 'paymaya'" class="mt-3">
+          <div class="surface-secondary rounded-3 p-4 text-center">
+            <div class="fs-1 mb-3">💳</div>
+            <h4 class="fs-5 fw-semibold mb-2 text-primary">Maya (PayMaya) Payment</h4>
+            <p class="text-secondary mb-3">You will be redirected to Maya to complete your payment securely.</p>
+
+            <div class="payment-flow-steps">
+              <div class="flow-step">
+                <span class="step-number bg-primary text-white">1</span>
+                <span class="step-text text-secondary">Click "Place Order"</span>
+              </div>
+              <div class="flow-step">
+                <span class="step-number bg-primary text-white">2</span>
+                <span class="step-text text-secondary">Log in to Maya</span>
+              </div>
+              <div class="flow-step">
+                <span class="step-number bg-primary text-white">3</span>
+                <span class="step-text text-secondary">Confirm payment</span>
+              </div>
+              <div class="flow-step">
+                <span class="step-number bg-primary text-white">4</span>
+                <span class="step-text text-secondary">Return here for receipt</span>
+              </div>
+            </div>
+
+            <div class="status-warning rounded-3 p-2 mt-3 fs-7">
+              <strong>💡 Test Mode:</strong> Use PayMongo test account to simulate Maya payment
+            </div>
+          </div>
         </div>
-        
+
         <!-- Place Order Button -->
-        <button 
-          class="place-order-btn" 
+        <button
+          class="btn btn-primary w-100 py-3 rounded-3 fs-5 fw-semibold mt-auto hover-lift transition-theme"
           @click="placeOrder"
           :disabled="!canPlaceOrder"
         >
           <span v-if="!isProcessing">
-            Place Order - ₱{{ formatPrice(grandTotal) }}
+            <span v-if="paymentMethod === 'cash'">Complete Cash Payment</span>
+            <span v-else-if="paymentMethod === 'gcash'">Pay with GCash →</span>
+            <span v-else-if="paymentMethod === 'paymaya'">Pay with Maya →</span>
+            <span v-else>Place Order</span>
+            - ₱{{ formatPrice(grandTotal) }}
           </span>
-          <span v-else>
-            Processing... <span class="btn-spinner"></span>
+          <span v-else class="d-flex align-items-center justify-content-center gap-2">
+            <span v-if="paymentMethod === 'cash'">Processing...</span>
+            <span v-else>Redirecting to payment...</span>
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
           </span>
         </button>
       </div>
     </div>
     
     <!-- Success Modal -->
-    <div v-if="showSuccessModal" class="modal-overlay" @click="closeSuccessModal">
-      <div class="modal-content success-modal" @click.stop>
-        <div class="modal-header success-header">
-          <div class="success-icon">✓</div>
-          <h3>Order Completed!</h3>
-          <button class="close-btn" @click="closeSuccessModal">
+    <div v-if="showSuccessModal" class="position-fixed top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center modal-overlay-theme" style="z-index: 10000;" @click="closeSuccessModal">
+      <div class="modal-theme rounded-4 overflow-hidden success-modal" style="max-width: 500px; width: 90%;" @click.stop>
+        <div class="text-center p-5 text-white position-relative" style="background: linear-gradient(135deg, #4ea87a 0%, #5eb488 100%);">
+          <div class="d-flex align-items-center justify-content-center mx-auto mb-3 bg-white text-success rounded-circle shadow-lg" style="width: 80px; height: 80px; font-size: 48px; font-weight: bold;">
+            ✓
+          </div>
+          <h3 class="fs-4 mb-0">Order Completed!</h3>
+          <button class="btn btn-link text-white position-absolute top-0 end-0 m-3 p-2 rounded-circle" style="background: rgba(255, 255, 255, 0.2);" @click="closeSuccessModal">
             <X :size="20" />
           </button>
         </div>
-        <div class="modal-body">
-          <div class="success-details">
-            <div class="detail-row">
-              <span>Sale ID:</span>
-              <strong>{{ completedSale.saleId }}</strong>
+        <div class="p-4">
+          <div>
+            <div class="d-flex justify-content-between py-3 border-bottom border-secondary">
+              <span class="text-secondary">Sale ID:</span>
+              <strong class="text-primary fw-semibold">{{ completedSale.saleId }}</strong>
             </div>
-            <div class="detail-row">
-              <span>Date:</span>
-              <strong>{{ formatDateTime(completedSale.transactionDate) }}</strong>
+            <div class="d-flex justify-content-between py-3 border-bottom border-secondary">
+              <span class="text-secondary">Date:</span>
+              <strong class="text-primary fw-semibold">{{ formatDateTime(completedSale.transactionDate) }}</strong>
             </div>
-            <div class="detail-row">
-              <span>Total Amount:</span>
-              <strong class="total-highlight">₱{{ formatPrice(completedSale.totalAmount) }}</strong>
+            <div class="d-flex justify-content-between py-3 border-bottom border-secondary">
+              <span class="text-secondary">Total Amount:</span>
+              <strong class="text-success fw-bold fs-5">₱{{ formatPrice(completedSale.totalAmount) }}</strong>
             </div>
-            <div class="detail-row">
-              <span>Payment Method:</span>
-              <strong>{{ completedSale.paymentMethod.toUpperCase() }}</strong>
+            <div class="d-flex justify-content-between py-3 border-bottom border-secondary">
+              <span class="text-secondary">Payment Method:</span>
+              <strong class="text-primary fw-semibold">{{ completedSale.paymentMethod.toUpperCase() }}</strong>
             </div>
-            <div v-if="completedSale.shiftId" class="detail-row">
-              <span>Shift ID:</span>
-              <strong>{{ completedSale.shiftId }}</strong>
+            <div v-if="completedSale.shiftId" class="d-flex justify-content-between py-3 border-bottom border-secondary">
+              <span class="text-secondary">Shift ID:</span>
+              <strong class="text-primary fw-semibold">{{ completedSale.shiftId }}</strong>
             </div>
-            <div v-if="completedSale.change > 0" class="detail-row change-row">
-              <span>Change:</span>
-              <strong>₱{{ formatPrice(completedSale.change) }}</strong>
+            <div v-if="completedSale.change > 0" class="d-flex justify-content-between py-3 surface-secondary rounded-3 px-3 mt-3">
+              <span class="text-secondary">Change:</span>
+              <strong class="text-success fw-bold fs-5">₱{{ formatPrice(completedSale.change) }}</strong>
             </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="printReceipt">
+        <div class="d-flex gap-3 p-4 border-top border-secondary">
+          <button class="btn btn-outline-secondary flex-fill d-flex align-items-center justify-content-center gap-2 py-3 rounded-3" @click="printReceipt">
             <Printer :size="18" /> Print Receipt
           </button>
-          <button class="btn-primary" @click="startNewOrder">
+          <button class="btn btn-primary flex-fill py-3 rounded-3 fw-semibold" @click="startNewOrder">
             New Order
           </button>
         </div>
@@ -455,6 +513,7 @@
 
 <script>
 import { useCartStore } from '@/stores/cartStores'
+import { usePaymongo } from '@/composables/api/usePaymongo'
 import apiSales from '@/services/apiSales'
 import apiProducts from '@/services/apiProducts'
 import { api } from '@/services/api.js'
@@ -464,7 +523,12 @@ export default {
   
   setup() {
     const cartStore = useCartStore()
-    return { cartStore }
+    const paymongo = usePaymongo()
+    
+    return { 
+      cartStore,
+      paymongo
+    }
   },
   
   data() {
@@ -492,7 +556,7 @@ export default {
       appliedPromotion: null,
       
       // Payment
-      paymentMethod: 'cash',
+      paymentMethod: 'cash', // 'cash', 'gcash', 'paymaya'
       cashTendered: 0,
       cashValidationError: null,
       
@@ -518,14 +582,12 @@ export default {
       return this.cartStore.total
     },
     
-    // Promo discount calculation
     promoDiscount() {
       if (!this.appliedPromotion) return 0
       
       const promotion = this.appliedPromotion
       let eligibleAmount = this.cartSubtotal
       
-      // Calculate based on promotion type
       let discount = 0
       if (promotion.type === 'percentage') {
         discount = eligibleAmount * (promotion.discount_value / 100)
@@ -536,18 +598,15 @@ export default {
       return Math.round(discount * 100) / 100
     },
     
-    // Subtotal after promo
     subtotalAfterPromo() {
       return Math.max(0, this.cartSubtotal - this.promoDiscount)
     },
     
-    // Tax on discounted amount
     taxAmount() {
       const taxableAmount = this.subtotalAfterPromo - this.appliedPointsDiscount
       return Math.round(taxableAmount * 0.12 * 100) / 100
     },
     
-    // Grand total
     grandTotal() {
       return Math.max(0, this.subtotalAfterPromo - this.appliedPointsDiscount + this.taxAmount)
     },
@@ -556,30 +615,21 @@ export default {
       return this.cartStore.itemCount
     },
     
-    // ✅ UPDATED: Points calculations
     maxRedeemablePoints() {
       if (!this.selectedCustomer) return 0
       
-      // Base amount: subtotal after promotion (before tax and points)
       const baseAmount = this.subtotalAfterPromo
-      
-      // Max discount: 50% of base amount
       const maxDiscountAmount = baseAmount * 0.5
-      
-      // Convert to points (4 points = ₱1)
       const maxPointsFromCart = Math.floor(maxDiscountAmount * 4)
-      
-      // Cannot exceed customer's available points
       const customerPoints = this.selectedCustomer.loyalty_points || 0
       const finalMaxPoints = Math.min(maxPointsFromCart, customerPoints)
       
       return finalMaxPoints
     },
     
-    // ✅ UPDATED: Changed minimum from 200 to 100
     canRedeemPoints() {
       if (!this.pointsToRedeem || !this.selectedCustomer) return false
-      if (this.pointsToRedeem < 100) return false  // ✅ CHANGED: from 200 to 100
+      if (this.pointsToRedeem < 100) return false
       if (this.pointsToRedeem > this.selectedCustomer.loyalty_points) return false
       if (this.pointsToRedeem > this.maxRedeemablePoints) return false
       return true
@@ -613,11 +663,11 @@ export default {
         return this.cashTendered >= this.grandTotal
       }
       
-      if (this.paymentMethod === 'card' || this.paymentMethod === 'qrph') {
-        return false
+      if (this.paymentMethod === 'gcash' || this.paymentMethod === 'paymaya') {
+        return true // Just need cart with items
       }
       
-      return true
+      return false
     }
   },
   
@@ -627,17 +677,18 @@ export default {
   },
   
   methods: {
-    // Load promotion from session
+    // ================================================================
+    // INITIALIZATION
+    // ================================================================
+    
     async loadCheckoutData() {
       try {
-        // Load promotion from NewOrder page
         const promoData = sessionStorage.getItem('appliedPromotion')
         if (promoData) {
           this.appliedPromotion = JSON.parse(promoData)
           console.log('✅ Loaded promotion:', this.appliedPromotion.name)
         }
         
-        // Load customer from NewOrder page (if any)
         const customerData = sessionStorage.getItem('checkoutCustomer')
         if (customerData) {
           const customer = JSON.parse(customerData)
@@ -679,8 +730,6 @@ export default {
           params: { search: query }
         })
         
-        console.log('📦 Raw API response:', response.data)
-        
         const findCustomers = (obj) => {
           if (Array.isArray(obj)) {
             if (obj.length > 0 && obj[0]._id && obj[0]._id.startsWith('CUST-')) {
@@ -705,10 +754,7 @@ export default {
         
         const customers = findCustomers(response.data)
         
-        console.log('👥 Found customers:', customers)
-        
         if (customers && customers.length > 0) {
-          // ✅ FIX: Find exact match instead of taking first
           const customer = customers.find(c => 
             c.username?.toLowerCase() === query ||
             c.email?.toLowerCase() === query ||
@@ -716,14 +762,10 @@ export default {
           )
           
           if (!customer) {
-            console.warn('⚠️ No exact match found for query:', query)
             this.customerSearchError = 'Customer not found. Please check the username/email.'
             return
           }
           
-          console.log('📋 Matched customer:', customer)
-          
-          // Create a clean customer object
           this.selectedCustomer = {
             _id: customer._id,
             username: customer.username,
@@ -733,21 +775,14 @@ export default {
             loyalty_points: customer.loyalty_points || 0
           }
           
-          console.log('✅ Selected customer object:', this.selectedCustomer)
-          console.log('✅ Customer name:', this.selectedCustomer.full_name)
-          console.log('✅ Customer username:', this.selectedCustomer.username)
-          console.log('✅ Customer points:', this.selectedCustomer.loyalty_points)
-          
           this.customerSearchQuery = ''
           
         } else {
-          console.warn('⚠️ No customers found in response')
           this.customerSearchError = 'Customer not found. Please check the username/email.'
         }
         
       } catch (error) {
         console.error('❌ Customer search failed:', error)
-        console.error('❌ Error response:', error.response?.data)
         
         if (error.response?.status === 403) {
           this.customerSearchError = 'Permission denied. Contact administrator.'
@@ -810,8 +845,6 @@ export default {
       try {
         this.isLoading = true
         this.loadingMessage = 'Validating stock...'
-        
-        console.log('🔍 Validating stock for', this.cartItems.length, 'items...')
         
         if (this.cartItems.length === 0) {
           this.$router.replace('/new-order')
@@ -894,8 +927,28 @@ export default {
     },
     
     // ================================================================
-    // PAYMENT
+    // PAYMENT PROCESSING
     // ================================================================
+    
+    async placeOrder() {
+      if (!this.canPlaceOrder) {
+        alert('Please complete payment details before placing order.')
+        return
+      }
+      
+      // Route to appropriate payment method
+      if (this.paymentMethod === 'cash') {
+        await this.processCashPayment()
+      } else if (this.paymentMethod === 'gcash') {
+        await this.processEWalletPayment('gcash')
+      } else if (this.paymentMethod === 'paymaya') {
+        await this.processEWalletPayment('grab_pay') // PayMongo uses 'grab_pay' for Maya
+      }
+    },
+    
+    // ----------------------------------------------------------------
+    // CASH PAYMENT
+    // ----------------------------------------------------------------
     
     validateCashPayment() {
       this.cashValidationError = null
@@ -914,27 +967,18 @@ export default {
       return true
     },
     
-    async placeOrder() {
-      if (!this.canPlaceOrder) {
-        alert('Please complete payment details before placing order.')
-        return
-      }
+    async processCashPayment() {
+      if (!this.validateCashPayment()) return
       
-      if (this.paymentMethod === 'cash' && !this.validateCashPayment()) {
-        return
-      }
-      
-      const confirmMessage = `Confirm order:\nTotal: ₱${this.formatPrice(this.grandTotal)}\n` +
-        (this.appliedPromotion ? `Promo: -₱${this.formatPrice(this.promoDiscount)}\n` : '') +
-        (this.appliedPointsDiscount > 0 ? `Points: -₱${this.formatPrice(this.appliedPointsDiscount)}\n` : '') +
-        (this.paymentMethod === 'cash' ? `Cash: ₱${this.formatPrice(this.cashTendered)}\nChange: ₱${this.formatPrice(this.changeAmount)}` : '')
+      const confirmMessage = `Confirm cash payment:\nTotal: ₱${this.formatPrice(this.grandTotal)}\n` +
+        `Cash: ₱${this.formatPrice(this.cashTendered)}\nChange: ₱${this.formatPrice(this.changeAmount)}`
       
       if (!confirm(confirmMessage)) return
       
       try {
         this.isProcessing = true
         this.isLoading = true
-        this.loadingMessage = 'Processing order...'
+        this.loadingMessage = 'Processing cash payment...'
         
         await this.validateStock()
         
@@ -942,95 +986,176 @@ export default {
           throw new Error('Stock validation failed')
         }
         
-        // ✅ Get base checkout data from cart
-        const saleData = this.cartStore.getCheckoutData()
-        
-        // ✅ CRITICAL: Override with actual checkout values
-        saleData.subtotal = this.cartSubtotal
-        saleData.tax_amount = this.taxAmount
-        saleData.total_amount = this.grandTotal
-        
-        // ✅ Add customer info with points
-        if (this.selectedCustomer) {
-          saleData.customer_id = this.selectedCustomer._id
-          saleData.loyalty_points_used = this.pointsRedeemed
-          saleData.loyalty_points_earned = this.pointsWillEarn
-          
-          console.log('👤 Customer Info:')
-          console.log('   ID:', this.selectedCustomer._id)
-          console.log('   Points to Use:', this.pointsRedeemed)
-          console.log('   Points to Earn:', this.pointsWillEarn)
-        }
-        
-        // ✅ Add promotion discount
-        if (this.appliedPromotion) {
-          saleData.promotion_id = this.appliedPromotion._id
-          saleData.promotion_discount = this.promoDiscount
-          console.log('🎉 Promotion:', this.appliedPromotion.name, '-₱' + this.formatPrice(this.promoDiscount))
-        } else {
-          saleData.promotion_discount = 0
-        }
-        
-        // ✅ Add points discount
-        if (this.appliedPointsDiscount > 0) {
-          saleData.points_discount = this.appliedPointsDiscount
-          console.log('🎁 Points Discount: -₱' + this.formatPrice(this.appliedPointsDiscount))
-        } else {
-          saleData.points_discount = 0
-        }
-        
-        // ✅ Calculate total discount
-        saleData.discount = this.promoDiscount + this.appliedPointsDiscount
-        
-        // ✅ Add payment details
-        saleData.payment_method = this.paymentMethod
-        saleData.payment_details = {
-          method: this.paymentMethod,
-          amount_paid: this.paymentMethod === 'cash' ? this.cashTendered : this.grandTotal,
-          change: this.paymentMethod === 'cash' ? this.changeAmount : 0,
+        const saleData = this.prepareSaleData('cash', {
+          method: 'cash',
+          amount_paid: this.cashTendered,
+          change: this.changeAmount,
           status: 'completed',
-          transaction_id: `${this.paymentMethod.toUpperCase()}-${Date.now()}`,
+          transaction_id: `CASH-${Date.now()}`,
           timestamp: new Date().toISOString()
-        }
+        })
         
-        // ✅ DEBUG: Log what we're sending
-        console.log('📝 Final Sale Data:')
-        console.log('   Subtotal:', saleData.subtotal)
-        console.log('   Promotion Discount:', saleData.promotion_discount)
-        console.log('   Points Discount:', saleData.points_discount)
-        console.log('   Total Discount:', saleData.discount)
-        console.log('   Tax:', saleData.tax_amount)
-        console.log('   Grand Total:', saleData.total_amount)
-        console.log('   Points Used:', saleData.loyalty_points_used)
-        console.log('   Points Earned:', saleData.loyalty_points_earned)
-        
-        console.log('📝 Creating sale:', saleData)
+        console.log('📝 Creating cash sale:', saleData)
         
         const result = await apiSales.createSale(saleData)
         
-        this.cartStore.clearCart()
-        sessionStorage.removeItem('appliedPromotion')
-        sessionStorage.removeItem('checkoutCustomer')
-        
-        this.completedSale = {
-          saleId: result._id || result.sale_id,
-          transactionDate: result.transaction_date || new Date().toISOString(),
-          totalAmount: result.total_amount,
-          paymentMethod: this.paymentMethod,
-          change: this.changeAmount,
-          shiftId: result.shift_id || saleData.shift_id
-        }
-        
-        this.showSuccessModal = true
-        console.log('🎉 Order completed successfully!')
+        this.handleSaleSuccess(result, 'cash')
         
       } catch (error) {
-        console.error('❌ Place order failed:', error)
-        alert(`Order failed: ${error.message}`)
+        console.error('❌ Cash payment failed:', error)
+        alert(`Payment failed: ${error.message}`)
       } finally {
         this.isProcessing = false
         this.isLoading = false
       }
+    },
+    
+    // ----------------------------------------------------------------
+    // QR PH PAYMENT (GCash/Maya via PayMongo)
+    // ----------------------------------------------------------------
+    
+    async processEWalletPayment(type) {
+      const walletName = type === 'gcash' ? 'GCash' : 'Maya'
+      
+      const confirmMessage = `Confirm ${walletName} payment:\nTotal: ₱${this.formatPrice(this.grandTotal)}\n\n` +
+        `You will be redirected to ${walletName} to complete payment.`
+      
+      if (!confirm(confirmMessage)) return
+      
+      try {
+        this.isProcessing = true
+        this.isLoading = true
+        this.loadingMessage = `Creating ${walletName} payment link...`
+        
+        await this.validateStock()
+        
+        if (this.validationErrors.length > 0) {
+          throw new Error('Stock validation failed')
+        }
+        
+        console.log(`📱 Creating ${walletName} payment source...`)
+        
+        // Prepare order metadata (PayMongo requires all string values)
+        const orderMetadata = {
+          order_id: `ORDER-${Date.now()}`,
+          customer_id: String(this.selectedCustomer?._id || 'guest'),
+          customer_name: String(this.selectedCustomer?.full_name || 'Guest'),
+          cashier_id: String(this.cartStore.cashierId || 'unknown'),
+          shift_id: String(this.cartStore.shiftId || 'unknown'),
+          items_count: String(this.totalItems),
+          description: `Ramyeon Food Corner - ${this.totalItems} items`
+        }
+        
+        // Create PayMongo source
+        const source = await this.paymongo.createEWalletSource(
+          this.grandTotal,
+          type, // 'gcash' or 'grab_pay'
+          {
+            successUrl: `${window.location.origin}/pos/payment-callback?status=success`,
+            failedUrl: `${window.location.origin}/pos/payment-callback?status=failed`,
+            metadata: orderMetadata
+          }
+        )
+        
+        console.log('✅ E-wallet source created:', source.id)
+        
+        // Save pending transaction to sessionStorage
+        const pendingPayment = {
+          source_id: source.id,
+          payment_type: type,
+          wallet_name: walletName,
+          amount: this.grandTotal,
+          subtotal: this.cartSubtotal,
+          tax: this.taxAmount,
+          promo_discount: this.promoDiscount,
+          points_discount: this.appliedPointsDiscount,
+          cart_items: this.cartStore.items,
+          promotion: this.appliedPromotion,
+          customer: this.selectedCustomer,
+          points_redeemed: this.pointsRedeemed,
+          points_to_earn: this.pointsWillEarn,
+          cashier_id: this.cartStore.cashierId,
+          shift_id: this.cartStore.shiftId,
+          timestamp: new Date().toISOString(),
+          metadata: orderMetadata
+        }
+        
+        sessionStorage.setItem('pendingEWalletPayment', JSON.stringify(pendingPayment))
+        
+        console.log('💾 Saved pending payment:', pendingPayment)
+        
+        // Redirect to GCash/Maya
+        this.loadingMessage = `Redirecting to ${walletName}...`
+        
+        setTimeout(() => {
+          window.location.href = source.attributes.redirect.checkout_url
+        }, 500)
+        
+      } catch (error) {
+        console.error(`❌ ${walletName} payment failed:`, error)
+        alert(`${walletName} payment failed: ${error.message}`)
+        this.isProcessing = false
+        this.isLoading = false
+      }
+    },
+    
+    // ----------------------------------------------------------------
+    // HELPER: PREPARE SALE DATA
+    // ----------------------------------------------------------------
+    
+    prepareSaleData(paymentMethod, paymentDetails) {
+      const saleData = this.cartStore.getCheckoutData()
+      
+      saleData.subtotal = this.cartSubtotal
+      saleData.tax_amount = this.taxAmount
+      saleData.total_amount = this.grandTotal
+      
+      if (this.selectedCustomer) {
+        saleData.customer_id = this.selectedCustomer._id
+        saleData.loyalty_points_used = this.pointsRedeemed
+        saleData.loyalty_points_earned = this.pointsWillEarn
+      }
+      
+      if (this.appliedPromotion) {
+        saleData.promotion_id = this.appliedPromotion._id
+        saleData.promotion_discount = this.promoDiscount
+      } else {
+        saleData.promotion_discount = 0
+      }
+      
+      if (this.appliedPointsDiscount > 0) {
+        saleData.points_discount = this.appliedPointsDiscount
+      } else {
+        saleData.points_discount = 0
+      }
+      
+      saleData.discount = this.promoDiscount + this.appliedPointsDiscount
+      saleData.payment_method = paymentMethod
+      saleData.payment_details = paymentDetails
+      
+      return saleData
+    },
+    
+    // ----------------------------------------------------------------
+    // HELPER: HANDLE SALE SUCCESS
+    // ----------------------------------------------------------------
+    
+    handleSaleSuccess(result, paymentMethod) {
+      this.cartStore.clearCart()
+      sessionStorage.removeItem('appliedPromotion')
+      sessionStorage.removeItem('checkoutCustomer')
+      
+      this.completedSale = {
+        saleId: result._id || result.sale_id,
+        transactionDate: result.transaction_date || new Date().toISOString(),
+        totalAmount: result.total_amount,
+        paymentMethod: paymentMethod,
+        change: paymentMethod === 'cash' ? this.changeAmount : 0,
+        shiftId: result.shift_id || this.cartStore.shiftId
+      }
+      
+      this.showSuccessModal = true
+      console.log('🎉 Sale completed successfully!')
     },
     
     // ================================================================
@@ -1063,6 +1188,8 @@ export default {
     },
     
     startNewOrder() {
+      this.cashTendered = 0
+      this.paymentMethod = 'cash'
       this.$router.replace('/new-order')
     },
     
@@ -1100,1409 +1227,59 @@ export default {
 </script>
 
 <style scoped>
+/* Only truly custom styles that can't be replaced with semantic classes */
 
-.checkout-page {
-    display: flex;
-    gap: 15px;
-    padding: 15px;
-    background-color: #f5f7fa;
-    min-height: 100vh;
-}
-
-.cp-left {
-    flex: 1;
-    background-color: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
-}
-
-.cp-right {
-    width: 400px;
-    background-color: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    padding: 0;
-}
-
-/* Header Styles */
-.cpl-header {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 20px 25px;
-    border-bottom: 1px solid #e9ecef;
-    background-color: white;
-}
-
-.nav-btn, .trash-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 10px;
-    border-radius: 10px;
-    transition: all 0.2s ease;
-    color: #6c757d;
-}
-
-.nav-btn:hover, .trash-btn:hover {
-    background-color: #f8f9fa;
-    color: #495057;
-}
-
-.trash-btn {
-    margin-left: auto;
-    color: #dc3545;
-}
-
-.trash-btn:hover {
-    background-color: #ffe6e6;
-}
-
-.cpl-header h1 {
-    font-size: 28px;
-    margin: 0;
-    color: #2d3748;
-    font-weight: 600;
-}
-
-/* Cart Contents */
-.cpl-contents {
-    height: calc(100vh - 100px);
-    overflow-y: auto;
-    padding: 20px 25px;
-    background-color: white;
-}
-
-.cart-items-container {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* Empty Cart */
-.empty-cart {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 60px 20px;
-    color: #6c757d;
-}
-
-.empty-icon {
-    font-size: 64px;
-    margin-bottom: 20px;
-    opacity: 0.6;
-}
-
-.empty-cart h3 {
-    font-size: 24px;
-    margin: 10px 0;
-    color: #495057;
-}
-
-.empty-cart p {
-    font-size: 16px;
-    margin-bottom: 30px;
-}
-
-.continue-shopping-btn {
-    background: #6f42c1;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.continue-shopping-btn:hover {
-    background: #5a359a;
-}
-
-/* Cart Item Cards - FIXED */
-.cart-item-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 15px;
-    padding: 20px;
-    background-color: white;
-    border-radius: 12px;
-    border: 1px solid #e9ecef;
-    transition: all 0.2s ease;
-}
-
-.cart-item-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    border-color: #dee2e6;
-    background-color: white; /* FIXED: Keep white on hover */
-}
-
-.item-image {
-    width: 80px;
-    height: 80px;
-    border-radius: 10px;
-    overflow: hidden;
-    flex-shrink: 0;
-    background: white;
-    border: 1px solid #dee2e6;
-}
-
-.item-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.item-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.item-name {
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0 0 5px 0;
-    color: #2d3748;
-}
-
-.item-description {
-    font-size: 14px;
-    color: #6c757d;
-    margin: 0 0 8px 0;
-    line-height: 1.4;
-}
-
-.item-price-unit {
-    font-size: 14px;
-    color: #6f42c1;
-    font-weight: 500;
-}
-
-.item-controls {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
-}
-
-.quantity-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: white;
-    border-radius: 20px;
-    padding: 4px;
-    border: 1px solid #dee2e6;
-}
-
-.quantity-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-}
-
-.quantity-btn.decrease {
-    background: #6c757d;
-    color: white;
-}
-
-.quantity-btn.decrease:disabled {
-    background: #e9ecef;
-    color: #adb5bd;
-    cursor: not-allowed;
-}
-
-.quantity-btn.increase {
-    background: #6f42c1;
-    color: white;
-}
-
-.quantity-btn:hover:not(:disabled) {
-    opacity: 0.8;
-    transform: scale(1.05);
-}
-
-.quantity {
-    font-weight: 600;
-    min-width: 30px;
-    text-align: center;
-    font-size: 16px;
-    color: #495057;
-}
-
-.item-total-price {
-    font-size: 18px;
-    font-weight: 700;
-    color: #2d3748;
-}
-
-.remove-item {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #dc3545;
-    padding: 6px;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-}
-
-.remove-item:hover {
-    background-color: #ffe6e6;
-    transform: scale(1.1);
-}
-
-/* Checkout Summary */
-.checkout-summary {
-    padding: 25px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    background-color: white;
-}
-
-.checkout-summary h2 {
-    margin: 0 0 25px 0;
-    font-size: 24px;
-    color: #2d3748;
-    font-weight: 600;
-}
-
-.summary-details {
-    background: #f8f9fa;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 25px;
-}
-
-.summary-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    font-size: 16px;
-}
-
-.summary-row:not(:last-child) {
-    border-bottom: 1px solid #e9ecef;
-}
-
-.summary-divider {
-    height: 1px;
-    background: #dee2e6;
-    margin: 15px 0;
-}
-
-.summary-row.total {
-    font-weight: 700;
-    font-size: 20px;
-    color: #2d3748;
-    padding: 15px 0 0 0;
-    border-bottom: none;
-}
-
-/* Payment Section */
-.payment-section {
-    margin-bottom: 25px;
-}
-
-.payment-section h3 {
-    margin: 0 0 15px 0;
-    font-size: 18px;
-    color: #2d3748;
-    font-weight: 600;
-}
-
-.payment-options {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.payment-option {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    padding: 12px 16px;
-    border-radius: 8px;
-    border: 1px solid #dee2e6;
-    transition: all 0.2s ease;
-    background-color: white;
-}
-
-.payment-option:hover {
-    background-color: #f8f9fa;
-    border-color: #6f42c1;
-}
-
-.payment-option input[type="radio"] {
-    margin-right: 12px;
-    accent-color: #6f42c1;
-}
-
-.payment-label {
-    font-size: 16px;
-    color: #495057;
-}
-
-/* Place Order Button */
-.place-order-btn {
-    width: 100%;
-    background: #6f42c1;
-    color: white;
-    border: none;
-    padding: 16px;
-    border-radius: 12px;
-    font-size: 18px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: auto;
-}
-
-.place-order-btn:hover:not(:disabled) {
-    background: #5a359a;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
-}
-
-.place-order-btn:disabled {
-    background: #e9ecef;
-    color: #6c757d;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* Legacy styles for backwards compatibility */
-.cpl-card {
-    width: 89%;
-    height: auto;
-    border-radius: 20px;
-    background-color: white;
-    margin-left: 32px;
-    padding: 20px;
-    margin-bottom: 1rem;
-}
-
-.item-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.item-details {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.item-price {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: #333;
-}
-
-/* Scrollbar Styling */
-.cpl-contents::-webkit-scrollbar {
-    width: 6px;
-}
-
-.cpl-contents::-webkit-scrollbar-track {
-    background: #f8f9fa;
-    border-radius: 3px;
-}
-
-.cpl-contents::-webkit-scrollbar-thumb {
-    background: #dee2e6;
-    border-radius: 3px;
-}
-
-.cpl-contents::-webkit-scrollbar-thumb:hover {
-    background: #ced4da;
-}
-
-/* Animations */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.cart-item-card {
-    animation: fadeIn 0.3s ease-out;
-}
-
-.empty-cart {
-    animation: fadeIn 0.5s ease-out;
-}
-
-/* Loading state */
-.loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    color: #6c757d;
-}
-
-.loading::after {
-    content: '';
-    width: 20px;
-    height: 20px;
-    border: 2px solid #e9ecef;
-    border-top-color: #6f42c1;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-left: 10px;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Responsive Design */
-@media (max-width: 1024px) {
-    .checkout-page {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .cp-right {
-        width: 100%;
-    }
-    
-    .cart-item-card {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .item-controls {
-        align-items: center;
-        flex-direction: row;
-        justify-content: space-between;
-        width: 100%;
-    }
-}
-
-@media (max-width: 768px) {
-    .checkout-page {
-        padding: 10px;
-        gap: 10px;
-    }
-    
-    .cpl-header {
-        padding: 15px 20px;
-    }
-    
-    .cpl-header h1 {
-        font-size: 24px;
-    }
-    
-    .cpl-contents {
-        padding: 15px 20px;
-        height: calc(100vh - 80px);
-    }
-    
-    .checkout-summary {
-        padding: 20px;
-    }
-    
-    .cart-item-card {
-        padding: 15px;
-        gap: 12px;
-    }
-    
-    .item-image {
-        width: 60px;
-        height: 60px;
-    }
-    
-    .item-name {
-        font-size: 16px;
-    }
-    
-    .item-total-price {
-        font-size: 16px;
-    }
-    
-    .quantity-controls {
-        gap: 6px;
-        padding: 3px;
-    }
-    
-    .quantity-btn {
-        width: 28px;
-        height: 28px;
-    }
-    
-    .summary-details {
-        padding: 15px;
-        margin-bottom: 20px;
-    }
-    
-    .payment-section {
-        margin-bottom: 20px;
-    }
-    
-    .payment-option {
-        padding: 10px 12px;
-    }
-    
-    .place-order-btn {
-        padding: 14px;
-        font-size: 16px;
-    }
-}
-
-@media (max-width: 480px) {
-    .checkout-page {
-        padding: 5px;
-    }
-    
-    .cpl-header {
-        padding: 10px 15px;
-        gap: 10px;
-    }
-    
-    .cpl-header h1 {
-        font-size: 20px;
-    }
-    
-    .cpl-contents {
-        padding: 10px 15px;
-    }
-    
-    .checkout-summary {
-        padding: 15px;
-    }
-    
-    .cart-item-card {
-        padding: 12px;
-        gap: 10px;
-    }
-    
-    .item-image {
-        width: 50px;
-        height: 50px;
-    }
-    
-    .item-name {
-        font-size: 14px;
-    }
-    
-    .item-description {
-        font-size: 12px;
-    }
-    
-    .item-price-unit {
-        font-size: 12px;
-    }
-    
-    .item-total-price {
-        font-size: 14px;
-    }
-    
-    .quantity-btn {
-        width: 24px;
-        height: 24px;
-    }
-    
-    .quantity {
-        font-size: 14px;
-        min-width: 24px;
-    }
-}
-
-/* Print styles (for receipts) */
-@media print {
-    .checkout-page {
-        background: white;
-        padding: 0;
-        gap: 0;
-        flex-direction: column;
-    }
-    
-    .cp-left {
-        box-shadow: none;
-        border-radius: 0;
-    }
-    
-    .cp-right {
-        box-shadow: none;
-        border-radius: 0;
-        width: 100%;
-    }
-    
-    .cpl-header, .nav-btn, .trash-btn {
-        display: none;
-    }
-    
-    .item-controls .remove-item,
-    .quantity-controls {
-        display: none;
-    }
-    
-    .payment-section,
-    .place-order-btn {
-        display: none;
-    }
-}
-
-/* Focus styles for accessibility */
-.nav-btn:focus,
-.trash-btn:focus,
-.quantity-btn:focus,
-.remove-item:focus,
-.continue-shopping-btn:focus,
-.place-order-btn:focus {
-    outline: 2px solid #6f42c1;
-    outline-offset: 2px;
-}
-
-.payment-option:focus-within {
-    border-color: #6f42c1;
-    box-shadow: 0 0 0 2px rgba(111, 66, 193, 0.2);
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .cart-item-card {
-        border: 2px solid #000;
-    }
-    
-    .quantity-btn.decrease {
-        background: #000;
-    }
-    
-    .quantity-btn.increase {
-        background: #000;
-    }
-    
-    .place-order-btn {
-        background: #000;
-    }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-    .cart-item-card,
-    .empty-cart,
-    .quantity-btn,
-    .remove-item,
-    .place-order-btn,
-    .nav-btn,
-    .trash-btn {
-        animation: none;
-        transition: none;
-    }
-    
-    .quantity-btn:hover:not(:disabled),
-    .remove-item:hover,
-    .place-order-btn:hover:not(:disabled) {
-        transform: none;
-    }
-}
-
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.spinner-large {
-  width: 60px;
-  height: 60px;
-  border: 4px solid #e9ecef;
-  border-top-color: #6f42c1;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
-}
-
-.loading-overlay p {
-  font-size: 18px;
-  color: #495057;
-  font-weight: 500;
-}
-
-/* Cash Payment Section */
-.cash-payment-section {
-  margin-top: 20px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 12px;
-}
-
+/* Inline currency symbol for payment inputs */
 .input-with-currency {
   position: relative;
-  display: flex;
-  align-items: center;
 }
 
 .currency-symbol {
   position: absolute;
   left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 18px;
   font-weight: 600;
-  color: #495057;
   pointer-events: none;
 }
 
-.input-with-currency .form-input {
+.input-with-currency input {
   padding-left: 40px;
-  font-size: 18px;
-  font-weight: 600;
 }
 
-.change-display {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  background: white;
-  border-radius: 8px;
-  margin-top: 15px;
-  border: 2px solid #4ea87a;
-}
-
-.change-amount {
-  font-size: 24px;
-  font-weight: 700;
-  color: #4ea87a;
-}
-
-/* Payment Placeholder */
-.payment-placeholder {
-  margin-top: 20px;
-  padding: 20px;
-  background: #fff3cd;
-  border: 1px solid #ffc107;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.placeholder-text {
-  font-size: 16px;
-  color: #856404;
-  margin-bottom: 10px;
-}
-
-.payment-placeholder small {
-  color: #856404;
-  font-size: 14px;
-}
-
-.coming-soon {
-  display: block;
-  font-size: 11px;
-  color: #6c757d;
-  margin-top: 4px;
-  font-style: italic;
-}
-
-.payment-option.disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Button Spinner */
-.btn-spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-left: 8px;
-}
-
-/* Success Modal */
-.success-modal {
-  max-width: 500px;
-}
-
-.success-header {
-  background: linear-gradient(135deg, #4ea87a 0%, #5eb488 100%);
-  color: white;
-  padding: 30px;
-  text-align: center;
-  border-radius: 16px 16px 0 0;
-  position: relative;
-}
-
-.success-icon {
-  width: 80px;
-  height: 80px;
-  background: white;
-  color: #4ea87a;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 48px;
-  font-weight: bold;
-  margin: 0 auto 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.success-header h3 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.success-header .close-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.success-header .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.success-details {
-  padding: 30px;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid #e9ecef;
-  font-size: 16px;
-}
-
-.detail-row:last-child {
-  border-bottom: none;
-}
-
-.detail-row span {
-  color: #6c757d;
-}
-
-.detail-row strong {
-  color: #2d3748;
-  font-weight: 600;
-}
-
-.total-highlight {
-  font-size: 20px;
-  color: #4ea87a !important;
-}
-
-.change-row {
-  background: #f8f9fa;
-  padding: 12px 15px;
-  margin: 10px -30px 0;
-  border-bottom: none;
-}
-
-.change-row strong {
-  color: #4ea87a !important;
-  font-size: 18px;
-}
-
-.success-modal .modal-footer {
-  padding: 20px 30px;
-  gap: 15px;
-}
-
-.success-modal .btn-secondary,
-.success-modal .btn-primary {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px;
-  font-size: 16px;
-}
-
-/* Animations */
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Error text */
-.error-text {
-  color: #dc3545;
-  font-size: 13px;
-  display: block;
-  margin-top: 6px;
-}
-
-/* Discount styling */
-.summary-row.discount {
-  color: #4ea87a;
-}
-
-.discount-amount {
-  font-weight: 600;
-}
-
-/* Form Input */
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #495057;
-  font-size: 14px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 12px 15px;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: all 0.2s;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #6f42c1;
-  box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.1);
-}
-
-.form-input:disabled {
-  background: #e9ecef;
-  cursor: not-allowed;
-}
-
-/* Additional Customer & Points Styles */
-.customer-section {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.customer-section h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: #2d3748;
-}
-
-.customer-search {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.customer-info-card {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-.customer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-}
-
-.customer-details h5 {
-  margin: 0 0 0.25rem 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.customer-username {
-  margin: 0;
-  font-size: 14px;
-  color: #6c757d;
-}
-
-.loyalty-points-display {
-  background: white;
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.points-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.points-label {
-  font-size: 13px;
-  color: #6c757d;
-}
-
-.points-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: #6f42c1;
-}
-
-.points-cash {
-  font-size: 13px;
-  color: #6c757d;
-}
-
-/* Points Action Buttons */
-.points-action-buttons {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.points-action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: white;
-  border: 2px solid #dee2e6;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.points-action-btn:hover {
-  border-color: #6f42c1;
-}
-
-.points-action-btn.active {
-  background: linear-gradient(135deg, #6f42c1, #8b5ede);
-  border-color: #6f42c1;
-  color: white;
-}
-
-.action-icon {
-  font-size: 20px;
-}
-
-.action-content {
+/* Custom payment flow steps styling */
+.payment-flow-steps {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 1rem 0;
 }
 
-.action-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.action-subtitle {
-  font-size: 11px;
-  opacity: 0.8;
-}
-
-.points-insufficient-notice {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem;
-  background: #fff3cd;
-  border: 2px dashed #ffc107;
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-/* Points Redemption Panel */
-.points-redemption-panel {
-  background: white;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.redemption-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.redemption-header h6 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.btn-text {
-  background: none;
-  border: none;
-  color: #6f42c1;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.redemption-input-group {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.points-input {
-  flex: 1;
-}
-
-.redemption-info-box {
-  background: #f8f9fa;
-  border-radius: 6px;
-  padding: 0.75rem;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  padding: 0.25rem 0;
-}
-
-.info-row .highlight {
-  color: #6f42c1;
-  font-weight: 600;
-}
-
-/* Points Earning Panel */
-.points-earning-panel {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 193, 7, 0.1));
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.earning-preview {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.earning-icon-large {
-  font-size: 40px;
-}
-
-.earning-info-large h6 {
-  margin: 0 0 0.25rem 0;
-  font-size: 12px;
-  text-transform: uppercase;
-  color: #6c757d;
-}
-
-.earning-amount-large {
-  font-size: 24px;
-  font-weight: 700;
-  color: #FFD700;
-}
-
-.earning-value-large {
-  font-size: 13px;
-  color: #6c757d;
-}
-
-.balance-preview-box {
-  background: white;
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.balance-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  padding: 0.25rem 0;
-}
-
-.balance-row.balance-after {
-  border-top: 1px solid #e9ecef;
-  padding-top: 0.5rem;
-  margin-top: 0.5rem;
-  font-weight: 600;
-}
-
-.highlight-green {
-  color: #4ea87a;
-}
-
-.earning-note {
-  text-align: center;
-  font-size: 11px;
-  color: #6c757d;
-}
-
-/* Applied Discount Badge */
-.applied-discount-badge {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #4CAF50, #45a049);
-  border-radius: 8px;
-  padding: 0.75rem;
-  margin-top: 1rem;
-}
-
-.discount-content {
+.flow-step {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: white;
 }
 
-.discount-icon {
-  font-size: 20px;
-}
-
-.discount-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.discount-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  opacity: 0.9;
-}
-
-.discount-details {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.btn-remove-discount {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  border-radius: 50%;
+.step-number {
   width: 24px;
   height: 24px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  color: white;
-}
-
-/* Promotion Section */
-.promotion-section {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.promotion-section h3 {
-  font-size: 16px;
   font-weight: 600;
-  margin-bottom: 1rem;
-  color: #2d3748;
+  font-size: 0.875rem;
 }
 
-.promotion-card {
-  background: linear-gradient(135deg, #FFD700, #FFA500);
-  border-radius: 8px;
-  padding: 1rem;
+/* Custom animations for success modal */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.promotion-content {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.promotion-icon {
-  font-size: 24px;
-}
-
-.promotion-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.promotion-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-.promotion-savings {
-  font-size: 18px;
-  font-weight: 700;
-  color: #228B22;
-}
-
-/* Discount Rows */
-.discount-row {
-  color: #4ea87a;
-}
-
-.discount-amount {
-  font-weight: 600;
-}
-
-.alert {
-  padding: 0.75rem;
-  border-radius: 6px;
-  font-size: 13px;
-  margin-top: 0.5rem;
-}
-
-.alert-danger {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.btn-remove {
-  background: none;
-  border: none;
-  color: #dc3545;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-}
-
-.btn-remove:hover {
-  background: #ffe6e6;
+.success-modal {
+  animation: fadeIn 0.3s ease-out;
 }
 </style>
