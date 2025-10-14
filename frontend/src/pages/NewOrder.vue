@@ -403,24 +403,11 @@
           <!-- Subtotal -->
           <div class="cart-info">
             <div class="item-count">{{ totalItems }} items</div>
-            <div class="cart-total">₱{{ formatPrice(cartSubtotal) }}</div>
+            <div class="cart-total">₱{{ formatPrice(finalTotal) }}</div>
           </div>
           
           <!-- Promo Discount -->
           <div v-if="promoDiscount > 0" class="discounts-section">
-            <div class="discount-row">
-              <span class="discount-label">
-                {{ appliedPromotion.name }}
-              </span>
-              <span class="discount-amount">-₱{{ formatPrice(promoDiscount) }}</span>
-            </div>
-            
-            <div class="discount-divider"></div>
-            
-            <div class="final-total-row">
-              <span class="final-label">Total</span>
-              <span class="final-amount">₱{{ formatPrice(finalTotal) }}</span>
-            </div>
           </div>
           
           <button 
@@ -527,6 +514,15 @@ export default {
   async mounted() {
     await this.initializeSession()
     await this.loadCategories()
+    
+    // ✅ ADD: Debug log to verify category IDs
+    console.log('\n📋 ========================================')
+    console.log('   LOADED CATEGORIES')
+    console.log('📋 ========================================')
+    this.categories.forEach(cat => {
+      console.log(`   ${cat.name}: ${cat.id}`)
+    })
+    console.log('📋 ========================================\n')
   },
 
   watch: {
@@ -1014,24 +1010,49 @@ export default {
         console.log('🎟️ Fetching available promotions...')
         console.log('📦 Cart items:', this.cartItems.length)
         
-        // ✅ USE BACKOFFICE ENDPOINT
+        // ✅ Fetch active promotions from backoffice endpoint
         const response = await api.get('/promotions/active/')
         
         console.log('📦 Full response:', response)
         console.log('📦 Response data:', response.data)
         
-        // Parse response - Backoffice structure
+        // ✅ LOG RAW PROMOTION DATA FOR DEBUGGING
+        console.log('\n🔍 ========================================')
+        console.log('   RAW PROMOTION DATA')
+        console.log('🔍 ========================================')
+        
         let allPromotions = []
         
         if (response && response.data) {
           if (response.data.success === true) {
-            // Backoffice returns: { success: true, promotions: [...], count: n }
             allPromotions = response.data.promotions || []
             console.log('✅ Found promotions in response.data.promotions')
+            
+            // ✅ LOG EACH PROMOTION IN DETAIL
+            allPromotions.forEach((promo, index) => {
+              console.log(`\nPromotion ${index + 1}: ${promo.name}`)
+              console.log('   Full object:', promo)
+              console.log('   discount_config:', promo.discount_config)
+              console.log('   discount_config type:', typeof promo.discount_config)
+              
+              // ✅ Check if it's a string that needs parsing
+              if (typeof promo.discount_config === 'string') {
+                console.log('   ⚠️ discount_config is a STRING, needs parsing!')
+                try {
+                  const parsed = JSON.parse(promo.discount_config)
+                  console.log('   ✅ Parsed discount_config:', parsed)
+                } catch (e) {
+                  console.log('   ❌ Failed to parse:', e)
+                }
+              }
+            })
+            
           } else {
             console.warn('⚠️ Success is not true')
           }
         }
+        
+        console.log('🔍 ========================================\n')
         
         console.log('📋 Parsed promotions:', allPromotions)
         console.log('📋 Promotions count:', allPromotions.length)
@@ -1049,6 +1070,48 @@ export default {
           this.filteredPromoSuggestions = []
           return
         }
+        
+        // ✅ FIX: Parse discount_config if it's a string
+        allPromotions = allPromotions.map(promo => {
+          // Check if discount_config is a string that needs parsing
+          if (typeof promo.discount_config === 'string') {
+            try {
+              promo.discount_config = JSON.parse(promo.discount_config)
+              console.log(`✅ Parsed discount_config for: ${promo.name}`, promo.discount_config)
+            } catch (e) {
+              console.error(`❌ Failed to parse discount_config for ${promo.name}:`, e)
+              // Set default if parsing fails
+              promo.discount_config = {
+                target_type: 'all',
+                target_ids: []
+              }
+            }
+          }
+          
+          // ✅ ENSURE: discount_config exists
+          if (!promo.discount_config) {
+            console.warn(`⚠️ Missing discount_config for ${promo.name}, using default`)
+            promo.discount_config = {
+              target_type: 'all',
+              target_ids: []
+            }
+          }
+          
+          // ✅ ENSURE: discount_config has required fields
+          if (!promo.discount_config.target_type) {
+            console.warn(`⚠️ Missing target_type for ${promo.name}, defaulting to 'all'`)
+            promo.discount_config.target_type = 'all'
+          }
+          
+          if (!promo.discount_config.target_ids) {
+            console.warn(`⚠️ Missing target_ids for ${promo.name}, defaulting to []`)
+            promo.discount_config.target_ids = []
+          }
+          
+          return promo
+        })
+        
+        console.log('✅ Promotions after parsing:', allPromotions)
         
         console.log('🔄 Calculating discounts for promotions...')
         console.log('📦 Current cart items:', this.cartItems)
@@ -1082,7 +1145,7 @@ export default {
           }
         }
         
-        // Sort by discount amount
+        // Sort by discount amount (highest first)
         applicablePromotions.sort((a, b) => b.calculatedDiscount - a.calculatedDiscount)
         
         this.availablePromotions = applicablePromotions
@@ -1101,58 +1164,85 @@ export default {
     },
     
     calculatePromotionDiscount(promotion) {
+      console.log('\n🎁 ========================================')
+      console.log(`   Calculating discount for: ${promotion.name}`)
+      console.log('🎁 ========================================')
+      
       // ✅ SAFETY CHECK: Handle missing discount_config
       if (!promotion.discount_config) {
         console.warn(`⚠️ Promotion "${promotion.name}" missing discount_config!`)
-        console.warn('   Full promotion object:', promotion)
         return 0
       }
       
       const targetType = promotion.discount_config.target_type
       const targetIds = promotion.discount_config.target_ids || []
       
+      console.log(`   🎯 Type: ${promotion.type}`)
+      console.log(`   🎯 Value: ${promotion.discount_value}${promotion.type === 'percentage' ? '%' : ' PHP'}`)
       console.log(`   🎯 Target Type: ${targetType}`)
       console.log(`   🎯 Target IDs:`, targetIds)
+      console.log(`   📦 Cart Subtotal: ₱${this.cartSubtotal}`)
+      console.log(`   📦 Cart Items: ${this.cartItems.length}`)
       
       let eligibleAmount = 0
+      let eligibleItems = []
       
       if (targetType === 'all') {
         eligibleAmount = this.cartSubtotal
-        console.log(`   💰 All items eligible: ₱${eligibleAmount}`)
+        eligibleItems = this.cartItems
+        console.log(`   ✅ ALL ITEMS ELIGIBLE: ₱${eligibleAmount}`)
+        
       } else if (targetType === 'categories') {
+        console.log('\n   🔍 Checking category matches...')
+        console.log(`   🔍 Available products in memory:`, this.products.length)
+        
         // Get eligible items from target categories
-        const eligibleItems = this.cartItems.filter(item => {
+        eligibleItems = this.cartItems.filter(item => {
           const product = this.products.find(p => p.id === item.productId)
-          const isEligible = product && targetIds.includes(product.category)
           
-          if (isEligible) {
-            console.log(`      ✅ ${product.name} (${product.category}) - ₱${item.subtotal}`)
+          if (!product) {
+            console.log(`   ⚠️ Product not found: ${item.productId} (${item.productName})`)
+            return false
           }
+          
+          const productCategory = product.category
+          const isEligible = targetIds.includes(productCategory)
+          
+          console.log(`      ${isEligible ? '✅' : '❌'} ${product.name}`)
+          console.log(`         Product Category: "${productCategory}"`)
+          console.log(`         Target Categories:`, targetIds)
+          console.log(`         Match: ${isEligible}`)
+          console.log(`         Subtotal: ₱${item.subtotal}`)
           
           return isEligible
         })
         
         eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        console.log(`   💰 Category items eligible: ₱${eligibleAmount}`)
+        console.log(`\n   💰 CATEGORY TOTAL: ₱${eligibleAmount} (${eligibleItems.length} items)`)
+        
       } else if (targetType === 'products') {
+        console.log('\n   🔍 Checking product matches...')
+        
         // Get eligible items from target products
-        const eligibleItems = this.cartItems.filter(item => {
+        eligibleItems = this.cartItems.filter(item => {
           const isEligible = targetIds.includes(item.productId)
           
-          if (isEligible) {
-            const product = this.products.find(p => p.id === item.productId)
-            console.log(`      ✅ ${product?.name || item.productName} - ₱${item.subtotal}`)
-          }
+          console.log(`      ${isEligible ? '✅' : '❌'} ${item.productName}`)
+          console.log(`         Product ID: "${item.productId}"`)
+          console.log(`         Target IDs:`, targetIds)
+          console.log(`         Match: ${isEligible}`)
+          console.log(`         Subtotal: ₱${item.subtotal}`)
           
           return isEligible
         })
         
         eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        console.log(`   💰 Product items eligible: ₱${eligibleAmount}`)
+        console.log(`\n   💰 PRODUCTS TOTAL: ₱${eligibleAmount} (${eligibleItems.length} items)`)
       }
       
       if (eligibleAmount === 0) {
-        console.log(`   ❌ No eligible items found`)
+        console.log(`\n   ❌ NO ELIGIBLE ITEMS - Discount = ₱0`)
+        console.log('🎁 ========================================\n')
         return 0
       }
       
@@ -1160,11 +1250,17 @@ export default {
       
       if (promotion.type === 'percentage') {
         discount = eligibleAmount * (promotion.discount_value / 100)
+        console.log(`\n   💰 Calculation: ₱${eligibleAmount} × ${promotion.discount_value}% = ₱${discount}`)
       } else if (promotion.type === 'fixed') {
         discount = Math.min(promotion.discount_value, eligibleAmount)
+        console.log(`\n   💰 Calculation: min(₱${promotion.discount_value}, ₱${eligibleAmount}) = ₱${discount}`)
       }
       
-      return Math.round(discount * 100) / 100
+      const finalDiscount = Math.round(discount * 100) / 100
+      console.log(`\n   ✅ FINAL DISCOUNT: ₱${finalDiscount}`)
+      console.log('🎁 ========================================\n')
+      
+      return finalDiscount
     },
     
     async applyPromotionById(promotionId) {
@@ -1305,13 +1401,19 @@ export default {
       
       console.log('🛒 Proceeding to checkout...')
       
-      // Store promotion info for checkout
+      // ✅ FIXED: Store complete promotion info for checkout
       if (this.appliedPromotion) {
-        sessionStorage.setItem('appliedPromotion', JSON.stringify({
+        const promotionData = {
           promotion_id: this.appliedPromotion._id,
           promotion_name: this.appliedPromotion.name,
+          type: this.appliedPromotion.type,
+          discount_value: this.appliedPromotion.discount_value,
+          discount_config: this.appliedPromotion.discount_config,
           discount_amount: this.promoDiscount
-        }))
+        }
+        
+        console.log('💾 Saving promotion to session:', promotionData)
+        sessionStorage.setItem('appliedPromotion', JSON.stringify(promotionData))
       } else {
         sessionStorage.removeItem('appliedPromotion')
       }

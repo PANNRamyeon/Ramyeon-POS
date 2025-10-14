@@ -474,6 +474,9 @@ export default {
       loadingMessage: 'Loading...',
       isProcessing: false,
       
+      // Products for promotion calculation
+      products: [],
+      
       // Stock validation
       validationErrors: [],
       quantityUpdating: false,
@@ -520,20 +523,102 @@ export default {
     
     // Promo discount calculation
     promoDiscount() {
-      if (!this.appliedPromotion) return 0
-      
-      const promotion = this.appliedPromotion
-      let eligibleAmount = this.cartSubtotal
-      
-      // Calculate based on promotion type
-      let discount = 0
-      if (promotion.type === 'percentage') {
-        discount = eligibleAmount * (promotion.discount_value / 100)
-      } else if (promotion.type === 'fixed') {
-        discount = Math.min(promotion.discount_value, eligibleAmount)
+      if (!this.appliedPromotion) {
+        console.log('⚠️ No promotion applied')
+        return 0
       }
       
-      return Math.round(discount * 100) / 100
+      const promotion = this.appliedPromotion
+      console.log('\n💰 Calculating promo discount...')
+      console.log('   Promotion:', promotion.name)
+      console.log('   Type:', promotion.type)
+      console.log('   Value:', promotion.discount_value)
+      
+      // ✅ SAFETY CHECK
+      if (!promotion.discount_config) {
+        console.warn('⚠️ Missing discount_config')
+        return 0
+      }
+      
+      const targetType = promotion.discount_config.target_type
+      const targetIds = promotion.discount_config.target_ids || []
+      
+      console.log('   Target Type:', targetType)
+      console.log('   Target IDs:', targetIds)
+      console.log('   Cart Items:', this.cartItems.length)
+      console.log('   Products Loaded:', this.products.length)
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+        console.log('   ✅ ALL items eligible: ₱' + eligibleAmount)
+        
+      } else if (targetType === 'categories') {
+        console.log('   🔍 Checking category matches...')
+        
+        // Filter cart items by category
+        const eligibleItems = this.cartItems.filter(item => {
+          const product = this.products.find(p => p.id === item.productId)
+          
+          if (!product) {
+            console.log(`      ⚠️ Product not found: ${item.productId} (${item.productName})`)
+            return false
+          }
+          
+          const productCategory = product.category
+          const isEligible = targetIds.includes(productCategory)
+          
+          console.log(`      ${isEligible ? '✅' : '❌'} ${product.name}`)
+          console.log(`         Category: "${productCategory}"`)
+          console.log(`         Targets:`, targetIds)
+          console.log(`         Subtotal: ₱${item.subtotal}`)
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Category total: ₱${eligibleAmount} (${eligibleItems.length} items)`)
+        
+      } else if (targetType === 'products') {
+        console.log('   🔍 Checking product matches...')
+        
+        // Filter cart items by product ID
+        const eligibleItems = this.cartItems.filter(item => {
+          const isEligible = targetIds.includes(item.productId)
+          
+          console.log(`      ${isEligible ? '✅' : '❌'} ${item.productName}`)
+          console.log(`         Product ID: "${item.productId}"`)
+          console.log(`         Targets:`, targetIds)
+          console.log(`         Subtotal: ₱${item.subtotal}`)
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Products total: ₱${eligibleAmount} (${eligibleItems.length} items)`)
+      }
+      
+      if (eligibleAmount === 0) {
+        console.log('   ❌ No eligible items - Discount = ₱0')
+        return 0
+      }
+      
+      // Calculate discount
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+        console.log(`   💰 Calculation: ₱${eligibleAmount} × ${promotion.discount_value}% = ₱${discount}`)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+        console.log(`   💰 Calculation: min(₱${promotion.discount_value}, ₱${eligibleAmount}) = ₱${discount}`)
+      }
+      
+      const finalDiscount = Math.round(discount * 100) / 100
+      console.log(`   ✅ FINAL DISCOUNT: ₱${finalDiscount}\n`)
+      
+      return finalDiscount
     },
     
     // Subtotal after promo
@@ -556,30 +641,22 @@ export default {
       return this.cartStore.itemCount
     },
     
-    // ✅ UPDATED: Points calculations
+    // Points calculations
     maxRedeemablePoints() {
       if (!this.selectedCustomer) return 0
       
-      // Base amount: subtotal after promotion (before tax and points)
       const baseAmount = this.subtotalAfterPromo
-      
-      // Max discount: 50% of base amount
       const maxDiscountAmount = baseAmount * 0.5
-      
-      // Convert to points (4 points = ₱1)
       const maxPointsFromCart = Math.floor(maxDiscountAmount * 4)
-      
-      // Cannot exceed customer's available points
       const customerPoints = this.selectedCustomer.loyalty_points || 0
       const finalMaxPoints = Math.min(maxPointsFromCart, customerPoints)
       
       return finalMaxPoints
     },
     
-    // ✅ UPDATED: Changed minimum from 200 to 100
     canRedeemPoints() {
       if (!this.pointsToRedeem || !this.selectedCustomer) return false
-      if (this.pointsToRedeem < 100) return false  // ✅ CHANGED: from 200 to 100
+      if (this.pointsToRedeem < 100) return false
       if (this.pointsToRedeem > this.selectedCustomer.loyalty_points) return false
       if (this.pointsToRedeem > this.maxRedeemablePoints) return false
       return true
@@ -627,17 +704,76 @@ export default {
   },
   
   methods: {
-    // Load promotion from session
+    // ================================================================
+    // LOAD CHECKOUT DATA
+    // ================================================================
+    
     async loadCheckoutData() {
       try {
-        // Load promotion from NewOrder page
-        const promoData = sessionStorage.getItem('appliedPromotion')
-        if (promoData) {
-          this.appliedPromotion = JSON.parse(promoData)
-          console.log('✅ Loaded promotion:', this.appliedPromotion.name)
-        }
+        this.isLoading = true
+        this.loadingMessage = 'Loading checkout data...'
         
-        // Load customer from NewOrder page (if any)
+        // ✅ STEP 1: Load products for promotion calculation
+        await this.loadProductsForPromotion()
+        
+        // ✅ STEP 2: Load promotion from session
+        const promoData = sessionStorage.getItem('appliedPromotion')
+        console.log('\n🎟️ ========================================')
+        console.log('   LOADING PROMOTION FROM SESSION')
+        console.log('🎟️ ========================================')
+        console.log('Raw sessionStorage data:', promoData)
+        
+        if (promoData) {
+          try {
+            const parsedPromo = JSON.parse(promoData)
+            console.log('Parsed promotion object:', parsedPromo)
+            console.log('Promotion structure check:')
+            console.log('  - _id:', parsedPromo._id || parsedPromo.promotion_id)
+            console.log('  - name:', parsedPromo.promotion_name || parsedPromo.name)
+            console.log('  - type:', parsedPromo.type)
+            console.log('  - discount_value:', parsedPromo.discount_value)
+            console.log('  - discount_config:', parsedPromo.discount_config)
+            
+            // ✅ FIX: Handle both formats (from NewOrder.vue)
+            const promotion = {
+              _id: parsedPromo.promotion_id || parsedPromo._id,
+              name: parsedPromo.promotion_name || parsedPromo.name,
+              type: parsedPromo.type,
+              discount_value: parsedPromo.discount_value,
+              discount_config: parsedPromo.discount_config
+            }
+            
+            // ✅ Parse discount_config if it's a string
+            if (typeof promotion.discount_config === 'string') {
+              try {
+                promotion.discount_config = JSON.parse(promotion.discount_config)
+                console.log('✅ Parsed discount_config:', promotion.discount_config)
+              } catch (e) {
+                console.error('❌ Failed to parse discount_config:', e)
+              }
+            }
+            
+            // ✅ VERIFY: Ensure all required fields exist
+            if (!promotion._id || !promotion.name || !promotion.type || !promotion.discount_value) {
+              console.error('❌ Incomplete promotion data:', promotion)
+              console.error('❌ Missing required fields')
+              this.appliedPromotion = null
+            } else {
+              this.appliedPromotion = promotion
+              console.log('✅ Loaded promotion:', this.appliedPromotion.name)
+              console.log('✅ Final promotion object:', this.appliedPromotion)
+            }
+            
+          } catch (error) {
+            console.error('❌ Failed to parse promotion data:', error)
+            this.appliedPromotion = null
+          }
+        } else {
+          console.log('⚠️ No promotion in session')
+        }
+        console.log('🎟️ ========================================\n')
+        
+        // ✅ STEP 3: Load customer from session
         const customerData = sessionStorage.getItem('checkoutCustomer')
         if (customerData) {
           const customer = JSON.parse(customerData)
@@ -645,6 +781,7 @@ export default {
             _id: customer.customer_id,
             full_name: customer.full_name,
             username: customer.username || 'customer',
+            email: customer.email,
             loyalty_points: customer.currentPoints || 0
           }
           
@@ -656,8 +793,46 @@ export default {
           
           console.log('✅ Loaded customer:', this.selectedCustomer.full_name)
         }
+        
       } catch (error) {
         console.error('❌ Failed to load checkout data:', error)
+      } finally {
+        this.isLoading = false
+      }
+    },
+    
+    // ✅ NEW METHOD: Load products for promotion calculation
+    async loadProductsForPromotion() {
+      try {
+        console.log('📦 Loading products for promotion calculation...')
+        console.log('📦 Cart items:', this.cartItems.length)
+        
+        if (this.cartItems.length === 0) {
+          console.warn('⚠️ No cart items to load products for')
+          return
+        }
+        
+        // Get all unique product IDs from cart
+        const productIds = [...new Set(this.cartItems.map(item => item.productId))]
+        console.log('📦 Product IDs to fetch:', productIds)
+        
+        // Fetch products in batch
+        const products = await apiProducts.getProductsBatch(productIds)
+        console.log('📦 Fetched products:', products)
+        
+        // Store products in data for promotion calculation
+        this.products = products
+        
+        // ✅ VERIFY: Check if products have category IDs
+        console.log('\n🔍 Product Categories:')
+        products.forEach(p => {
+          console.log(`   ${p.name}: ${p.category}`)
+        })
+        
+        console.log('✅ Products loaded for promotion calculation')
+        
+      } catch (error) {
+        console.error('❌ Failed to load products:', error)
       }
     },
     
@@ -708,7 +883,6 @@ export default {
         console.log('👥 Found customers:', customers)
         
         if (customers && customers.length > 0) {
-          // ✅ FIX: Find exact match instead of taking first
           const customer = customers.find(c => 
             c.username?.toLowerCase() === query ||
             c.email?.toLowerCase() === query ||
@@ -723,7 +897,6 @@ export default {
           
           console.log('📋 Matched customer:', customer)
           
-          // Create a clean customer object
           this.selectedCustomer = {
             _id: customer._id,
             username: customer.username,
@@ -733,11 +906,7 @@ export default {
             loyalty_points: customer.loyalty_points || 0
           }
           
-          console.log('✅ Selected customer object:', this.selectedCustomer)
-          console.log('✅ Customer name:', this.selectedCustomer.full_name)
-          console.log('✅ Customer username:', this.selectedCustomer.username)
-          console.log('✅ Customer points:', this.selectedCustomer.loyalty_points)
-          
+          console.log('✅ Selected customer:', this.selectedCustomer.full_name)
           this.customerSearchQuery = ''
           
         } else {
@@ -747,7 +916,6 @@ export default {
         
       } catch (error) {
         console.error('❌ Customer search failed:', error)
-        console.error('❌ Error response:', error.response?.data)
         
         if (error.response?.status === 403) {
           this.customerSearchError = 'Permission denied. Contact administrator.'
@@ -942,47 +1110,33 @@ export default {
           throw new Error('Stock validation failed')
         }
         
-        // ✅ Get base checkout data from cart
         const saleData = this.cartStore.getCheckoutData()
         
-        // ✅ CRITICAL: Override with actual checkout values
         saleData.subtotal = this.cartSubtotal
         saleData.tax_amount = this.taxAmount
         saleData.total_amount = this.grandTotal
         
-        // ✅ Add customer info with points
         if (this.selectedCustomer) {
           saleData.customer_id = this.selectedCustomer._id
           saleData.loyalty_points_used = this.pointsRedeemed
           saleData.loyalty_points_earned = this.pointsWillEarn
-          
-          console.log('👤 Customer Info:')
-          console.log('   ID:', this.selectedCustomer._id)
-          console.log('   Points to Use:', this.pointsRedeemed)
-          console.log('   Points to Earn:', this.pointsWillEarn)
         }
         
-        // ✅ Add promotion discount
         if (this.appliedPromotion) {
           saleData.promotion_id = this.appliedPromotion._id
           saleData.promotion_discount = this.promoDiscount
-          console.log('🎉 Promotion:', this.appliedPromotion.name, '-₱' + this.formatPrice(this.promoDiscount))
         } else {
           saleData.promotion_discount = 0
         }
         
-        // ✅ Add points discount
         if (this.appliedPointsDiscount > 0) {
           saleData.points_discount = this.appliedPointsDiscount
-          console.log('🎁 Points Discount: -₱' + this.formatPrice(this.appliedPointsDiscount))
         } else {
           saleData.points_discount = 0
         }
         
-        // ✅ Calculate total discount
         saleData.discount = this.promoDiscount + this.appliedPointsDiscount
         
-        // ✅ Add payment details
         saleData.payment_method = this.paymentMethod
         saleData.payment_details = {
           method: this.paymentMethod,
@@ -993,18 +1147,7 @@ export default {
           timestamp: new Date().toISOString()
         }
         
-        // ✅ DEBUG: Log what we're sending
-        console.log('📝 Final Sale Data:')
-        console.log('   Subtotal:', saleData.subtotal)
-        console.log('   Promotion Discount:', saleData.promotion_discount)
-        console.log('   Points Discount:', saleData.points_discount)
-        console.log('   Total Discount:', saleData.discount)
-        console.log('   Tax:', saleData.tax_amount)
-        console.log('   Grand Total:', saleData.total_amount)
-        console.log('   Points Used:', saleData.loyalty_points_used)
-        console.log('   Points Earned:', saleData.loyalty_points_earned)
-        
-        console.log('📝 Creating sale:', saleData)
+        console.log('📝 Final Sale Data:', saleData)
         
         const result = await apiSales.createSale(saleData)
         
