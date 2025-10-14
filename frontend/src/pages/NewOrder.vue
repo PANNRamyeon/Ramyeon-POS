@@ -706,6 +706,20 @@ export default {
 
     wouldExceedLimit() {
       return this.customCategoryItems.length + this.selectedProducts.length > 8
+    },
+
+    // Count products by category for the product selector modal
+    productCountsByCategory() {
+      const counts = {}
+
+      // Count products in each category
+      this.allProducts.forEach(product => {
+        if (product.category) {
+          counts[product.category] = (counts[product.category] || 0) + 1
+        }
+      })
+
+      return counts
     }
   },
 
