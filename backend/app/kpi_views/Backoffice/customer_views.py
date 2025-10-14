@@ -11,7 +11,7 @@ class CustomerListView(APIView):
     def __init__(self):
         self.customer_service = CustomerService()
 
-    @require_admin  
+    @require_authentication  
     def get(self, request):
         """Get customers with pagination and filters - Admin only"""
         try:

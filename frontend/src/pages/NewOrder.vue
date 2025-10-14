@@ -312,25 +312,117 @@
         </div>
       </div>
       
-      <!-- Cart Summary -->
+      <!-- Cart Footer -->
       <div class="cart-footer">
-        <div class="input-group" style="margin-bottom: 20px;">
-          <input 
-            type="text" 
-            class="form-control" 
-            placeholder="Enter promo code"
-            v-model="promoCode"
-            style="gap: 10px;"
-          >
-          <button class="btn btn-primary" type="button" @click="applyPromotion">
-            Apply
-          </button>
+        
+       <!-- Manual Promo Code with Smart Suggestions -->
+        <div class="promo-section">
+          <h4 class="section-title">Have a Promo Code?</h4>
+          
+          <div class="promo-input-wrapper">
+            <div class="input-group">
+              <input 
+                type="text" 
+                class="form-control" 
+                placeholder="Enter promo code or select below"
+                v-model="promoCode"
+                @focus="showPromoSuggestions = true"
+                @blur="hidePromoSuggestionsDelayed"
+                @input="filterPromoSuggestions"
+              />
+              <button 
+                class="btn btn-primary" 
+                type="button" 
+                @click="applyPromoCodeManually"
+                :disabled="!promoCode.trim()"
+              >
+                Apply
+              </button>
+            </div>
+            
+            <!-- Promo Suggestions Dropdown -->
+            <div 
+              v-if="showPromoSuggestions && filteredPromoSuggestions.length > 0" 
+              class="promo-suggestions-dropdown"
+            >
+              <div class="suggestions-header">
+                <span class="suggestions-title">✨ Available Promotions</span>
+                <span class="suggestions-count">{{ filteredPromoSuggestions.length }}</span>
+              </div>
+              
+              <div class="suggestions-list">
+                <div 
+                  v-for="promo in filteredPromoSuggestions" 
+                  :key="promo._id"
+                  class="suggestion-item"
+                  @mousedown.prevent="selectPromoFromSuggestion(promo)"
+                >
+                  <div class="suggestion-icon">🎁</div>
+                  <div class="suggestion-content">
+                    <div class="suggestion-name">{{ promo.name }}</div>
+                    <div class="suggestion-description">{{ promo.description }}</div>
+                    <div class="suggestion-details">
+                      <span class="suggestion-discount">
+                        {{ formatPromotionValue(promo) }}
+                      </span>
+                      <span class="suggestion-target">
+                        {{ formatPromotionTarget(promo) }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="suggestion-savings">
+                    <div class="savings-label">Save</div>
+                    <div class="savings-amount">₱{{ formatPrice(promo.calculatedDiscount) }}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-if="availablePromotions.length === 0" class="no-suggestions">
+                <span>🔍 No promotions available for your cart</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Applied Promo Display -->
+          <div v-if="appliedPromotion" class="applied-promo-display">
+            <div class="applied-promo-content">
+              <span class="applied-icon">✅</span>
+              <div class="applied-info">
+                <span class="applied-name">{{ appliedPromotion.name }}</span>
+                <span class="applied-savings">-₱{{ formatPrice(promoDiscount) }}</span>
+              </div>
+            </div>
+            <button class="btn-remove-promo" @click="removePromotion">
+              <X :size="16" />
+            </button>
+          </div>
         </div>
+
+        <!-- Cart Summary -->
         <div class="cart-summary">
+          <!-- Subtotal -->
           <div class="cart-info">
             <div class="item-count">{{ totalItems }} items</div>
-            <div class="cart-total">₱{{ formatPrice(cartTotal) }}</div>
+            <div class="cart-total">₱{{ formatPrice(cartSubtotal) }}</div>
           </div>
+          
+          <!-- Promo Discount -->
+          <div v-if="promoDiscount > 0" class="discounts-section">
+            <div class="discount-row">
+              <span class="discount-label">
+                {{ appliedPromotion.name }}
+              </span>
+              <span class="discount-amount">-₱{{ formatPrice(promoDiscount) }}</span>
+            </div>
+            
+            <div class="discount-divider"></div>
+            
+            <div class="final-total-row">
+              <span class="final-label">Total</span>
+              <span class="final-amount">₱{{ formatPrice(finalTotal) }}</span>
+            </div>
+          </div>
+          
           <button 
             class="pay-btn" 
             @click="checkout"
@@ -338,10 +430,6 @@
             <span>Checkout →</span>
           </button>
         </div>
-         <div v-if="appliedPromotion" class="alert alert-success mt-2">
-            ✅ {{ appliedPromotion.name }} applied
-            <button @click="removePromotion" class="btn-close"></button>
-          </div>
       </div>
     </div>
         
@@ -357,6 +445,7 @@
 import { useCartStore } from '@/stores/cartStores'
 import categoriesAPI from '@/services/apiCategory.js'
 import productsAPI from '@/services/apiProducts.js'
+import { api } from '@/services/api.js'
 
 export default {
   name: 'NewOrder',
@@ -411,6 +500,14 @@ export default {
       selectedProducts: [],
       productSearchQuery: '',
       
+      // Promotions
+      promoCode: '',
+      appliedPromotion: null,
+      availablePromotions: [],
+      showOtherPromotions: false,
+      showPromoSuggestions: false, 
+      filteredPromoSuggestions: [],
+      
       // Icon options for custom categories
       iconOptions: [
         { name: 'Package' },
@@ -432,22 +529,100 @@ export default {
     await this.loadCategories()
   },
 
+  watch: {
+    selectedSourceCategory(newCategoryId) {
+      if (newCategoryId) {
+        this.loadProductsForSelection()
+      }
+    },
+    
+    // Watch cart changes to update available promotions
+    'cartStore.items': {
+      handler() {
+        this.fetchAvailablePromotions()
+      },
+      deep: true
+    }
+  },
+
   computed: {
     // Combine backend and custom categories
     categories() {
       return [...this.backendCategories, ...this.customCategories]
     },
 
+    // Cart items from store
     cartItems() {
       return this.cartStore.items
     },
     
-    cartTotal() {
+    // Cart subtotal
+    cartSubtotal() {
       return this.cartStore.total
     },
     
+    // Total items from store
     totalItems() {
       return this.cartStore.itemCount
+    },
+    
+    // Calculate promo discount
+    promoDiscount() {
+      if (!this.appliedPromotion) return 0
+      
+      const promotion = this.appliedPromotion
+      const targetType = promotion.discount_config?.target_type
+      const targetIds = promotion.discount_config?.target_ids || []
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+      } else if (targetType === 'categories') {
+        eligibleAmount = this.cartItems
+          .filter(item => {
+            const product = this.products.find(p => p.id === item.productId)
+            return product && targetIds.includes(product.category)
+          })
+          .reduce((sum, item) => sum + item.subtotal, 0)
+      } else if (targetType === 'products') {
+        eligibleAmount = this.cartItems
+          .filter(item => targetIds.includes(item.productId))
+          .reduce((sum, item) => sum + item.subtotal, 0)
+      }
+      
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+      }
+      
+      return Math.round(discount * 100) / 100
+    },
+    
+    // Final total with discounts
+    finalTotal() {
+      return Math.max(0, this.cartSubtotal - this.promoDiscount)
+    },
+    
+    // Best promotion (highest discount)
+    bestPromotion() {
+      if (this.availablePromotions.length === 0) return null
+      
+      return this.availablePromotions.reduce((best, current) => {
+        return current.calculatedDiscount > best.calculatedDiscount ? current : best
+      })
+    },
+    
+    // Other promotions (excluding best)
+    otherPromotions() {
+      if (!this.bestPromotion) return this.availablePromotions
+      
+      return this.availablePromotions.filter(
+        promo => promo._id !== this.bestPromotion._id
+      )
     },
 
     filteredProducts() {
@@ -535,23 +710,14 @@ export default {
 
     wouldExceedLimit() {
       return this.customCategoryItems.length + this.selectedProducts.length > 8
-    },
-
-    // ✅ FIX: Product counts by category (REACTIVE COMPUTED PROPERTY)
-    productCountsByCategory() {
-      const counts = {}
-      
-      this.availableSourceCategories.forEach(category => {
-        counts[category.id] = this.allProducts.filter(
-          product => product.category === category.id
-        ).length
-      })
-      
-      return counts
-    },
+    }
   },
 
   methods: {
+    // ================================================================
+    // INITIALIZATION
+    // ================================================================
+    
     async initializeSession() {
       try {
         console.log('🔄 Initializing session...')
@@ -570,7 +736,7 @@ export default {
         
         this.cartStore.initializeSession(cashierId, shiftId)
         
-        console.log('✅ Session initialized (frontend cart)')
+        console.log('✅ Session initialized')
         
       } catch (error) {
         console.error('❌ Session initialization failed:', error)
@@ -845,9 +1011,271 @@ export default {
       }
     },
 
+    // ================================================================
+    // PROMOTIONS
+    // ================================================================
+    
+    async fetchAvailablePromotions() {
+      if (this.cartItems.length === 0) {
+        this.availablePromotions = []
+        this.filteredPromoSuggestions = []
+        return
+      }
+      
+      try {
+        console.log('🎟️ Fetching available promotions...')
+        console.log('📦 Cart items:', this.cartItems.length)
+        
+        // ✅ USE BACKOFFICE ENDPOINT
+        const response = await api.get('/promotions/active/')
+        
+        console.log('📦 Full response:', response)
+        console.log('📦 Response data:', response.data)
+        
+        // Parse response - Backoffice structure
+        let allPromotions = []
+        
+        if (response && response.data) {
+          if (response.data.success === true) {
+            // Backoffice returns: { success: true, promotions: [...], count: n }
+            allPromotions = response.data.promotions || []
+            console.log('✅ Found promotions in response.data.promotions')
+          } else {
+            console.warn('⚠️ Success is not true')
+          }
+        }
+        
+        console.log('📋 Parsed promotions:', allPromotions)
+        console.log('📋 Promotions count:', allPromotions.length)
+        
+        if (!Array.isArray(allPromotions)) {
+          console.error('❌ allPromotions is not an array:', typeof allPromotions)
+          this.availablePromotions = []
+          this.filteredPromoSuggestions = []
+          return
+        }
+        
+        if (allPromotions.length === 0) {
+          console.warn('⚠️ No promotions found')
+          this.availablePromotions = []
+          this.filteredPromoSuggestions = []
+          return
+        }
+        
+        console.log('🔄 Calculating discounts for promotions...')
+        console.log('📦 Current cart items:', this.cartItems)
+        console.log('📦 Current products:', this.products)
+        
+        // Calculate discount for each promotion
+        const applicablePromotions = []
+        
+        for (const promo of allPromotions) {
+          try {
+            console.log(`\n  🎁 Checking: ${promo.name}`)
+            console.log(`     Type: ${promo.type} (${promo.discount_value}${promo.type === 'percentage' ? '%' : ' PHP'})`)
+            console.log(`     Target: ${promo.discount_config?.target_type}`)
+            console.log(`     Target IDs:`, promo.discount_config?.target_ids)
+            
+            const discount = this.calculatePromotionDiscount(promo)
+            console.log(`     💰 Calculated discount: ₱${discount}`)
+            
+            if (discount > 0) {
+              applicablePromotions.push({
+                ...promo,
+                calculatedDiscount: discount,
+                isApplicable: true
+              })
+              console.log(`     ✅ APPLICABLE - Added to list`)
+            } else {
+              console.log(`     ❌ NOT APPLICABLE - Discount is 0`)
+            }
+          } catch (calcError) {
+            console.error(`❌ Error calculating discount for ${promo.name}:`, calcError)
+          }
+        }
+        
+        // Sort by discount amount
+        applicablePromotions.sort((a, b) => b.calculatedDiscount - a.calculatedDiscount)
+        
+        this.availablePromotions = applicablePromotions
+        this.filteredPromoSuggestions = applicablePromotions
+        
+        console.log(`\n✅ FINAL RESULT: Found ${applicablePromotions.length} applicable promotions`)
+        console.log('📊 Applicable promotions:', applicablePromotions)
+        
+      } catch (error) {
+        console.error('❌ Failed to fetch promotions:', error)
+        console.error('❌ Error details:', error.response?.data)
+        
+        this.availablePromotions = []
+        this.filteredPromoSuggestions = []
+      }
+    },
+    
+    calculatePromotionDiscount(promotion) {
+      // ✅ SAFETY CHECK: Handle missing discount_config
+      if (!promotion.discount_config) {
+        console.warn(`⚠️ Promotion "${promotion.name}" missing discount_config!`)
+        console.warn('   Full promotion object:', promotion)
+        return 0
+      }
+      
+      const targetType = promotion.discount_config.target_type
+      const targetIds = promotion.discount_config.target_ids || []
+      
+      console.log(`   🎯 Target Type: ${targetType}`)
+      console.log(`   🎯 Target IDs:`, targetIds)
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+        console.log(`   💰 All items eligible: ₱${eligibleAmount}`)
+      } else if (targetType === 'categories') {
+        // Get eligible items from target categories
+        const eligibleItems = this.cartItems.filter(item => {
+          const product = this.products.find(p => p.id === item.productId)
+          const isEligible = product && targetIds.includes(product.category)
+          
+          if (isEligible) {
+            console.log(`      ✅ ${product.name} (${product.category}) - ₱${item.subtotal}`)
+          }
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Category items eligible: ₱${eligibleAmount}`)
+      } else if (targetType === 'products') {
+        // Get eligible items from target products
+        const eligibleItems = this.cartItems.filter(item => {
+          const isEligible = targetIds.includes(item.productId)
+          
+          if (isEligible) {
+            const product = this.products.find(p => p.id === item.productId)
+            console.log(`      ✅ ${product?.name || item.productName} - ₱${item.subtotal}`)
+          }
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Product items eligible: ₱${eligibleAmount}`)
+      }
+      
+      if (eligibleAmount === 0) {
+        console.log(`   ❌ No eligible items found`)
+        return 0
+      }
+      
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+      }
+      
+      return Math.round(discount * 100) / 100
+    },
+    
+    async applyPromotionById(promotionId) {
+      try {
+        const promotion = this.availablePromotions.find(p => p._id === promotionId)
+        
+        if (!promotion) {
+          alert('Promotion not found')
+          return
+        }
+        
+        // Validate promotion is still active
+        const now = new Date()
+        const startDate = new Date(promotion.start_date)
+        const endDate = new Date(promotion.end_date)
+        
+        if (now < startDate) {
+          alert('This promotion has not started yet')
+          return
+        }
+        
+        if (now > endDate) {
+          alert('This promotion has expired')
+          return
+        }
+        
+        this.appliedPromotion = promotion
+        console.log('✅ Applied promotion:', promotion.name)
+        
+      } catch (error) {
+        console.error('❌ Failed to apply promotion:', error)
+        alert('Failed to apply promotion')
+      }
+    },
+    
+    async applyPromoCodeManually() {
+      if (!this.promoCode.trim()) {
+        alert('Please enter a promo code')
+        return
+      }
+      
+      try {
+        console.log('🎟️ Applying manual promo code:', this.promoCode)
+        
+        // Find promotion by name/code in available promotions first
+        const foundPromo = this.availablePromotions.find(
+          p => p.name.toLowerCase() === this.promoCode.trim().toLowerCase()
+        )
+        
+        if (foundPromo) {
+          this.applyPromotionById(foundPromo._id)
+          this.promoCode = ''
+          return
+        }
+        
+        // If not found in available, try API
+        const response = await api.get('/promotions/active/')
+        
+        if (response.data.success) {
+          const allPromotions = response.data.data.promotions || []
+          const matchingPromo = allPromotions.find(
+            p => p.name.toLowerCase() === this.promoCode.trim().toLowerCase()
+          )
+          
+          if (matchingPromo) {
+            // Check if it applies to cart
+            const discount = this.calculatePromotionDiscount(matchingPromo)
+            
+            if (discount > 0) {
+              this.appliedPromotion = matchingPromo
+              this.promoCode = ''
+              console.log('✅ Manual promo applied:', matchingPromo.name)
+            } else {
+              alert('This promo code does not apply to items in your cart')
+            }
+          } else {
+            alert('Invalid promo code')
+          }
+        }
+        
+      } catch (error) {
+        console.error('❌ Manual promo failed:', error)
+        alert('Failed to apply promo code')
+      }
+    },
+    
+    removePromotion() {
+      this.appliedPromotion = null
+      this.promoCode = ''
+      console.log('🗑️ Promotion removed')
+    },
+
+    // ================================================================
+    // CART MANAGEMENT
+    // ================================================================
+    
     addToCart(product) {
       try {
-        console.log('🛒 Adding to cart (frontend):', product.name)
+        console.log('🛒 Adding to cart:', product.name)
         
         if (!product.id || !product.name || !product.price) {
           throw new Error('Invalid product data')
@@ -861,7 +1289,7 @@ export default {
         this.cartStore.addItem(product)
         this.showCart = true
         
-        console.log('✅ Item added instantly')
+        console.log('✅ Item added')
         
       } catch (error) {
         console.error('❌ Add to cart failed:', error)
@@ -870,17 +1298,14 @@ export default {
     },
     
     removeFromCart(item) {
-      console.log('🗑️ Removing from cart (frontend):', item.productName)
       this.cartStore.removeItem(item.productId)
     },
     
     increaseQuantity(item) {
-      console.log('➕ Increasing quantity (frontend):', item.productName)
       this.cartStore.increaseQuantity(item.productId)
     },
     
     decreaseQuantity(item) {
-      console.log('➖ Decreasing quantity (frontend):', item.productName)
       this.cartStore.decreaseQuantity(item.productId)
     },
     
@@ -891,6 +1316,18 @@ export default {
       }
       
       console.log('🛒 Proceeding to checkout...')
+      
+      // Store promotion info for checkout
+      if (this.appliedPromotion) {
+        sessionStorage.setItem('appliedPromotion', JSON.stringify({
+          promotion_id: this.appliedPromotion._id,
+          promotion_name: this.appliedPromotion.name,
+          discount_amount: this.promoDiscount
+        }))
+      } else {
+        sessionStorage.removeItem('appliedPromotion')
+      }
+      
       this.$router.push('/checkout')
     },
 
@@ -900,8 +1337,67 @@ export default {
 
     openCart() {
       this.showCart = true
+      // Fetch promotions when cart opens
+      this.fetchAvailablePromotions()
     },
+    filterPromoSuggestions() {
+      const searchQuery = this.promoCode.toLowerCase().trim()
+      
+      if (!searchQuery) {
+        // Show all available promotions if input is empty
+        this.filteredPromoSuggestions = this.availablePromotions
+      } else {
+        // Filter promotions by name or description
+        this.filteredPromoSuggestions = this.availablePromotions.filter(promo => 
+          promo.name.toLowerCase().includes(searchQuery) ||
+          promo.description.toLowerCase().includes(searchQuery)
+        )
+      }
+    },
+    
+    hidePromoSuggestionsDelayed() {
+      // Delay hiding to allow click events to fire
+      setTimeout(() => {
+        this.showPromoSuggestions = false
+      }, 200)
+    },
+    
+    selectPromoFromSuggestion(promo) {
+      this.promoCode = promo.name
+      this.showPromoSuggestions = false
+      this.applyPromotionById(promo._id)
+    },
+    
+    formatPromotionValue(promo) {
+      if (promo.type === 'percentage') {
+        return `${promo.discount_value}% OFF`
+      } else if (promo.type === 'fixed') {
+        return `₱${this.formatPrice(promo.discount_value)} OFF`
+      }
+      return 'Discount'
+    },
+    
+    formatPromotionTarget(promo) {
+      const targetType = promo.discount_config?.target_type
+      
+      if (targetType === 'all') {
+        return 'All items'
+      } else if (targetType === 'categories') {
+        const count = promo.discount_config?.target_ids?.length || 0
+        return `${count} ${count === 1 ? 'category' : 'categories'}`
+      } else if (targetType === 'products') {
+        const count = promo.discount_config?.target_ids?.length || 0
+        return `${count} ${count === 1 ? 'product' : 'products'}`
+      }
+      return 'Selected items'
+    },
+    
+    
 
+    // ================================================================
+    // UTILITIES
+    // ================================================================
+    
     formatPrice(price) {
       return parseFloat(price || 0).toFixed(2)
     }
@@ -911,4 +1407,5 @@ export default {
 
 <style scoped>
 @import '@/assets/styles/NewOrder.css'
+
 </style>

@@ -3,7 +3,7 @@
     <div class="history-contents">
       <!-- Page Header -->
       <div class="page-header">
-        <h2 class="page-title">Order History</h2>
+        <h2 class="page-title">Transaction History</h2>
         <div class="header-actions">
           <button 
             class="btn btn-refresh btn-sm" 
@@ -59,7 +59,11 @@
               <option value="">All Status</option>
               <option value="completed">Completed</option>
               <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="on_the_way">On the Way</option>
               <option value="voided">Voided</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
 
@@ -76,19 +80,24 @@
               <option value="card">Card</option>
               <option value="gcash">GCash</option>
               <option value="paymaya">PayMaya</option>
+              <option value="cod">Cash on Delivery</option>
+              <option value="gcash_paymongo">GCash (PayMongo)</option>
+              <option value="bank_paymongo">Bank Transfer</option>
             </select>
           </div>
 
-          <!-- Clear Filters -->
-          <div class="col-md-2 d-flex align-items-end">
-            <button 
-              class="btn btn-cancel w-100" 
-              @click="clearFilters"
-              :disabled="!hasActiveFilters"
+          <!-- Source Filter -->
+          <div class="col-md-2">
+            <label class="form-label">Source</label>
+            <select 
+              class="form-select" 
+              v-model="filters.source"
+              @change="applyFilters"
             >
-              <X :size="16" />
-              Clear
-            </button>
+              <option value="">All Sources</option>
+              <option value="POS">POS</option>
+              <option value="Online">Online</option>
+            </select>
           </div>
         </div>
 
@@ -100,15 +109,23 @@
               <input 
                 type="text" 
                 class="form-control ps-5" 
-                placeholder="Search by Sale ID..."
+                placeholder="Search by Transaction ID..."
                 v-model="filters.search"
                 @input="debounceSearch"
               />
             </div>
           </div>
-          <div class="col-md-6 text-end">
+          <div class="col-md-6 d-flex align-items-center justify-content-end gap-3">
+            <button 
+              class="btn btn-cancel" 
+              @click="clearFilters"
+              :disabled="!hasActiveFilters"
+            >
+              <X :size="16" />
+              Clear Filters
+            </button>
             <span class="text-muted">
-              <strong>{{ totalOrders }}</strong> total transactions found
+              <strong>{{ totalOrders }}</strong> total transactions
             </span>
           </div>
         </div>
@@ -136,7 +153,7 @@
         <ShoppingBag :size="64" class="text-muted mb-3" />
         <h5 class="text-muted">No Transactions Found</h5>
         <p class="text-muted">
-          {{ hasActiveFilters ? 'Try adjusting your filters' : 'No sales have been recorded yet' }}
+          {{ hasActiveFilters ? 'Try adjusting your filters' : 'No transactions have been recorded yet' }}
         </p>
         <button 
           v-if="hasActiveFilters" 
@@ -153,7 +170,7 @@
           <table class="history-table">
             <thead>
               <tr>
-                <th scope="col">Sale ID</th>
+                <th scope="col">Transaction ID</th>
                 <th scope="col">Items</th>
                 <th scope="col">Status</th>
                 <th scope="col">Date & Time</th>
@@ -176,6 +193,13 @@
                   <span class="status-badge" :class="getStatusClass(order.status)">
                     {{ order.status }}
                   </span>
+                  <span 
+                    v-if="order.saleType === 'Online' && order.paymentStatus"
+                    class="payment-status-badge"
+                    :class="getPaymentStatusClass(order.paymentStatus)"
+                  >
+                    {{ order.paymentStatus }}
+                  </span>
                 </td>
                 <td class="date-cell">{{ formatDate(order.date) }}</td>
                 <td>
@@ -186,7 +210,7 @@
                   </span>
                 </td>
                 <td>
-                  <span class="source-badge" :class="order.saleType === 'POS' ? 'source-pos' : 'source-manual'">
+                  <span class="source-badge" :class="order.saleType === 'POS' ? 'source-pos' : 'source-online'">
                     {{ order.saleType }}
                   </span>
                 </td>
@@ -209,12 +233,20 @@
                       <FileText :size="16" />
                     </button>
                     <button 
+                      v-if="order.saleType === 'POS' && order.status === 'Completed'"
                       class="action-btn void-btn" 
                       title="Void Sale"
                       @click="initVoidSale(order)"
-                      v-if="order.status === 'Completed' && order.saleType === 'POS'"
                     >
                       <ArchiveX :size="16" />
+                    </button>
+                    <button 
+                      v-if="order.saleType === 'Online' && ['Pending', 'Confirmed', 'Processing'].includes(order.status)"
+                      class="action-btn void-btn" 
+                      title="Cancel Order"
+                      @click="initCancelOrder(order)"
+                    >
+                      <X :size="16" />
                     </button>
                   </div>
                 </td>
@@ -269,7 +301,9 @@
         <div class="modal-content">
           <div class="modal-header">
             <div>
-              <h5 class="modal-title" id="orderModalLabel">Order Details</h5>
+              <h5 class="modal-title" id="orderModalLabel">
+                {{ selectedOrder?.saleType === 'POS' ? 'Sale Details' : 'Order Details' }}
+              </h5>
               <small class="text-muted" v-if="selectedOrder">{{ selectedOrder.id }}</small>
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -301,9 +335,41 @@
 
                 <div class="info-card">
                   <div class="info-label">Source</div>
-                  <span class="source-badge" :class="selectedOrder.saleType === 'POS' ? 'source-pos' : 'source-manual'">
+                  <span class="source-badge" :class="selectedOrder.saleType === 'POS' ? 'source-pos' : 'source-online'">
                     {{ selectedOrder.saleType }}
                   </span>
+                </div>
+
+                <div class="info-card" v-if="selectedOrder.saleType === 'Online' && selectedOrder.paymentStatus">
+                  <div class="info-label">Payment Status</div>
+                  <span class="payment-status-badge" :class="getPaymentStatusClass(selectedOrder.paymentStatus)">
+                    {{ selectedOrder.paymentStatus }}
+                  </span>
+                </div>
+
+                <div class="info-card" v-if="selectedOrder.customer">
+                  <div class="info-label">Customer</div>
+                  <div class="info-value">
+                    <Users :size="16" />
+                    {{ selectedOrder.customer }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Delivery Address for Online Orders -->
+              <div v-if="selectedOrder.saleType === 'Online' && selectedOrder.deliveryAddress" class="delivery-section">
+                <h6 class="section-title">
+                  <MapPin :size="18" />
+                  Delivery Address
+                </h6>
+                <div class="delivery-address-card">
+                  <p class="mb-1"><strong>{{ selectedOrder.deliveryAddress.recipient_name }}</strong></p>
+                  <p class="mb-1">{{ selectedOrder.deliveryAddress.phone }}</p>
+                  <p class="mb-1">{{ selectedOrder.deliveryAddress.street }}, {{ selectedOrder.deliveryAddress.barangay }}</p>
+                  <p class="mb-0">{{ selectedOrder.deliveryAddress.city }}, {{ selectedOrder.deliveryAddress.province }} {{ selectedOrder.deliveryAddress.postal_code }}</p>
+                  <p class="text-muted small mb-0 mt-2" v-if="selectedOrder.deliveryAddress.notes">
+                    Note: {{ selectedOrder.deliveryAddress.notes }}
+                  </p>
                 </div>
               </div>
 
@@ -311,7 +377,7 @@
               <div v-if="selectedOrder.originalData?.items" class="items-section">
                 <h6 class="section-title">
                   <Package :size="18" />
-                  Items Ordered
+                  Items {{ selectedOrder.saleType === 'POS' ? 'Sold' : 'Ordered' }}
                 </h6>
                 
                 <div class="items-list">
@@ -345,9 +411,17 @@
                     <span class="text-success">Discount</span>
                     <strong class="text-success">-₱{{ formatCurrency(selectedOrder.originalData.discount_amount) }}</strong>
                   </div>
+                  <div class="summary-row" v-if="selectedOrder.originalData.points_discount > 0">
+                    <span class="text-success">Points Redeemed</span>
+                    <strong class="text-success">-₱{{ formatCurrency(selectedOrder.originalData.points_discount) }}</strong>
+                  </div>
                   <div class="summary-row" v-if="selectedOrder.originalData.tax_amount > 0">
                     <span>Tax (12%)</span>
                     <strong>₱{{ formatCurrency(selectedOrder.originalData.tax_amount) }}</strong>
+                  </div>
+                  <div class="summary-row" v-if="selectedOrder.originalData.delivery_fee > 0">
+                    <span>Delivery Fee</span>
+                    <strong>₱{{ formatCurrency(selectedOrder.originalData.delivery_fee) }}</strong>
                   </div>
                   <div class="summary-row total-row">
                     <span>Total Amount</span>
@@ -362,13 +436,17 @@
                   <User :size="16" />
                   <span><strong>Cashier:</strong> {{ selectedOrder.originalData.cashier_id }}</span>
                 </div>
-                <div class="info-row" v-if="selectedOrder.originalData.customer_id">
-                  <Users :size="16" />
-                  <span><strong>Customer:</strong> {{ selectedOrder.originalData.customer_id }}</span>
-                </div>
                 <div class="info-row" v-if="selectedOrder.originalData.shift_id">
                   <Clock :size="16" />
                   <span><strong>Shift:</strong> {{ selectedOrder.originalData.shift_id }}</span>
+                </div>
+                <div class="info-row" v-if="selectedOrder.originalData.loyalty_points_earned">
+                  <Award :size="16" />
+                  <span><strong>Points Earned:</strong> {{ selectedOrder.originalData.loyalty_points_earned }}</span>
+                </div>
+                <div class="info-row" v-if="selectedOrder.originalData.notes">
+                  <FileText :size="16" />
+                  <span><strong>Notes:</strong> {{ selectedOrder.originalData.notes }}</span>
                 </div>
               </div>
             </div>
@@ -395,48 +473,57 @@
       </div>
     </div>
 
-    <!-- Void Sale Modal -->
+    <!-- Void/Cancel Modal -->
     <div class="modal fade" id="voidModal" tabindex="-1" aria-labelledby="voidModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title text-danger" id="voidModalLabel">
               <AlertCircle :size="20" />
-              Void Sale
+              {{ voidingOrder?.saleType === 'POS' ? 'Void Sale' : 'Cancel Order' }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
             <div v-if="voidingOrder">
               <p class="text-muted">
-                Are you sure you want to void sale <strong>{{ voidingOrder.id }}</strong>?
+                Are you sure you want to {{ voidingOrder.saleType === 'POS' ? 'void sale' : 'cancel order' }} 
+                <strong>{{ voidingOrder.id }}</strong>?
               </p>
               
               <div class="mb-3">
-                <label class="form-label">Manager ID <span class="text-danger">*</span></label>
+                <label class="form-label">
+                  {{ voidingOrder.saleType === 'POS' ? 'Manager ID' : 'User ID' }} 
+                  <span class="text-danger">*</span>
+                </label>
                 <input 
                   type="text" 
                   class="form-control" 
                   v-model="voidForm.managerId"
-                  placeholder="Enter manager ID"
+                  :placeholder="voidingOrder.saleType === 'POS' ? 'Enter manager ID' : 'Enter your user ID'"
                   required
                 />
               </div>
 
               <div class="mb-3">
-                <label class="form-label">Reason for Void <span class="text-danger">*</span></label>
+                <label class="form-label">
+                  Reason for {{ voidingOrder.saleType === 'POS' ? 'Void' : 'Cancellation' }}
+                  <span class="text-danger">*</span>
+                </label>
                 <textarea 
                   class="form-control" 
                   rows="3"
                   v-model="voidForm.reason"
-                  placeholder="Enter reason for voiding this sale"
+                  :placeholder="`Enter reason for ${voidingOrder.saleType === 'POS' ? 'voiding this sale' : 'cancelling this order'}`"
                   required
                 ></textarea>
               </div>
 
               <div class="alert alert-warning" role="alert">
                 <AlertCircle :size="16" />
-                <strong>Warning:</strong> This action will restore inventory and cannot be undone.
+                <strong>Warning:</strong> This action will restore inventory 
+                {{ voidingOrder.saleType === 'Online' ? 'and refund points if applicable' : '' }}
+                and cannot be undone.
               </div>
             </div>
           </div>
@@ -456,7 +543,7 @@
               :disabled="voidLoading || !voidForm.managerId || !voidForm.reason"
             >
               <span v-if="voidLoading" class="spinner-border spinner-border-sm me-2"></span>
-              {{ voidLoading ? 'Processing...' : 'Void Sale' }}
+              {{ voidLoading ? 'Processing...' : (voidingOrder?.saleType === 'POS' ? 'Void Sale' : 'Cancel Order') }}
             </button>
           </div>
         </div>
@@ -486,7 +573,8 @@ export default {
         dateTo: null,
         status: null,
         paymentMethod: null,
-        search: null
+        search: null,
+        source: '' // NEW: Source filter
       },
       voidingOrder: null,
       voidForm: {
@@ -585,7 +673,8 @@ export default {
         dateTo: null,
         status: null,
         paymentMethod: null,
-        search: null
+        search: null,
+        source: ''
       }
       this.currentPage = 1
       await this.fetchHistory()
@@ -595,12 +684,24 @@ export default {
       const classes = {
         'Completed': 'status-completed',
         'Pending': 'status-pending',
+        'Confirmed': 'status-confirmed',
         'Processing': 'status-processing',
+        'On the Way': 'status-on-the-way',
         'Cancelled': 'status-cancelled',
         'Voided': 'status-cancelled',
         'Refunded': 'status-refunded'
       }
       return classes[status] || 'status-default'
+    },
+
+    getPaymentStatusClass(paymentStatus) {
+      const classes = {
+        'Paid': 'payment-paid',
+        'Pending': 'payment-pending',
+        'Failed': 'payment-failed',
+        'Refunded': 'payment-refunded'
+      }
+      return classes[paymentStatus] || 'payment-pending'
     },
 
     formatDate(dateString) {
@@ -667,15 +768,38 @@ export default {
       }
     },
 
+    initCancelOrder(order) {
+      this.voidingOrder = order
+      this.voidForm = {
+        managerId: '',
+        reason: ''
+      }
+      
+      const modalElement = document.getElementById('voidModal')
+      if (modalElement && window.bootstrap) {
+        const modal = new bootstrap.Modal(modalElement)
+        modal.show()
+      }
+    },
+
     async confirmVoidSale() {
       try {
         this.voidLoading = true
         
-        await historyAPIService.voidSale(
-          this.voidingOrder.id,
-          this.voidForm.reason,
-          this.voidForm.managerId
-        )
+        // Check if it's POS or Online
+        if (this.voidingOrder.saleType === 'POS') {
+          await historyAPIService.voidSale(
+            this.voidingOrder.id,
+            this.voidForm.reason,
+            this.voidForm.managerId
+          )
+        } else if (this.voidingOrder.saleType === 'Online') {
+          await historyAPIService.cancelOnlineOrder(
+            this.voidingOrder.id,
+            this.voidForm.reason,
+            this.voidForm.managerId || 'USER-ADMIN'
+          )
+        }
 
         // Close modal
         const modalElement = document.getElementById('voidModal')
@@ -686,11 +810,12 @@ export default {
         await this.fetchHistory()
 
         // Show success message
-        alert('Sale voided successfully')
+        const action = this.voidingOrder.saleType === 'POS' ? 'voided' : 'cancelled'
+        alert(`Transaction ${action} successfully`)
         
       } catch (error) {
-        console.error('Error voiding sale:', error)
-        this.error = error.message || 'Failed to void sale'
+        console.error('Error voiding/cancelling:', error)
+        this.error = error.message || 'Failed to process request'
       } finally {
         this.voidLoading = false
       }
@@ -888,9 +1013,9 @@ export default {
   color: #1e40af;
 }
 
-.source-manual {
-  background-color: #fef3c7;
-  color: #92400e;
+.source-online {
+  background-color: #dcfce7;
+  color: #166534;
 }
 
 /* Status Badges */
@@ -914,9 +1039,19 @@ export default {
   color: #92400e;
 }
 
-.status-processing {
+.status-confirmed {
   background-color: #dbeafe;
   color: #1e40af;
+}
+
+.status-processing {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.status-on-the-way {
+  background-color: #fce7f3;
+  color: #831843;
 }
 
 .status-cancelled {
@@ -925,6 +1060,36 @@ export default {
 }
 
 .status-refunded {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+/* Payment Status Badges */
+.payment-status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.688rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.payment-paid {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.payment-pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.payment-failed {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.payment-refunded {
   background-color: #e5e7eb;
   color: #374151;
 }
@@ -1093,6 +1258,20 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.375rem;
+}
+
+/* Delivery Section */
+.delivery-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.delivery-address-card {
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
 }
 
 /* Items Section */

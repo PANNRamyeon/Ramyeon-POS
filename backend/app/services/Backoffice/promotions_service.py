@@ -888,22 +888,49 @@ class PromotionService:
         try:
             now = datetime.utcnow()
             
-            active_promotions = list(self.collection.find({
-                'is_active': True,
+            query = {
                 'status': 'active',
+                'isDeleted': {'$ne': True},
                 'start_date': {'$lte': now},
                 'end_date': {'$gte': now}
-            }).sort('created_at', -1))
+            }
+            
+            # Debug logging
+            logger.info(f"Querying active promotions with: {query}")
+            logger.info(f"Current server time (UTC): {now}")
+            
+            active_promotions = list(self.collection.find(query).sort('created_at', -1))
+            
+            logger.info(f"Found {len(active_promotions)} active promotions")
+            
+            # ✅ SERIALIZE ALL PROMOTIONS BEFORE RETURNING
+            serialized_promotions = []
+            for promo in active_promotions:
+                serialized_promo = self._serialize_promotion_data(promo.copy())
+                serialized_promotions.append(serialized_promo)
+                
+                # ✅ DEBUG: Log what we're returning
+                logger.info(f"Serialized promotion: {promo.get('name')}")
+                logger.info(f"  - Has discount_config: {'discount_config' in serialized_promo}")
+                if 'discount_config' in serialized_promo:
+                    logger.info(f"  - discount_config: {serialized_promo['discount_config']}")
             
             return {
                 'success': True,
-                'promotions': active_promotions,
-                'count': len(active_promotions)
+                'promotions': serialized_promotions,  # ✅ Use serialized data
+                'count': len(serialized_promotions)
             }
             
         except Exception as e:
             logger.error(f"Error getting active promotions: {e}")
-            return {'success': False, 'message': f'Error retrieving active promotions: {str(e)}'}
+            import traceback
+            traceback.print_exc()
+            return {
+                'success': False, 
+                'message': f'Error retrieving active promotions: {str(e)}',
+                'promotions': [],
+                'count': 0
+            }
 
     def get_promotion_by_id(self, promotion_id):
         """Retrieve specific promotion by PROM-#### ID"""

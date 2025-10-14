@@ -36,7 +36,7 @@
             </div>
             
             <div class="item-info">
-              <h3 class="item-name">{{ item.name }}</h3>
+              <h3 class="item-name">{{ item.productName }}</h3>
               <p class="item-description">SKU: {{ item.sku }}</p>
               <div class="item-price-unit">₱{{ formatPrice(item.price) }} each</div>
             </div>
@@ -82,28 +82,226 @@
       <div class="checkout-summary">
         <h2>Order Summary</h2>
         
-        <div class="summary-row">
-          <span>Subtotal:</span>
-          <span>₱{{ formatPrice(subtotal) }}</span>
+        <!-- Customer Section -->
+        <div class="customer-section">
+          <h3>Customer (Optional)</h3>
+          
+          <!-- Customer Search -->
+          <div v-if="!selectedCustomer" class="customer-search">
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Enter email or username"
+              v-model="customerSearchQuery"
+              @keyup.enter="searchCustomer"
+              :disabled="isProcessing"
+            />
+            <button 
+              class="btn btn-primary btn-sm" 
+              @click="searchCustomer"
+              :disabled="customerSearching || !customerSearchQuery.trim() || isProcessing"
+            >
+              {{ customerSearching ? 'Searching...' : 'Search' }}
+            </button>
+          </div>
+
+          <!-- Customer Found -->
+          <div v-if="selectedCustomer" class="customer-info-card">
+            <div class="customer-header">
+              <div class="customer-details">
+                <h5>{{ selectedCustomer.full_name }}</h5>
+                <p class="customer-username">@{{ selectedCustomer.username }}</p>
+                <p v-if="selectedCustomer.email" class="customer-email">{{ selectedCustomer.email }}</p>
+              </div>
+              <button class="btn-remove" @click="clearCustomer" :disabled="isProcessing">
+                <X :size="16" />
+              </button>
+            </div>
+            
+            <!-- Loyalty Points Display -->
+            <div class="loyalty-points-display">
+              <div class="points-info">
+                <span class="points-label">Available Points:</span>
+                <span class="points-value">{{ selectedCustomer.loyalty_points || 0 }} pts</span>
+                <span class="points-cash">(₱{{ formatPrice((selectedCustomer.loyalty_points || 0) / 4) }})</span>
+              </div>
+            </div>
+
+            <!-- Points Action Buttons -->
+            <div class="points-action-buttons">
+              <button 
+                :class="['points-action-btn', { active: pointsMode === 'earn' }]"
+                @click="setPointsMode('earn')"
+                type="button"
+                :disabled="isProcessing"
+              >
+                <div class="action-icon">✨</div>
+                <div class="action-content">
+                  <span class="action-title">Earn Points</span>
+                  <span class="action-subtitle">+{{ pointsWillEarn }} pts</span>
+                </div>
+              </button>
+
+              <!-- ✅ CHANGED: from >= 200 to >= 100 -->
+              <button 
+                v-if="selectedCustomer.loyalty_points >= 100"
+                :class="['points-action-btn', { active: pointsMode === 'use' }]"
+                @click="setPointsMode('use')"
+                type="button"
+                :disabled="isProcessing"
+              >
+                <div class="action-icon">🎁</div>
+                <div class="action-content">
+                  <span class="action-title">Use Points</span>
+                  <span class="action-subtitle">Up to {{ maxRedeemablePoints }} pts</span>
+                </div>
+              </button>
+
+              <!-- ✅ CHANGED: text from 200+ to 100+ -->
+              <div v-else class="points-insufficient-notice">
+                <small>💡 Need 100+ points to redeem</small>
+              </div>
+            </div>
+
+            <!-- ✅ CHANGED: condition from >= 200 to >= 100 -->
+            <!-- Points Redemption Panel -->
+            <div v-if="pointsMode === 'use' && selectedCustomer.loyalty_points >= 100" class="points-redemption-panel">
+              <div class="redemption-header">
+                <h6>Redeem Points</h6>
+                <button class="btn-text" @click="setPointsMode('earn')" :disabled="isProcessing">Cancel</button>
+              </div>
+              
+              <div class="redemption-input-group">
+                <!-- ✅ CHANGED: min from 200 to 100 -->
+                <input 
+                  type="number" 
+                  class="form-control points-input" 
+                  placeholder="Enter points amount"
+                  v-model.number="pointsToRedeem"
+                  :max="Math.min(selectedCustomer.loyalty_points, maxRedeemablePoints)"
+                  min="100"
+                  step="100"
+                  :disabled="isProcessing"
+                />
+                <button 
+                  class="btn btn-success" 
+                  @click="applyPointsDiscount"
+                  :disabled="!canRedeemPoints || isProcessing"
+                >
+                  Apply
+                </button>
+              </div>
+              
+              <!-- ✅ CHANGED: text from "200 pts (₱50)" to "100 pts (₱25)" -->
+              <div class="redemption-info-box">
+                <div class="info-row">
+                  <span>Minimum:</span>
+                  <span>100 pts (₱25)</span>
+                </div>
+                <div class="info-row">
+                  <span>Maximum:</span>
+                  <span>{{ maxRedeemablePoints }} pts (₱{{ formatPrice(maxRedeemablePoints / 4) }})</span>
+                </div>
+                <div class="info-row">
+                  <span>Discount Value:</span>
+                  <span class="highlight">4 pts = ₱1</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Earning Preview -->
+            <div v-if="pointsMode === 'earn'" class="points-earning-panel">
+              <div class="earning-preview">
+                <div class="earning-icon-large">✨</div>
+                <div class="earning-info-large">
+                  <h6>You'll Earn</h6>
+                  <div class="earning-amount-large">{{ pointsWillEarn }} points</div>
+                  <div class="earning-value-large">Worth ₱{{ formatPrice(pointsWillEarn / 4) }}</div>
+                </div>
+              </div>
+              
+              <div class="balance-preview-box">
+                <div class="balance-row">
+                  <span>Current Balance:</span>
+                  <span>{{ selectedCustomer.loyalty_points }} pts</span>
+                </div>
+                <div class="balance-row balance-after">
+                  <span>After Purchase:</span>
+                  <span class="highlight-green">{{ customerNewBalance }} pts (+{{ pointsWillEarn }})</span>
+                </div>
+              </div>
+              
+              <div class="earning-note">
+                💡 Earn 20% of your purchase as loyalty points
+              </div>
+            </div>
+
+            <!-- Applied Points Discount -->
+            <div v-if="appliedPointsDiscount > 0" class="applied-discount-badge">
+              <div class="discount-content">
+                <span class="discount-icon">🎁</span>
+                <div class="discount-info">
+                  <span class="discount-label">Points Applied</span>
+                  <span class="discount-details">{{ pointsRedeemed }} pts = ₱{{ formatPrice(appliedPointsDiscount) }} off</span>
+                </div>
+              </div>
+              <button class="btn-remove-discount" @click="removePointsDiscount" :disabled="isProcessing">
+                <X :size="14" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Customer Search Error -->
+          <div v-if="customerSearchError" class="alert alert-danger">
+            {{ customerSearchError }}
+          </div>
+        </div>
+
+        <!-- Promotion Display -->
+        <div v-if="appliedPromotion" class="promotion-section">
+          <h3>Applied Promotion</h3>
+          <div class="promotion-card">
+            <div class="promotion-content">
+              <span class="promotion-icon">🎉</span>
+              <div class="promotion-info">
+                <span class="promotion-name">{{ appliedPromotion.name }}</span>
+                <span class="promotion-savings">Save ₱{{ formatPrice(promoDiscount) }}</span>
+              </div>
+            </div>
+          </div>
         </div>
         
-        <div v-if="appliedPromotion" class="summary-row text-success">
-          <span>
-            <i class="lucide-tag"></i> {{ appliedPromotion.name }}
-          </span>
-          <span>-₱{{ formatPrice(discountAmount) }}</span>
+        <!-- Summary -->
+        <div class="summary-details">
+          <div class="summary-row">
+            <span>Subtotal:</span>
+            <span>₱{{ formatPrice(cartSubtotal) }}</span>
+          </div>
+          
+          <div v-if="promoDiscount > 0" class="summary-row discount-row">
+            <span>
+              <i class="lucide-tag"></i> {{ appliedPromotion.name }}
+            </span>
+            <span class="discount-amount">-₱{{ formatPrice(promoDiscount) }}</span>
+          </div>
+
+          <div v-if="appliedPointsDiscount > 0" class="summary-row discount-row">
+            <span>
+              <i class="lucide-gift"></i> Points Discount
+            </span>
+            <span class="discount-amount">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
+          </div>
+          
+          <div class="summary-row">
+            <span>Tax (12%):</span>
+            <span>₱{{ formatPrice(taxAmount) }}</span>
+          </div>
+          
+          <div class="summary-row total">
+            <strong>TOTAL:</strong>
+            <strong>₱{{ formatPrice(grandTotal) }}</strong>
+          </div>
         </div>
-        
-        <div class="summary-row">
-          <span>Tax (12%):</span>
-          <span>₱{{ formatPrice(taxAmount) }}</span>
-        </div>
-        
-        <div class="summary-row total">
-          <strong>TOTAL:</strong>
-          <strong>₱{{ formatPrice(totalAmount) }}</strong>
-        </div>
-       
         
         <!-- Payment Method Selection -->
         <div class="payment-section">
@@ -195,7 +393,7 @@
           :disabled="!canPlaceOrder"
         >
           <span v-if="!isProcessing">
-            Place Order - ₱{{ formatPrice(totalAmount) }}
+            Place Order - ₱{{ formatPrice(grandTotal) }}
           </span>
           <span v-else>
             Processing... <span class="btn-spinner"></span>
@@ -259,6 +457,7 @@
 import { useCartStore } from '@/stores/cartStores'
 import apiSales from '@/services/apiSales'
 import apiProducts from '@/services/apiProducts'
+import { api } from '@/services/api.js'
 
 export default {
   name: 'Checkout',
@@ -278,6 +477,20 @@ export default {
       // Stock validation
       validationErrors: [],
       quantityUpdating: false,
+      
+      // Customer & Points
+      customerSearchQuery: '',
+      customerSearching: false,
+      customerSearchError: null,
+      selectedCustomer: null,
+      pointsMode: 'earn',
+      pointsToRedeem: 0,
+      pointsRedeemed: 0,
+      appliedPointsDiscount: 0,
+      
+      // Promotions
+      appliedPromotion: null,
+      
       // Payment
       paymentMethod: 'cash',
       cashTendered: 0,
@@ -297,34 +510,98 @@ export default {
   },
   
   computed: {
-    // ✅ All cart data from store
     cartItems() {
       return this.cartStore.items
     },
     
-    subtotal() {
-      return this.cartStore.subtotal
-    },
-    
-    taxAmount() {
-      return this.cartStore.taxAmount
-    },
-    
-    discountAmount() {
-      return this.cartStore.discountAmount
-    },
-    
-    totalAmount() {
+    cartSubtotal() {
       return this.cartStore.total
+    },
+    
+    // Promo discount calculation
+    promoDiscount() {
+      if (!this.appliedPromotion) return 0
+      
+      const promotion = this.appliedPromotion
+      let eligibleAmount = this.cartSubtotal
+      
+      // Calculate based on promotion type
+      let discount = 0
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+      }
+      
+      return Math.round(discount * 100) / 100
+    },
+    
+    // Subtotal after promo
+    subtotalAfterPromo() {
+      return Math.max(0, this.cartSubtotal - this.promoDiscount)
+    },
+    
+    // Tax on discounted amount
+    taxAmount() {
+      const taxableAmount = this.subtotalAfterPromo - this.appliedPointsDiscount
+      return Math.round(taxableAmount * 0.12 * 100) / 100
+    },
+    
+    // Grand total
+    grandTotal() {
+      return Math.max(0, this.subtotalAfterPromo - this.appliedPointsDiscount + this.taxAmount)
     },
     
     totalItems() {
       return this.cartStore.itemCount
     },
     
+    // ✅ UPDATED: Points calculations
+    maxRedeemablePoints() {
+      if (!this.selectedCustomer) return 0
+      
+      // Base amount: subtotal after promotion (before tax and points)
+      const baseAmount = this.subtotalAfterPromo
+      
+      // Max discount: 50% of base amount
+      const maxDiscountAmount = baseAmount * 0.5
+      
+      // Convert to points (4 points = ₱1)
+      const maxPointsFromCart = Math.floor(maxDiscountAmount * 4)
+      
+      // Cannot exceed customer's available points
+      const customerPoints = this.selectedCustomer.loyalty_points || 0
+      const finalMaxPoints = Math.min(maxPointsFromCart, customerPoints)
+      
+      return finalMaxPoints
+    },
+    
+    // ✅ UPDATED: Changed minimum from 200 to 100
+    canRedeemPoints() {
+      if (!this.pointsToRedeem || !this.selectedCustomer) return false
+      if (this.pointsToRedeem < 100) return false  // ✅ CHANGED: from 200 to 100
+      if (this.pointsToRedeem > this.selectedCustomer.loyalty_points) return false
+      if (this.pointsToRedeem > this.maxRedeemablePoints) return false
+      return true
+    },
+    
+    pointsWillEarn() {
+      if (!this.selectedCustomer || this.pointsMode !== 'earn') return 0
+      const earnableAmount = this.grandTotal
+      return Math.floor(earnableAmount * 0.20)
+    },
+    
+    customerNewBalance() {
+      if (!this.selectedCustomer) return 0
+      const currentPoints = this.selectedCustomer.loyalty_points || 0
+      const pointsUsed = this.pointsRedeemed
+      const pointsEarned = this.pointsWillEarn
+      return currentPoints - pointsUsed + pointsEarned
+    },
+    
     changeAmount() {
       if (this.paymentMethod !== 'cash') return 0
-      return Math.max(0, this.cashTendered - this.totalAmount)
+      return Math.max(0, this.cashTendered - this.grandTotal)
     },
     
     canPlaceOrder() {
@@ -332,12 +609,10 @@ export default {
       if (this.isProcessing) return false
       if (this.validationErrors.length > 0) return false
       
-      // Validate based on payment method
       if (this.paymentMethod === 'cash') {
-        return this.cashTendered >= this.totalAmount
+        return this.cashTendered >= this.grandTotal
       }
       
-      // Card and QR PH not implemented yet
       if (this.paymentMethod === 'card' || this.paymentMethod === 'qrph') {
         return false
       }
@@ -347,10 +622,186 @@ export default {
   },
   
   async mounted() {
+    await this.loadCheckoutData()
     await this.validateStock()
   },
   
   methods: {
+    // Load promotion from session
+    async loadCheckoutData() {
+      try {
+        // Load promotion from NewOrder page
+        const promoData = sessionStorage.getItem('appliedPromotion')
+        if (promoData) {
+          this.appliedPromotion = JSON.parse(promoData)
+          console.log('✅ Loaded promotion:', this.appliedPromotion.name)
+        }
+        
+        // Load customer from NewOrder page (if any)
+        const customerData = sessionStorage.getItem('checkoutCustomer')
+        if (customerData) {
+          const customer = JSON.parse(customerData)
+          this.selectedCustomer = {
+            _id: customer.customer_id,
+            full_name: customer.full_name,
+            username: customer.username || 'customer',
+            loyalty_points: customer.currentPoints || 0
+          }
+          
+          if (customer.pointsRedeemed > 0) {
+            this.pointsMode = 'use'
+            this.pointsRedeemed = customer.pointsRedeemed
+            this.appliedPointsDiscount = customer.pointsDiscount
+          }
+          
+          console.log('✅ Loaded customer:', this.selectedCustomer.full_name)
+        }
+      } catch (error) {
+        console.error('❌ Failed to load checkout data:', error)
+      }
+    },
+    
+    // ================================================================
+    // CUSTOMER LOOKUP
+    // ================================================================
+    
+    async searchCustomer() {
+      if (!this.customerSearchQuery.trim()) return
+      
+      try {
+        this.customerSearching = true
+        this.customerSearchError = null
+        
+        const query = this.customerSearchQuery.trim().toLowerCase()
+        console.log('🔍 Searching for customer:', query)
+        
+        const response = await api.get('/customers/', {
+          params: { search: query }
+        })
+        
+        console.log('📦 Raw API response:', response.data)
+        
+        const findCustomers = (obj) => {
+          if (Array.isArray(obj)) {
+            if (obj.length > 0 && obj[0]._id && obj[0]._id.startsWith('CUST-')) {
+              return obj
+            }
+          }
+          
+          if (obj && typeof obj === 'object') {
+            if (obj.customers && Array.isArray(obj.customers)) {
+              return obj.customers
+            }
+            if (obj.data) {
+              return findCustomers(obj.data)
+            }
+            if (obj._id && obj._id.startsWith('CUST-')) {
+              return [obj]
+            }
+          }
+          
+          return []
+        }
+        
+        const customers = findCustomers(response.data)
+        
+        console.log('👥 Found customers:', customers)
+        
+        if (customers && customers.length > 0) {
+          // ✅ FIX: Find exact match instead of taking first
+          const customer = customers.find(c => 
+            c.username?.toLowerCase() === query ||
+            c.email?.toLowerCase() === query ||
+            c._id?.toLowerCase() === query
+          )
+          
+          if (!customer) {
+            console.warn('⚠️ No exact match found for query:', query)
+            this.customerSearchError = 'Customer not found. Please check the username/email.'
+            return
+          }
+          
+          console.log('📋 Matched customer:', customer)
+          
+          // Create a clean customer object
+          this.selectedCustomer = {
+            _id: customer._id,
+            username: customer.username,
+            full_name: customer.full_name,
+            email: customer.email,
+            phone: customer.phone,
+            loyalty_points: customer.loyalty_points || 0
+          }
+          
+          console.log('✅ Selected customer object:', this.selectedCustomer)
+          console.log('✅ Customer name:', this.selectedCustomer.full_name)
+          console.log('✅ Customer username:', this.selectedCustomer.username)
+          console.log('✅ Customer points:', this.selectedCustomer.loyalty_points)
+          
+          this.customerSearchQuery = ''
+          
+        } else {
+          console.warn('⚠️ No customers found in response')
+          this.customerSearchError = 'Customer not found. Please check the username/email.'
+        }
+        
+      } catch (error) {
+        console.error('❌ Customer search failed:', error)
+        console.error('❌ Error response:', error.response?.data)
+        
+        if (error.response?.status === 403) {
+          this.customerSearchError = 'Permission denied. Contact administrator.'
+        } else if (error.response?.status === 400) {
+          this.customerSearchError = 'Invalid search query.'
+        } else {
+          this.customerSearchError = 'Failed to search customer. Please try again.'
+        }
+      } finally {
+        this.customerSearching = false
+      }
+    },
+    
+    clearCustomer() {
+      this.selectedCustomer = null
+      this.customerSearchQuery = ''
+      this.customerSearchError = null
+      this.pointsMode = 'earn'
+      this.removePointsDiscount()
+    },
+    
+    setPointsMode(mode) {
+      this.pointsMode = mode
+      if (mode === 'earn' && this.appliedPointsDiscount > 0) {
+        this.removePointsDiscount()
+      }
+    },
+    
+    applyPointsDiscount() {
+      if (!this.canRedeemPoints) {
+        alert('Invalid points amount. Please enter between 100 and ' + this.maxRedeemablePoints + ' points.')
+        return
+      }
+      
+      const discount = this.pointsToRedeem / 4
+      
+      if (discount > this.subtotalAfterPromo) {
+        alert('Points discount cannot exceed cart total')
+        return
+      }
+      
+      this.pointsRedeemed = this.pointsToRedeem
+      this.appliedPointsDiscount = discount
+      this.pointsToRedeem = 0
+      
+      console.log(`✅ Applied ${this.pointsRedeemed} points (₱${discount.toFixed(2)} discount)`)
+    },
+    
+    removePointsDiscount() {
+      this.pointsRedeemed = 0
+      this.appliedPointsDiscount = 0
+      this.pointsToRedeem = 0
+    },
+    
     // ================================================================
     // STOCK VALIDATION
     // ================================================================
@@ -363,49 +814,27 @@ export default {
         console.log('🔍 Validating stock for', this.cartItems.length, 'items...')
         
         if (this.cartItems.length === 0) {
-          console.warn('⚠️ Cart is empty')
           this.$router.replace('/new-order')
           return
         }
         
-        // ✅ Get all product IDs
         const productIds = this.cartItems.map(item => item.productId)
-        
-        console.log('📦 Product IDs to validate:', productIds)
-        console.log('🛒 Cart items:', this.cartItems)  // ✅ ADD THIS
-        
-        // ✅ Batch fetch products (single API call)
         const products = await apiProducts.getProductsBatch(productIds)
         
-        console.log('✅ Products fetched:', products)
-        console.log('📋 Product IDs from API:', products.map(p => p.id || p._id))  // ✅ ADD THIS
-        
-        // ✅ Build product map for quick lookup
         const productMap = {}
         products.forEach(product => {
-          const productId = product.id || product._id  // ✅ Try both
-          console.log(`📌 Mapping product: ${productId}`, product)  // ✅ ADD THIS
-          productMap[productId] = product
+          productMap[product.id || product._id] = product
         })
         
-        console.log('🗺️ Product map keys:', Object.keys(productMap))  // ✅ ADD THIS
-        
-        // ✅ Validate each item
         const errors = []
         
         for (const item of this.cartItems) {
-          console.log(`🔎 Looking up item.productId: "${item.productId}"`)  // ✅ ADD THIS
-          
           const product = productMap[item.productId]
           
           if (!product) {
-            console.error('❌ Product not found:', item.productId)
-            console.error('   Available keys:', Object.keys(productMap))  // ✅ ADD THIS
             errors.push(`Product "${item.productName}" not found`)
           } else {
-            const availableStock = product.stock || 0
-            
-            console.log(`📊 ${item.productName}: Available=${availableStock}, Requested=${item.quantity}`)
+            const availableStock = product.batch_stock || product.stock || 0
             
             if (availableStock < item.quantity) {
               errors.push(
@@ -418,17 +847,15 @@ export default {
         
         if (errors.length > 0) {
           this.validationErrors = errors
-          console.error('❌ Stock validation errors:', errors)
           alert('Stock validation failed:\n\n' + errors.join('\n') + '\n\nPlease update your cart.')
           this.$router.replace('/new-order')
         } else {
-          console.log('✅ Stock validation passed')
           this.validationErrors = []
         }
         
       } catch (error) {
         console.error('❌ Stock validation failed:', error)
-        alert(`Failed to validate stock: ${error.message}\n\nPlease try again.`)
+        alert(`Failed to validate stock: ${error.message}`)
         this.$router.replace('/new-order')
       } finally {
         this.isLoading = false
@@ -436,7 +863,7 @@ export default {
     },
     
     // ================================================================
-    // CART UPDATES (Store methods)
+    // CART UPDATES
     // ================================================================
     
     increaseQuantity(item) {
@@ -452,7 +879,6 @@ export default {
       
       this.cartStore.removeItem(item.productId)
       
-      // If cart is empty, redirect
       if (this.cartStore.isEmpty) {
         alert('Cart is now empty. Returning to order page...')
         this.$router.replace('/new-order')
@@ -479,8 +905,8 @@ export default {
         return false
       }
       
-      if (this.cashTendered < this.totalAmount) {
-        const shortage = this.totalAmount - this.cashTendered
+      if (this.cashTendered < this.grandTotal) {
+        const shortage = this.grandTotal - this.cashTendered
         this.cashValidationError = `Insufficient. Need ₱${this.formatPrice(shortage)} more`
         return false
       }
@@ -494,15 +920,14 @@ export default {
         return
       }
       
-      // Final validation
       if (this.paymentMethod === 'cash' && !this.validateCashPayment()) {
         return
       }
       
-      // Confirm order
-      const confirmMessage = this.paymentMethod === 'cash' 
-        ? `Confirm order:\nTotal: ₱${this.formatPrice(this.totalAmount)}\nCash: ₱${this.formatPrice(this.cashTendered)}\nChange: ₱${this.formatPrice(this.changeAmount)}`
-        : `Confirm order:\nTotal: ₱${this.formatPrice(this.totalAmount)}\nPayment: ${this.paymentMethod.toUpperCase()}`
+      const confirmMessage = `Confirm order:\nTotal: ₱${this.formatPrice(this.grandTotal)}\n` +
+        (this.appliedPromotion ? `Promo: -₱${this.formatPrice(this.promoDiscount)}\n` : '') +
+        (this.appliedPointsDiscount > 0 ? `Points: -₱${this.formatPrice(this.appliedPointsDiscount)}\n` : '') +
+        (this.paymentMethod === 'cash' ? `Cash: ₱${this.formatPrice(this.cashTendered)}\nChange: ₱${this.formatPrice(this.changeAmount)}` : '')
       
       if (!confirm(confirmMessage)) return
       
@@ -511,45 +936,82 @@ export default {
         this.isLoading = true
         this.loadingMessage = 'Processing order...'
         
-        console.log('💳 Processing order...')
-        
-        // ✅ Step 1: Re-validate stock (final check)
         await this.validateStock()
         
         if (this.validationErrors.length > 0) {
           throw new Error('Stock validation failed')
         }
         
-        // ✅ Step 2: Get checkout data from store
+        // ✅ Get base checkout data from cart
         const saleData = this.cartStore.getCheckoutData()
         
-        console.log('📋 Sale data prepared:', saleData)
+        // ✅ CRITICAL: Override with actual checkout values
+        saleData.subtotal = this.cartSubtotal
+        saleData.tax_amount = this.taxAmount
+        saleData.total_amount = this.grandTotal
         
-        // ✅ Step 3: Add payment details to saleData
+        // ✅ Add customer info with points
+        if (this.selectedCustomer) {
+          saleData.customer_id = this.selectedCustomer._id
+          saleData.loyalty_points_used = this.pointsRedeemed
+          saleData.loyalty_points_earned = this.pointsWillEarn
+          
+          console.log('👤 Customer Info:')
+          console.log('   ID:', this.selectedCustomer._id)
+          console.log('   Points to Use:', this.pointsRedeemed)
+          console.log('   Points to Earn:', this.pointsWillEarn)
+        }
+        
+        // ✅ Add promotion discount
+        if (this.appliedPromotion) {
+          saleData.promotion_id = this.appliedPromotion._id
+          saleData.promotion_discount = this.promoDiscount
+          console.log('🎉 Promotion:', this.appliedPromotion.name, '-₱' + this.formatPrice(this.promoDiscount))
+        } else {
+          saleData.promotion_discount = 0
+        }
+        
+        // ✅ Add points discount
+        if (this.appliedPointsDiscount > 0) {
+          saleData.points_discount = this.appliedPointsDiscount
+          console.log('🎁 Points Discount: -₱' + this.formatPrice(this.appliedPointsDiscount))
+        } else {
+          saleData.points_discount = 0
+        }
+        
+        // ✅ Calculate total discount
+        saleData.discount = this.promoDiscount + this.appliedPointsDiscount
+        
+        // ✅ Add payment details
         saleData.payment_method = this.paymentMethod
         saleData.payment_details = {
           method: this.paymentMethod,
-          amount_paid: this.paymentMethod === 'cash' ? this.cashTendered : this.totalAmount,
+          amount_paid: this.paymentMethod === 'cash' ? this.cashTendered : this.grandTotal,
           change: this.paymentMethod === 'cash' ? this.changeAmount : 0,
           status: 'completed',
           transaction_id: `${this.paymentMethod.toUpperCase()}-${Date.now()}`,
           timestamp: new Date().toISOString()
         }
         
-        console.log('💰 Payment details added:', saleData.payment_details)
+        // ✅ DEBUG: Log what we're sending
+        console.log('📝 Final Sale Data:')
+        console.log('   Subtotal:', saleData.subtotal)
+        console.log('   Promotion Discount:', saleData.promotion_discount)
+        console.log('   Points Discount:', saleData.points_discount)
+        console.log('   Total Discount:', saleData.discount)
+        console.log('   Tax:', saleData.tax_amount)
+        console.log('   Grand Total:', saleData.total_amount)
+        console.log('   Points Used:', saleData.loyalty_points_used)
+        console.log('   Points Earned:', saleData.loyalty_points_earned)
         
-        // ✅ Step 4: Create sale (pass ONLY saleData)
-        console.log('📝 Creating sale...')
-        const result = await apiSales.createSale(saleData)  // ✅ ONLY ONE PARAMETER
+        console.log('📝 Creating sale:', saleData)
         
-        console.log('✅ Sale created:', result)
+        const result = await apiSales.createSale(saleData)
         
-        // ✅ Step 5: Clear frontend cart
         this.cartStore.clearCart()
+        sessionStorage.removeItem('appliedPromotion')
+        sessionStorage.removeItem('checkoutCustomer')
         
-        console.log('🗑️ Cart cleared')
-        
-        // ✅ Step 6: Show success modal
         this.completedSale = {
           saleId: result._id || result.sale_id,
           transactionDate: result.transaction_date || new Date().toISOString(),
@@ -560,23 +1022,11 @@ export default {
         }
         
         this.showSuccessModal = true
-        
         console.log('🎉 Order completed successfully!')
         
       } catch (error) {
         console.error('❌ Place order failed:', error)
-        
-        let errorMessage = error.message || 'Unknown error occurred'
-        
-        if (errorMessage.includes('stock')) {
-          errorMessage = 'Some items are out of stock. Please review your cart.'
-          this.$router.replace('/new-order')
-        } else if (errorMessage.includes('payment')) {
-          errorMessage = `Payment failed: ${errorMessage}`
-        }
-        
-        alert(`Order failed: ${errorMessage}\n\nPlease try again.`)
-        
+        alert(`Order failed: ${error.message}`)
       } finally {
         this.isProcessing = false
         this.isLoading = false
@@ -587,33 +1037,25 @@ export default {
     // SUCCESS MODAL & RECEIPT
     // ================================================================
     
-  async printReceipt() {
-    try {
-      console.log('🖨️ Printing receipt for sale:', this.completedSale.saleId)
-      
-      // ✅ Use import.meta.env for Vite (NOT process.env)
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-      const receiptUrl = `${baseUrl}/pos/sales/${this.completedSale.saleId}/receipt/`
-      
-      console.log('📄 Opening receipt:', receiptUrl)
-      
-      const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600')
-      
-      if (printWindow) {
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.print()
-          }, 500)
+    async printReceipt() {
+      try {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+        const receiptUrl = `${baseUrl}/pos/sales/${this.completedSale.saleId}/receipt/`
+        
+        const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600')
+        
+        if (printWindow) {
+          printWindow.onload = () => {
+            setTimeout(() => {
+              printWindow.print()
+            }, 500)
+          }
         }
-      } else {
-        alert('Please allow popups to print receipts.')
+      } catch (error) {
+        console.error('❌ Print receipt failed:', error)
+        alert(`Failed to print receipt: ${error.message}`)
       }
-      
-    } catch (error) {
-      console.error('❌ Print receipt failed:', error)
-      alert(`Failed to print receipt: ${error.message}`)
-    }
-  },
+    },
     
     closeSuccessModal() {
       this.showSuccessModal = false
@@ -621,7 +1063,6 @@ export default {
     },
     
     startNewOrder() {
-      console.log('🔄 Starting new order...')
       this.$router.replace('/new-order')
     },
     
@@ -659,6 +1100,7 @@ export default {
 </script>
 
 <style scoped>
+
 .checkout-page {
     display: flex;
     gap: 15px;
@@ -1667,5 +2109,400 @@ export default {
 .form-input:disabled {
   background: #e9ecef;
   cursor: not-allowed;
+}
+
+/* Additional Customer & Points Styles */
+.customer-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.customer-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #2d3748;
+}
+
+.customer-search {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.customer-info-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.customer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.customer-details h5 {
+  margin: 0 0 0.25rem 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.customer-username {
+  margin: 0;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.loyalty-points-display {
+  background: white;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.points-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.points-label {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.points-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #6f42c1;
+}
+
+.points-cash {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+/* Points Action Buttons */
+.points-action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.points-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: white;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.points-action-btn:hover {
+  border-color: #6f42c1;
+}
+
+.points-action-btn.active {
+  background: linear-gradient(135deg, #6f42c1, #8b5ede);
+  border-color: #6f42c1;
+  color: white;
+}
+
+.action-icon {
+  font-size: 20px;
+}
+
+.action-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.action-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.action-subtitle {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.points-insufficient-notice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background: #fff3cd;
+  border: 2px dashed #ffc107;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Points Redemption Panel */
+.points-redemption-panel {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.redemption-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.redemption-header h6 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: #6f42c1;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.redemption-input-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.points-input {
+  flex: 1;
+}
+
+.redemption-info-box {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 0.25rem 0;
+}
+
+.info-row .highlight {
+  color: #6f42c1;
+  font-weight: 600;
+}
+
+/* Points Earning Panel */
+.points-earning-panel {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 193, 7, 0.1));
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.earning-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.earning-icon-large {
+  font-size: 40px;
+}
+
+.earning-info-large h6 {
+  margin: 0 0 0.25rem 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #6c757d;
+}
+
+.earning-amount-large {
+  font-size: 24px;
+  font-weight: 700;
+  color: #FFD700;
+}
+
+.earning-value-large {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.balance-preview-box {
+  background: white;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.balance-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 0.25rem 0;
+}
+
+.balance-row.balance-after {
+  border-top: 1px solid #e9ecef;
+  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+.highlight-green {
+  color: #4ea87a;
+}
+
+.earning-note {
+  text-align: center;
+  font-size: 11px;
+  color: #6c757d;
+}
+
+/* Applied Discount Badge */
+.applied-discount-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-top: 1rem;
+}
+
+.discount-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: white;
+}
+
+.discount-icon {
+  font-size: 20px;
+}
+
+.discount-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.discount-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.discount-details {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-remove-discount {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+}
+
+/* Promotion Section */
+.promotion-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.promotion-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #2d3748;
+}
+
+.promotion-card {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.promotion-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.promotion-icon {
+  font-size: 24px;
+}
+
+.promotion-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.promotion-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.promotion-savings {
+  font-size: 18px;
+  font-weight: 700;
+  color: #228B22;
+}
+
+/* Discount Rows */
+.discount-row {
+  color: #4ea87a;
+}
+
+.discount-amount {
+  font-weight: 600;
+}
+
+.alert {
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 0.5rem;
+}
+
+.alert-danger {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+
+.btn-remove:hover {
+  background: #ffe6e6;
 }
 </style>
