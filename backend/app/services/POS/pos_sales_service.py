@@ -15,7 +15,8 @@ class POSSalesService:
         self.db = db_manager.get_database()
         self.sales_collection = self.db.sales 
         self.products_collection = self.db.products
-        self.customers_collection = self.db.customers  # ✅ ADD THIS
+        self.customers_collection = self.db.customers
+        self.shifts_collection = self.db.shifts  
         self.product_service = ProductService()
         self.batch_service = BatchService()
 
