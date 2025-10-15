@@ -1,26 +1,26 @@
 <template>
-  <div class="new-order-page">
+  <div class="new-order-page page-container transition-theme">
     <!-- Main Content Area -->
-    <div class="main-area">
-      <div class="no-contents">
+    <div class="main-area content-container">
+      <div class="no-contents surface-primary text-primary transition-theme">
         <!-- Header Section -->
-        <div class="no-header">
-          <div class="category-search">
+        <div class="no-header header-theme">
+          <div class="category-search surface-primary border-bottom-theme transition-theme">
             <input 
               type="text" 
               v-model="categorySearch" 
               placeholder="Search products..." 
-              class="search-input"
+              class="search-input input-complete focus-ring-theme"
             />
           </div>
           
           <!-- Categories -->
-          <div class="header-bot">
+          <div class="header-bot surface-secondary transition-theme">
             <div class="categories-container">
               <div 
                 v-for="category in categories" 
                 :key="category.id"
-                :class="['cat-card', { active: activeCategory === category.id }]"
+                :class="['cat-card card-complete hover-lift', { active: activeCategory === category.id }]"
                 @click="selectCategory(category.id)">
                 <div class="cat-icon">
                   <component :is="category.icon" />
@@ -28,7 +28,7 @@
                 <span class="cat-label">{{ category.name }}</span>
                 <button 
                   v-if="category.isCustom"
-                  class="delete-category-btn"
+                  class="delete-category-btn btn-complete"
                   @click.stop="deleteCategory(category.id)"
                   title="Delete Category">
                   <X :size="12" />
@@ -36,7 +36,7 @@
               </div>
               
               <!-- Add Category Button -->
-              <div class="cat-card add-category" @click="showCategoryModal = true">
+              <div class="cat-card add-category card-complete hover-lift" @click="showCategoryModal = true">
                 <div class="cat-icon">
                   <Plus :size="24" />
                 </div>
@@ -47,11 +47,11 @@
         </div>
         
         <!-- Navigation Breadcrumbs -->
-        <div v-if="breadcrumbs.length > 0" class="breadcrumb-nav">
+        <div v-if="breadcrumbs.length > 0" class="breadcrumb-nav surface-secondary border-bottom-theme transition-theme">
           <button 
             v-for="(crumb, index) in breadcrumbs" 
             :key="index"
-            class="breadcrumb-item"
+            class="breadcrumb-item nav-link-theme hover-surface focus-ring-theme"
             @click="navigateTo(crumb)">
             {{ crumb.name }}
             <ChevronRight v-if="index < breadcrumbs.length - 1" :size="16" />
@@ -59,23 +59,23 @@
         </div>
 
         <!-- Loading State -->
-        <div v-if="loading || productsLoading" class="loading-state">
+        <div v-if="loading || productsLoading" class="loading-state text-secondary">
           <div class="spinner"></div>
           <p>Loading...</p>
         </div>
 
         <!-- Error State -->
-        <div v-else-if="error" class="error-state">
+        <div v-else-if="error" class="error-state status-error">
           <p class="error-message">{{ error }}</p>
-          <button class="btn-primary" @click="retryLoad">Retry</button>
+          <button class="btn-primary btn-complete" @click="retryLoad">Retry</button>
         </div>
 
-        <!-- Products Grid -->
-        <div v-else class="products-grid">
+        <!-- Products Grid with Infinite Scroll -->
+        <div v-else class="products-grid" @scroll="handleProductsScroll">
           <div 
             v-for="product in paginatedProducts" 
             :key="product.id"
-            class="product-card"
+            class="product-card card-complete hover-lift transition-theme"
             @click="handleProductClick(product)">
             <div class="product-image">
               <img :src="product.image" :alt="product.name" loading="lazy" />
@@ -85,16 +85,16 @@
               <p v-if="!product.isSubcategory" class="product-description">
                 Stock: {{ product.stock || 0 }}
               </p>
-              <div v-if="!product.isSubcategory" class="product-price">
+              <div v-if="!product.isSubcategory" class="product-price text-accent">
                 ₱{{ formatPrice(product.price) }}
               </div>
-              <div v-else class="subcategory-indicator">
+              <div v-else class="subcategory-indicator text-accent">
                 <ChevronRight :size="16" /> View Items
               </div>
             </div>
             <button 
               v-if="!product.isSubcategory && isCustomCategory" 
-              class="delete-product-btn" 
+              class="delete-product-btn btn-complete" 
               @click.stop="removeFromCategory(product.id)" 
               title="Remove from category">
               <X :size="14" />
@@ -104,7 +104,7 @@
           <!-- Add Products Option (Custom Categories Only) -->
           <div 
             v-if="viewMode === 'products' && isCustomCategory && customCategoryItems.length < 8"
-            class="product-card add-item-card"
+            class="product-card add-item-card card-complete hover-lift"
             @click="openProductSelectorModal()">
             <div class="add-item-content">
               <ShoppingBag :size="32" />
@@ -112,37 +112,21 @@
               <small>{{ allAvailableProductsCount }} available</small>
             </div>
           </div>
-        </div>
-
-        <!-- Pagination -->
-        <div v-if="viewMode === 'products' && totalPages > 1" class="pagination">
-          <button 
-            class="page-btn" 
-            :disabled="currentPage === 1"
-            @click="goToPage(currentPage - 1)">
-            Previous
-          </button>
           
-          <span class="page-info">
-            Page {{ currentPage }} of {{ totalPages }} ({{ filteredProducts.length }} items)
-          </span>
-          
-          <button 
-            class="page-btn" 
-            :disabled="currentPage === totalPages"
-            @click="goToPage(currentPage + 1)">
-            Next
-          </button>
+          <!-- Loading More Indicator -->
+          <div v-if="hasMoreItems && paginatedProducts.length > 0" class="load-more-indicator text-secondary">
+            <p>Scroll for more...</p>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Category Creation Modal -->
-    <div v-if="showCategoryModal" class="modal-overlay" @click="closeCategoryModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
+    <div v-if="showCategoryModal" class="modal-overlay modal-overlay-theme" @click="closeCategoryModal">
+      <div class="modal-content modal-theme transition-theme" @click.stop>
+        <div class="modal-header header-theme">
           <h3>Create New Category</h3>
-          <button class="close-btn" @click="closeCategoryModal">
+          <button class="close-btn btn-complete" @click="closeCategoryModal">
             <X :size="20" />
           </button>
         </div>
@@ -153,27 +137,32 @@
               type="text" 
               v-model="newCategory.name" 
               placeholder="Enter category name"
-              class="form-input"
+              class="form-input input-complete focus-ring-theme"
               maxlength="20"
             />
           </div>
           <div class="form-group">
             <label>Icon</label>
             <div class="icon-selector">
-              <div 
+              <button 
                 v-for="iconOption in iconOptions" 
                 :key="iconOption.name"
-                :class="['icon-option', { selected: newCategory.icon === iconOption.name }]"
-                @click="newCategory.icon = iconOption.name">
+                type="button"
+                :aria-pressed="newCategory.icon === iconOption.name"
+                :class="[
+                  'icon-option card-complete hover-lift',
+                  newCategory.icon === iconOption.name ? 'state-selected border-theme-accent text-accent selected' : ''
+                ]"
+                @click.stop.prevent="selectIcon(iconOption.name)">
                 <component :is="iconOption.name" :size="20" />
-              </div>
+              </button>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeCategoryModal">Cancel</button>
+          <button class="btn-secondary btn-complete" @click="closeCategoryModal">Cancel</button>
           <button 
-            class="btn-primary" 
+            class="btn-primary btn-complete" 
             @click="createCategory" 
             :disabled="!newCategory.name.trim()">
             Create Category
@@ -183,11 +172,11 @@
     </div>
 
     <!-- Product Selection Modal -->
-    <div v-if="showProductSelectorModal" class="modal-overlay" @click="closeProductSelectorModal">
-      <div class="modal-content large-modal" @click.stop>
-        <div class="modal-header">
+    <div v-if="showProductSelectorModal" class="modal-overlay modal-overlay-theme" @click="closeProductSelectorModal">
+      <div class="modal-content large-modal modal-theme transition-theme" @click.stop>
+        <div class="modal-header header-theme">
           <h3>Add Products to {{ getCurrentCategoryName() }}</h3>
-          <button class="close-btn" @click="closeProductSelectorModal">
+          <button class="close-btn btn-complete" @click="closeProductSelectorModal">
             <X :size="20" />
           </button>
         </div>
@@ -197,7 +186,7 @@
             <button 
               v-for="category in availableSourceCategories" 
               :key="category.id"
-              :class="['tab-btn', { active: selectedSourceCategory === category.id }]"
+              :class="['tab-btn nav-link-theme hover-surface', { active: selectedSourceCategory === category.id }]"
               @click="selectedSourceCategory = category.id">
               {{ category.name }} ({{ productCountsByCategory[category.id] || 0 }})
             </button>
@@ -209,12 +198,12 @@
               type="text" 
               v-model="productSearchQuery" 
               placeholder="Search products..."
-              class="search-input"
+              class="search-input input-complete focus-ring-theme"
             />
           </div>
           
           <!-- Loading State -->
-          <div v-if="productsLoading" class="loading-state">
+          <div v-if="productsLoading" class="loading-state text-secondary">
             <p>Loading products...</p>
           </div>
           
@@ -252,9 +241,9 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeProductSelectorModal">Cancel</button>
+          <button class="btn-secondary btn-complete" @click="closeProductSelectorModal">Cancel</button>
           <button 
-            class="btn-primary" 
+            class="btn-primary btn-complete" 
             @click="addSelectedProductsToCategory" 
             :disabled="selectedProducts.length === 0 || wouldExceedLimit">
             Add {{ selectedProducts.length }} Products
@@ -267,22 +256,22 @@
     </div>
 
     <!-- Shopping Cart Sidebar -->
-    <div v-if="showCart" class="cart-sidebar">
-      <div class="cart-header">
+    <div v-if="showCart" class="cart-sidebar sidebar-theme transition-theme">
+      <div class="cart-header header-theme">
         <h2>New Order</h2>
-        <button class="cart-close" @click="closeCart">
+        <button class="cart-close btn-complete" @click="closeCart">
           <X :size="20" />
         </button>
       </div>
       
       <div class="cart-items">
-        <div v-if="cartItems.length === 0" class="empty-cart-message">
+        <div v-if="cartItems.length === 0" class="empty-cart-message text-secondary">
           <ShoppingCart :size="48" class="empty-cart-icon" />
           <p>Your cart is empty</p>
           <p>Add items to get started!</p>
         </div>
         
-        <div v-for="item in cartItems" :key="item.productId" class="cart-item">
+        <div v-for="item in cartItems" :key="item.productId" class="cart-item surface-secondary border-theme-subtle transition-theme">
           <img :src="item.image" :alt="item.productName" class="cart-item-image" />
           <div class="cart-item-info">
             <h4>{{ item.productName }}</h4>
@@ -291,13 +280,13 @@
           <div class="cart-item-controls">
             <button 
               @click="decreaseQuantity(item)" 
-              class="quantity-btn minus">
+              class="quantity-btn minus btn-complete">
               <Minus :size="16" />
             </button>
             <span class="quantity">{{ item.quantity }}</span>
             <button 
               @click="increaseQuantity(item)" 
-              class="quantity-btn plus">
+              class="quantity-btn plus btn-complete">
               <Plus :size="16" />
             </button>
           </div>
@@ -306,14 +295,14 @@
           </div>
           <button 
             @click="removeFromCart(item)" 
-            class="remove-btn">
+            class="remove-btn btn-complete">
             <Trash2 :size="16" />
           </button>
         </div>
       </div>
       
       <!-- Cart Footer -->
-      <div class="cart-footer">
+      <div class="cart-footer surface-primary border-top-theme transition-theme">
         
        <!-- Manual Promo Code with Smart Suggestions -->
         <div class="promo-section">
@@ -323,7 +312,7 @@
             <div class="input-group">
               <input 
                 type="text" 
-                class="form-control" 
+                class="form-control input-theme input-complete focus-ring-theme" 
                 placeholder="Enter promo code or select below"
                 v-model="promoCode"
                 @focus="showPromoSuggestions = true"
@@ -331,7 +320,7 @@
                 @input="filterPromoSuggestions"
               />
               <button 
-                class="btn btn-primary" 
+                class="btn btn-primary btn-complete" 
                 type="button" 
                 @click="applyPromoCodeManually"
                 :disabled="!promoCode.trim()"
@@ -343,7 +332,7 @@
             <!-- Promo Suggestions Dropdown -->
             <div 
               v-if="showPromoSuggestions && filteredPromoSuggestions.length > 0" 
-              class="promo-suggestions-dropdown"
+              class="promo-suggestions-dropdown card-theme transition-theme"
             >
               <div class="suggestions-header">
                 <span class="suggestions-title">✨ Available Promotions</span>
@@ -399,7 +388,7 @@
         </div>
 
         <!-- Cart Summary -->
-        <div class="cart-summary">
+        <div class="cart-summary card-elevated transition-theme">
           <!-- Subtotal -->
           <div class="cart-info">
             <div class="item-count">{{ totalItems }} items</div>
@@ -424,7 +413,7 @@
           </div>
           
           <button 
-            class="pay-btn" 
+            class="pay-btn btn-complete focus-ring-theme" 
             @click="checkout"
             :disabled="cartItems.length === 0">
             <span>Checkout →</span>
@@ -434,7 +423,7 @@
     </div>
         
     <!-- Cart Toggle Button -->
-    <button v-if="!showCart && cartItems.length > 0" class="cart-toggle" @click="openCart">
+    <button v-if="!showCart && cartItems.length > 0" class="cart-toggle btn-complete focus-ring-theme" @click="openCart">
       <ShoppingCart :size="24" />
       <span class="cart-badge">{{ totalItems }}</span>
     </button>
@@ -446,6 +435,8 @@ import { useCartStore } from '@/stores/cartStores'
 import categoriesAPI from '@/services/apiCategory.js'
 import productsAPI from '@/services/apiProducts.js'
 import { api } from '@/services/api.js'
+import { useLocalStorage } from '@/composables/data/useLocalStorage.js'
+import { useCache } from '@/composables/data/useCache.js'
 
 export default {
   name: 'NewOrder',
@@ -482,10 +473,12 @@ export default {
       // Navigation state
       viewMode: 'products',
       currentSubcategory: null,
-      currentPage: 1,
-      itemsPerPage: 12,
       categorySearch: '',
       breadcrumbs: [],
+      
+      // Infinite scroll
+      displayedItemsCount: 24,
+      itemsPerLoad: 12,
       
       // Custom category creation
       nextCategoryId: 100,
@@ -521,27 +514,87 @@ export default {
         { name: 'ShoppingBag' },
         { name: 'Utensils' }
       ],
+
+      // Caching utilities
+      cacheTTLms: 24 * 60 * 60 * 1000, // 24 hours for localStorage
+      memCacheTTLms: 30 * 60 * 1000, // 30 minutes for in-memory cache
+      storage: null,
+      memCache: null,
     }
   },
 
   async mounted() {
+    console.log('🚀 NewOrder component mounted')
+    // initialize caches
+    const ls = useLocalStorage()
+    this.storage = ls.withPrefix('newOrder')
+    this.memCache = useCache({ maxEntries: 300 })
+    // Hydrate from localStorage immediately to avoid spinner on revisit
+    try {
+      const cachedCategories = this.storage.getItem('categories', null)
+      if (Array.isArray(cachedCategories) && cachedCategories.length > 0) {
+        this.backendCategories = cachedCategories
+        const lastActive = this.storage.getItem('lastActiveCategory', null)
+        const fallbackCat = cachedCategories[0]?.id
+        const catId = cachedCategories.find(c => c.id === lastActive) ? lastActive : fallbackCat
+        if (catId) {
+          this.activeCategory = catId
+          const cachedProducts = this.storage.getItem(`products:${catId}:__all__`, null)
+          if (Array.isArray(cachedProducts)) {
+            this.products = cachedProducts
+            console.log('📦 Hydrated products from cache:', cachedProducts.length)
+          }
+        }
+      }
+    } catch (_) {}
     await this.initializeSession()
     await this.loadCategories()
+    
+    // Debug: Check products grid after mount
+    this.$nextTick(() => {
+      const grid = document.querySelector('.products-grid')
+      if (grid) {
+        console.log('📐 Products Grid Element Found:')
+        console.log('  - scrollHeight:', grid.scrollHeight)
+        console.log('  - clientHeight:', grid.clientHeight)
+        console.log('  - overflow-y:', window.getComputedStyle(grid).overflowY)
+        console.log('  - flex:', window.getComputedStyle(grid).flex)
+        console.log('  - min-height:', window.getComputedStyle(grid).minHeight)
+        console.log('  - Is scrollable?', grid.scrollHeight > grid.clientHeight)
+      } else {
+        console.warn('⚠️ Products grid element not found')
+      }
+    })
   },
 
   watch: {
-    selectedSourceCategory(newCategoryId) {
-      if (newCategoryId) {
-        this.loadProductsForSelection()
-      }
-    },
-    
     // Watch cart changes to update available promotions
     'cartStore.items': {
       handler() {
         this.fetchAvailablePromotions()
       },
       deep: true
+    },
+    
+    // Debug: Watch products changes
+    products: {
+      handler(newVal) {
+        console.log('📦 Products changed:', newVal?.length || 0, 'items')
+        this.$nextTick(() => {
+          const grid = document.querySelector('.products-grid')
+          if (grid) {
+            console.log('📐 Grid dimensions after products update:')
+            console.log('  - scrollHeight:', grid.scrollHeight)
+            console.log('  - clientHeight:', grid.clientHeight)
+            console.log('  - Can scroll?', grid.scrollHeight > grid.clientHeight)
+          }
+        })
+      }
+    },
+    
+    // Debug: Watch displayedItemsCount
+    displayedItemsCount(newVal) {
+      console.log('🔢 Displayed items count changed to:', newVal)
     }
   },
 
@@ -664,14 +717,12 @@ export default {
         return this.filteredProducts
       }
       
-      const start = (this.currentPage - 1) * this.itemsPerPage
-      const end = start + this.itemsPerPage
-      return this.filteredProducts.slice(start, end)
+      // Return items up to displayedItemsCount for infinite scroll
+      return this.filteredProducts.slice(0, this.displayedItemsCount)
     },
 
-    totalPages() {
-      if (this.viewMode === 'subcategories') return 1
-      return Math.ceil(this.filteredProducts.length / this.itemsPerPage)
+    hasMoreItems() {
+      return this.displayedItemsCount < this.filteredProducts.length
     },
 
     isCustomCategory() {
@@ -728,6 +779,13 @@ export default {
   },
 
   methods: {
+    selectIcon(iconName) {
+      console.log('[NewOrder] Icon clicked:', iconName)
+      this.newCategory.icon = iconName
+      this.$nextTick(() => {
+        console.log('[NewOrder] newCategory.icon set to:', this.newCategory.icon)
+      })
+    },
     // ================================================================
     // INITIALIZATION
     // ================================================================
@@ -763,7 +821,8 @@ export default {
     async openProductSelectorModal() {
       this.showProductSelectorModal = true
       
-      // Load ALL products from ALL available categories
+      // Always load products from all available categories
+      console.log('📦 Loading products from all categories...')
       await this.loadAllProductsForSelection()
       
       // Then select the first category
@@ -777,12 +836,14 @@ export default {
       try {
         this.productsLoading = true
         
-        console.log('📦 Loading products from all categories...')
+        console.log('📦 Loading products from all available categories...')
         
-        // Fetch products from ALL available source categories in parallel
-        const productPromises = this.availableSourceCategories.map(category => 
-          productsAPI.getProductsByCategory(category.id)
-        )
+        // Load from ALL available source categories (excluding current active category)
+        // This will use cache first, then localStorage, then API
+        const productPromises = this.availableSourceCategories.map(category => {
+          console.log(`  → Loading category: ${category.name} (ID: ${category.id})`)
+          return this.getProductsCached(category.id)
+        })
         
         // Wait for all requests to complete
         const allCategoryProducts = await Promise.all(productPromises)
@@ -803,10 +864,19 @@ export default {
 
     async loadCategories() {
       try {
-        this.loading = true
+        // Only show loader if we don't already have categories hydrated
+        if (this.backendCategories.length === 0) this.loading = true
         this.error = null
         
-        this.backendCategories = await categoriesAPI.getActiveCategories()
+        // Try cache first
+        const cached = this.getCategoriesCached()
+        if (cached) {
+          this.backendCategories = cached
+        } else {
+          const fresh = await categoriesAPI.getActiveCategories()
+          this.backendCategories = Array.isArray(fresh) ? fresh : []
+          this.setCategoriesCache(this.backendCategories)
+        }
         
         if (this.backendCategories.length > 0 && !this.activeCategory) {
           this.activeCategory = this.backendCategories[0].id
@@ -823,10 +893,12 @@ export default {
 
     async selectCategory(categoryId) {
       this.activeCategory = categoryId
-      this.currentPage = 1
+      this.displayedItemsCount = this.itemsPerLoad // Reset to initial load
       this.categorySearch = ''
       this.breadcrumbs = []
       this.currentSubcategory = null
+      // Persist last active category (24 hours)
+      try { this.storage?.setItem('lastActiveCategory', categoryId, this.cacheTTLms) } catch (_) {}
       
       const category = this.categories.find(cat => cat.id === categoryId)
       
@@ -838,6 +910,11 @@ export default {
       } else {
         this.viewMode = 'products'
         if (!category.isCustom) {
+          // Show cached products immediately if any
+          const cachedProducts = this.storage?.getItem(`products:${categoryId}:__all__`, null)
+          if (Array.isArray(cachedProducts)) {
+            this.products = cachedProducts
+          }
           await this.loadProducts(categoryId)
         }
       }
@@ -845,7 +922,6 @@ export default {
 
     async loadProducts(categoryId, subcategoryName = null) {
       try {
-        this.productsLoading = true
         this.error = null
         
         if (this.isCustomCategory) {
@@ -853,7 +929,17 @@ export default {
           return
         }
         
-        const products = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
+        // Try immediate cached read (no spinner, no network)
+        const cacheKey = `products:${categoryId}:${subcategoryName || '__all__'}`
+        const lsHit = this.storage?.getItem(cacheKey, null)
+        if (Array.isArray(lsHit)) {
+          this.products = lsHit
+          return
+        }
+        
+        // No cache: show loader and fetch
+        this.productsLoading = true
+        const products = await this.getProductsCached(categoryId, subcategoryName)
         this.products = products
         
       } catch (error) {
@@ -863,6 +949,41 @@ export default {
       } finally {
         this.productsLoading = false
       }
+    },
+
+    // Cached fetchers
+    getCategoriesCached() {
+      // in-memory first
+      const k = 'categories'
+      const memHit = this.memCache?.get(k, null)
+      if (memHit) return memHit
+      // localStorage next
+      const lsHit = this.storage?.getItem(k, null)
+      if (lsHit) {
+        this.memCache?.set(k, lsHit, this.memCacheTTLms)
+        return lsHit
+      }
+      return null
+    },
+    setCategoriesCache(categories) {
+      const k = 'categories'
+      this.memCache?.set(k, categories, this.memCacheTTLms)
+      this.storage?.setItem(k, categories, this.cacheTTLms)
+    },
+    async getProductsCached(categoryId, subcategoryName = null) {
+      const key = `products:${categoryId}:${subcategoryName || '__all__'}`
+      const memHit = this.memCache?.get(key, null)
+      if (memHit) return memHit
+      const lsHit = this.storage?.getItem(key, null)
+      if (lsHit) {
+        this.memCache?.set(key, lsHit, this.memCacheTTLms)
+        return lsHit
+      }
+      const fresh = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
+      const normalized = Array.isArray(fresh) ? fresh : []
+      this.memCache?.set(key, normalized, this.memCacheTTLms)
+      this.storage?.setItem(key, normalized, this.cacheTTLms)
+      return normalized
     },
 
     generateSubcategoryImage(subcategoryName) {
@@ -1010,10 +1131,37 @@ export default {
       }
     },
 
-    goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
+    handleProductsScroll(event) {
+      const container = event.target
+      const scrollTop = container.scrollTop
+      const scrollHeight = container.scrollHeight
+      const clientHeight = container.clientHeight
+      
+      console.log('🖱️ Scroll Event Detected:')
+      console.log('  - scrollTop:', scrollTop)
+      console.log('  - scrollHeight:', scrollHeight)
+      console.log('  - clientHeight:', clientHeight)
+      console.log('  - Distance from bottom:', scrollHeight - (scrollTop + clientHeight))
+      console.log('  - Has more items:', this.hasMoreItems)
+      console.log('  - Displayed:', this.displayedItemsCount, '/', this.filteredProducts.length)
+      
+      // Check if scrolled near bottom (within 100px)
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        console.log('✅ Near bottom - Loading more items...')
+        this.loadMoreItems()
       }
+    },
+
+    loadMoreItems() {
+      if (!this.hasMoreItems) return
+      
+      // Load next batch of items
+      this.displayedItemsCount += this.itemsPerLoad
+      console.log(`📦 Loaded more items. Now showing: ${this.displayedItemsCount}/${this.filteredProducts.length}`)
+    },
+
+    resetInfiniteScroll() {
+      this.displayedItemsCount = this.itemsPerLoad
     },
 
     retryLoad() {

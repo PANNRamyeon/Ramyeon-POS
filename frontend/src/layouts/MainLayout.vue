@@ -349,18 +349,24 @@ export default {
 /* Keep all your existing styles... */
 
 .app-layout {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   width: 100vw;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  display: flex;
 }
 
 .main-content {
   margin-left: 180px;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .content-header {
@@ -368,8 +374,8 @@ export default {
   top: 0;
   z-index: 999;
   background: white;
-  height: 100px;
-  padding: 0 2.5rem;
+  height: 70px;
+  padding: 0 1.5rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -390,7 +396,7 @@ export default {
 }
 
 .datetime-display {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   letter-spacing: 0.025em;
   line-height: 1.2;
@@ -404,12 +410,13 @@ export default {
 
 .page-content {
   flex: 1;
-  padding: 2.5rem;
-  overflow-y: visible;
-  overflow-x: hidden;
+  padding: 0;
+  overflow: hidden;
   width: 100%;
   min-width: 0;
   background-color: #f8f9fa;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ✅ NEW: Modal Styles */
@@ -673,12 +680,9 @@ export default {
 
 /* Responsive design */
 @media (max-width: 1024px) {
-  .page-content {
-    padding: 2rem;
-  }
-  
   .content-header {
-    padding: 0 2rem;
+    padding: 0 1.25rem;
+    height: 65px;
   }
 }
 
@@ -687,13 +691,9 @@ export default {
     margin-left: 0;
   }
   
-  .page-content {
-    padding: 1.5rem;
-  }
-  
   .content-header {
-    padding: 0 1.5rem;
-    height: 80px;
+    padding: 0 1rem;
+    height: 60px;
     position: relative;
   }
   
@@ -720,13 +720,9 @@ export default {
 }
 
 @media (max-width: 480px) {
-  .page-content {
-    padding: 1rem;
-  }
-  
   .content-header {
-    padding: 0 1rem;
-    height: 70px;
+    padding: 0 0.75rem;
+    height: 55px;
   }
   
   .content-header h1 {

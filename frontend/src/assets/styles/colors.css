@@ -62,9 +62,26 @@
   --text-primary: var(--tertiary-dark);
   --text-secondary: var(--tertiary-medium);
   --text-tertiary: var(--tertiary);
+  --text-disabled: var(--tertiary-light);
   --text-accent: var(--primary);
   --text-inverse: #ffffff;
-  
+
+  /* Status text colors for light mode */
+  --text-success: var(--success-dark);
+  --text-error: var(--error-dark);
+  --text-warning: #b45309;
+  --text-info: var(--info-dark);
+
+  /* Status backgrounds for light mode */
+  --status-success: #065f46;
+  --status-success-bg: rgba(94, 180, 136, 0.15);
+  --status-error: #991b1b;
+  --status-error-bg: rgba(229, 57, 53, 0.15);
+  --status-warning: #92400e;
+  --status-warning-bg: rgba(251, 191, 36, 0.15);
+  --status-info: #1e40af;
+  --status-info-bg: rgba(115, 146, 226, 0.15);
+
   --border-primary: var(--neutral);
   --border-secondary: var(--neutral-medium);
   --border-accent: var(--primary);
@@ -99,13 +116,31 @@
   --surface-secondary: var(--bg-primary);
   --surface-tertiary: var(--bg-muted);
   --surface-elevated: #404040;
-  
-  --text-primary: #e2e8f0;
-  --text-secondary: #cbd5e0;
-  --text-tertiary: #a0aec0;
+
+  /* Lighter text colors for better dark mode readability */
+  --text-primary: #ffffff;      /* Pure white for primary text - maximum clarity */
+  --text-secondary: #e8e8e8;    /* Very light gray for secondary text - high contrast */
+  --text-tertiary: #c0c0c0;     /* Light gray for tertiary/muted text - still readable */
+  --text-disabled: #909090;     /* Medium gray for disabled text - clearly disabled but visible */
   --text-accent: var(--primary-light);
   --text-inverse: #1a202c;
-  
+
+  /* Status text colors for dark mode - brighter and more visible */
+  --text-success: #6dd49e;
+  --text-error: #f87171;
+  --text-warning: #fbbf24;
+  --text-info: #a78bfa;
+
+  /* Status backgrounds for dark mode */
+  --status-success: #6dd49e;
+  --status-success-bg: rgba(109, 212, 158, 0.2);
+  --status-error: #f87171;
+  --status-error-bg: rgba(248, 113, 113, 0.2);
+  --status-warning: #fbbf24;
+  --status-warning-bg: rgba(251, 191, 36, 0.2);
+  --status-info: #a78bfa;
+  --status-info-bg: rgba(167, 139, 250, 0.2);
+
   --border-primary: #4a5568;
   --border-secondary: #2d3748;
   --border-accent: var(--primary-light);

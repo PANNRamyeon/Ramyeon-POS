@@ -1,9 +1,9 @@
 <template>
-  <div class="history-container">
-    <div class="history-contents">
+  <div class="history-container surface-secondary transition-theme">
+    <div class="history-contents surface-primary border-theme shadow-md transition-theme">
       <!-- Page Header -->
-      <div class="page-header">
-        <h2 class="page-title">Transaction History</h2>
+      <div class="page-header border-bottom-theme">
+        <h2 class="page-title text-primary">Transaction History</h2>
         <div class="header-actions">
           <button 
             class="btn btn-refresh btn-sm" 
@@ -25,24 +25,24 @@
       </div>
 
       <!-- Filters Section -->
-      <div class="filters-container">
+      <div class="filters-container surface-tertiary border-theme transition-theme">
         <div class="row g-3">
           <!-- Date Range -->
           <div class="col-md-3">
-            <label class="form-label">From Date</label>
-            <input 
-              type="date" 
-              class="form-control" 
+            <label class="form-label text-secondary">From Date</label>
+            <input
+              type="date"
+              class="form-control input-theme"
               v-model="filters.dateFrom"
               @change="applyFilters"
             />
           </div>
-          
+
           <div class="col-md-3">
-            <label class="form-label">To Date</label>
-            <input 
-              type="date" 
-              class="form-control" 
+            <label class="form-label text-secondary">To Date</label>
+            <input
+              type="date"
+              class="form-control input-theme"
               v-model="filters.dateTo"
               @change="applyFilters"
             />
@@ -50,9 +50,9 @@
 
           <!-- Status Filter -->
           <div class="col-md-2">
-            <label class="form-label">Status</label>
-            <select 
-              class="form-select" 
+            <label class="form-label text-secondary">Status</label>
+            <select
+              class="form-select input-theme"
               v-model="filters.status"
               @change="applyFilters"
             >
@@ -69,9 +69,9 @@
 
           <!-- Payment Method Filter -->
           <div class="col-md-2">
-            <label class="form-label">Payment</label>
-            <select 
-              class="form-select" 
+            <label class="form-label text-secondary">Payment</label>
+            <select
+              class="form-select input-theme"
               v-model="filters.paymentMethod"
               @change="applyFilters"
             >
@@ -88,9 +88,9 @@
 
           <!-- Source Filter -->
           <div class="col-md-2">
-            <label class="form-label">Source</label>
-            <select 
-              class="form-select" 
+            <label class="form-label text-secondary">Source</label>
+            <select
+              class="form-select input-theme"
               v-model="filters.source"
               @change="applyFilters"
             >
@@ -105,10 +105,10 @@
         <div class="row mt-3">
           <div class="col-md-6">
             <div class="search-box">
-              <Search :size="18" class="search-icon" />
-              <input 
-                type="text" 
-                class="form-control ps-5" 
+              <Search :size="18" class="search-icon text-tertiary" />
+              <input
+                type="text"
+                class="form-control input-theme ps-5"
                 placeholder="Search by Transaction ID..."
                 v-model="filters.search"
                 @input="debounceSearch"
@@ -116,33 +116,33 @@
             </div>
           </div>
           <div class="col-md-6 d-flex align-items-center justify-content-end gap-3">
-            <button 
-              class="btn btn-cancel" 
+            <button
+              class="btn btn-cancel"
               @click="clearFilters"
               :disabled="!hasActiveFilters"
             >
               <X :size="16" />
               Clear Filters
             </button>
-            <span class="text-muted">
-              <strong>{{ totalOrders }}</strong> total transactions
+            <span class="text-tertiary">
+              <strong class="text-primary">{{ totalOrders }}</strong> total transactions
             </span>
           </div>
         </div>
       </div>
 
       <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
+      <div v-if="loading" class="loading-state text-tertiary">
         <div class="spinner-border text-primary" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
-        <p class="mt-3">Loading transactions...</p>
+        <p class="mt-3 text-secondary">Loading transactions...</p>
       </div>
 
       <!-- Error State -->
       <div v-else-if="error" class="error-state">
-        <AlertCircle :size="48" class="text-danger mb-3" />
-        <p class="text-danger fw-bold">{{ error }}</p>
+        <AlertCircle :size="48" class="text-error mb-3" />
+        <p class="text-error fw-bold">{{ error }}</p>
         <button @click="refreshData()" class="btn btn-primary mt-2">
           Try Again
         </button>
@@ -150,14 +150,14 @@
 
       <!-- No Data State -->
       <div v-else-if="orders.length === 0" class="no-data-state">
-        <ShoppingBag :size="64" class="text-muted mb-3" />
-        <h5 class="text-muted">No Transactions Found</h5>
-        <p class="text-muted">
+        <ShoppingBag :size="64" class="text-tertiary mb-3" />
+        <h5 class="text-secondary">No Transactions Found</h5>
+        <p class="text-tertiary">
           {{ hasActiveFilters ? 'Try adjusting your filters' : 'No transactions have been recorded yet' }}
         </p>
-        <button 
-          v-if="hasActiveFilters" 
-          @click="clearFilters" 
+        <button
+          v-if="hasActiveFilters"
+          @click="clearFilters"
           class="btn btn-secondary mt-2"
         >
           Clear Filters
@@ -258,8 +258,8 @@
         <!-- Pagination -->
         <div class="pagination-container" v-if="totalPages > 1">
           <div class="pagination-info">
-            <small class="text-muted">
-              Showing <strong>{{ startItem }}</strong> - <strong>{{ endItem }}</strong> of <strong>{{ totalOrders }}</strong> transactions
+            <small class="text-secondary">
+              Showing <strong class="text-primary">{{ startItem }}</strong> - <strong class="text-primary">{{ endItem }}</strong> of <strong class="text-primary">{{ totalOrders }}</strong> transactions
             </small>
           </div>
           <div class="pagination-controls">
@@ -304,7 +304,7 @@
               <h5 class="modal-title" id="orderModalLabel">
                 {{ selectedOrder?.saleType === 'POS' ? 'Sale Details' : 'Order Details' }}
               </h5>
-              <small class="text-muted" v-if="selectedOrder">{{ selectedOrder.id }}</small>
+              <small class="text-tertiary" v-if="selectedOrder">{{ selectedOrder.id }}</small>
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
@@ -363,11 +363,11 @@
                   Delivery Address
                 </h6>
                 <div class="delivery-address-card">
-                  <p class="mb-1"><strong>{{ selectedOrder.deliveryAddress.recipient_name }}</strong></p>
-                  <p class="mb-1">{{ selectedOrder.deliveryAddress.phone }}</p>
-                  <p class="mb-1">{{ selectedOrder.deliveryAddress.street }}, {{ selectedOrder.deliveryAddress.barangay }}</p>
-                  <p class="mb-0">{{ selectedOrder.deliveryAddress.city }}, {{ selectedOrder.deliveryAddress.province }} {{ selectedOrder.deliveryAddress.postal_code }}</p>
-                  <p class="text-muted small mb-0 mt-2" v-if="selectedOrder.deliveryAddress.notes">
+                  <p class="mb-1 text-primary"><strong>{{ selectedOrder.deliveryAddress.recipient_name }}</strong></p>
+                  <p class="mb-1 text-secondary">{{ selectedOrder.deliveryAddress.phone }}</p>
+                  <p class="mb-1 text-secondary">{{ selectedOrder.deliveryAddress.street }}, {{ selectedOrder.deliveryAddress.barangay }}</p>
+                  <p class="mb-0 text-secondary">{{ selectedOrder.deliveryAddress.city }}, {{ selectedOrder.deliveryAddress.province }} {{ selectedOrder.deliveryAddress.postal_code }}</p>
+                  <p class="text-tertiary small mb-0 mt-2" v-if="selectedOrder.deliveryAddress.notes">
                     Note: {{ selectedOrder.deliveryAddress.notes }}
                   </p>
                 </div>
@@ -486,9 +486,9 @@
           </div>
           <div class="modal-body">
             <div v-if="voidingOrder">
-              <p class="text-muted">
-                Are you sure you want to {{ voidingOrder.saleType === 'POS' ? 'void sale' : 'cancel order' }} 
-                <strong>{{ voidingOrder.id }}</strong>?
+              <p class="text-secondary">
+                Are you sure you want to {{ voidingOrder.saleType === 'POS' ? 'void sale' : 'cancel order' }}
+                <strong class="text-primary">{{ voidingOrder.id }}</strong>?
               </p>
               
               <div class="mb-3">
@@ -840,15 +840,12 @@ export default {
 <style scoped>
 .history-container {
   padding: 1.5rem;
-  background-color: #f8f9fa;
   min-height: 100vh;
 }
 
 .history-contents {
-  background: white;
   border-radius: 0.75rem;
   padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 /* Page Header */
@@ -858,13 +855,11 @@ export default {
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 0.75rem;
-  border-bottom: 2px solid #e2e8f0;
 }
 
 .page-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #2d3748;
   margin: 0;
 }
 
@@ -882,13 +877,38 @@ export default {
   to { transform: rotate(360deg); }
 }
 
+/* Button Styles */
+.btn-refresh,
+.btn-export,
+.btn-cancel {
+  background-color: var(--button-bg);
+  border: 1px solid var(--button-border);
+  color: var(--button-text);
+  transition: all 0.2s ease;
+}
+
+.btn-refresh:hover:not(:disabled),
+.btn-export:hover:not(:disabled),
+.btn-cancel:hover:not(:disabled) {
+  background-color: var(--state-hover);
+  border-color: var(--border-accent);
+}
+
+.btn-refresh:disabled,
+.btn-export:disabled,
+.btn-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--surface-tertiary);
+  color: var(--text-disabled);
+  border-color: var(--border-secondary);
+}
+
 /* Filters Container */
 .filters-container {
-  background: #f8f9fa;
   border-radius: 0.75rem;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  border: 1px solid #e2e8f0;
 }
 
 .search-box {
@@ -900,7 +920,6 @@ export default {
   left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #6b7280;
 }
 
 .search-box input {
@@ -913,7 +932,6 @@ export default {
 .no-data-state {
   text-align: center;
   padding: 3rem 2rem;
-  color: #6b7280;
 }
 
 .loading-state p,
@@ -924,9 +942,9 @@ export default {
 
 /* Table Container */
 .table-container {
-  background: white;
+  background: var(--surface-primary);
   border-radius: 0.75rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 
@@ -941,8 +959,8 @@ export default {
 }
 
 .history-table thead {
-  background: linear-gradient(135deg, #567cdc 0%, #7392e2 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--primary-medium) 0%, var(--primary) 100%);
+  color: var(--text-inverse);
 }
 
 .history-table th {
@@ -956,13 +974,13 @@ export default {
 
 .history-table td {
   padding: 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-secondary);
   font-size: 0.875rem;
   vertical-align: middle;
 }
 
 .history-table tbody tr:hover {
-  background-color: #f7fafc;
+  background-color: var(--state-hover);
 }
 
 .history-table tbody tr:last-child td {
@@ -973,22 +991,22 @@ export default {
 .sale-id {
   font-family: 'Courier New', monospace;
   font-weight: 600;
-  color: #567cdc;
+  color: var(--primary);
 }
 
 .item-count-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: #f3f4f6;
+  background: var(--surface-tertiary);
   padding: 0.25rem 0.75rem;
   border-radius: 0.375rem;
   font-size: 0.813rem;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .date-cell {
-  color: #6b7280;
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
@@ -996,7 +1014,7 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .source-badge {
@@ -1009,13 +1027,15 @@ export default {
 }
 
 .source-pos {
-  background-color: #dbeafe;
-  color: #1e40af;
+  background-color: var(--surface-tertiary);
+  color: var(--primary);
+  border: 1px solid var(--border-accent);
 }
 
 .source-online {
-  background-color: #dcfce7;
-  color: #166534;
+  background-color: var(--surface-tertiary);
+  color: var(--success);
+  border: 1px solid var(--success);
 }
 
 /* Status Badges */
@@ -1030,38 +1050,45 @@ export default {
 }
 
 .status-completed {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: var(--status-success-bg);
+  color: var(--status-success);
+  border: 1px solid var(--status-success);
 }
 
 .status-pending {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--status-warning-bg);
+  color: var(--status-warning);
+  border: 1px solid var(--status-warning);
 }
 
 .status-confirmed {
-  background-color: #dbeafe;
-  color: #1e40af;
+  background-color: var(--status-info-bg);
+  color: var(--status-info);
+  border: 1px solid var(--status-info);
 }
 
 .status-processing {
-  background-color: #e0e7ff;
-  color: #3730a3;
+  background-color: var(--status-info-bg);
+  color: var(--status-info);
+  border: 1px solid var(--status-info);
 }
 
 .status-on-the-way {
-  background-color: #fce7f3;
-  color: #831843;
+  background-color: var(--surface-tertiary);
+  color: var(--secondary);
+  border: 1px solid var(--secondary);
 }
 
 .status-cancelled {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--status-error-bg);
+  color: var(--status-error);
+  border: 1px solid var(--status-error);
 }
 
 .status-refunded {
-  background-color: #e5e7eb;
-  color: #374151;
+  background-color: var(--surface-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-secondary);
 }
 
 /* Payment Status Badges */
@@ -1075,29 +1102,33 @@ export default {
 }
 
 .payment-paid {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: var(--status-success-bg);
+  color: var(--status-success);
+  border: 1px solid var(--status-success);
 }
 
 .payment-pending {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--status-warning-bg);
+  color: var(--status-warning);
+  border: 1px solid var(--status-warning);
 }
 
 .payment-failed {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--status-error-bg);
+  color: var(--status-error);
+  border: 1px solid var(--status-error);
 }
 
 .payment-refunded {
-  background-color: #e5e7eb;
-  color: #374151;
+  background-color: var(--surface-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-secondary);
 }
 
 /* Total Amount */
 .total-amount {
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   text-align: right;
   font-size: 0.938rem;
 }
@@ -1117,39 +1148,39 @@ export default {
   justify-content: center;
   border-radius: 0.375rem;
   border: none;
-  background: white;
+  background: var(--surface-primary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .view-btn {
-  color: #3b82f6;
-  border: 1px solid #3b82f6;
+  color: var(--primary);
+  border: 1px solid var(--primary);
 }
 
 .view-btn:hover {
-  background-color: #3b82f6;
-  color: white;
+  background-color: var(--primary);
+  color: var(--text-inverse);
 }
 
 .receipt-btn {
-  color: #8b5cf6;
-  border: 1px solid #8b5cf6;
+  color: var(--secondary);
+  border: 1px solid var(--secondary);
 }
 
 .receipt-btn:hover {
-  background-color: #8b5cf6;
-  color: white;
+  background-color: var(--secondary);
+  color: var(--text-inverse);
 }
 
 .void-btn {
-  color: #ef4444;
-  border: 1px solid #ef4444;
+  color: var(--error);
+  border: 1px solid var(--error);
 }
 
 .void-btn:hover {
-  background-color: #ef4444;
-  color: white;
+  background-color: var(--error);
+  color: var(--text-inverse);
 }
 
 /* Pagination */
@@ -1158,13 +1189,17 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-top: 1px solid #e2e8f0;
-  background: #f9fafb;
+  border-top: 1px solid var(--border-secondary);
+  background: var(--surface-tertiary);
 }
 
 .pagination-info {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 0.875rem;
+}
+
+.pagination-info strong {
+  color: var(--text-primary);
 }
 
 .pagination-controls {
@@ -1178,9 +1213,9 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #d1d5db;
-  background: white;
-  color: #374151;
+  border: 1px solid var(--border-primary);
+  background: var(--surface-primary);
+  color: var(--text-primary);
   border-radius: 0.375rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1189,14 +1224,14 @@ export default {
 }
 
 .page-btn:hover:not(:disabled) {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
+  background-color: var(--state-hover);
+  border-color: var(--border-accent);
 }
 
 .page-btn.active {
-  background-color: #567cdc;
-  border-color: #567cdc;
-  color: white;
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-inverse);
   font-weight: 600;
 }
 
@@ -1206,9 +1241,16 @@ export default {
 }
 
 /* Modal Styles */
+.modal-content {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+}
+
 .modal-header {
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--border-secondary);
   padding: 1.25rem 1.5rem;
+  background-color: var(--surface-secondary);
 }
 
 .modal-title {
@@ -1216,15 +1258,52 @@ export default {
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .modal-body {
   padding: 1.5rem;
+  background-color: var(--surface-primary);
 }
 
 .modal-footer {
-  border-top: 2px solid #e2e8f0;
+  border-top: 2px solid var(--border-secondary);
   padding: 1rem 1.5rem;
+  background-color: var(--surface-secondary);
+}
+
+/* Modal form controls */
+.modal-body .form-control,
+.modal-body .form-select,
+.modal-body textarea {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+}
+
+.modal-body .form-control::placeholder,
+.modal-body textarea::placeholder {
+  color: var(--input-placeholder);
+}
+
+.modal-body .form-control:focus,
+.modal-body .form-select:focus,
+.modal-body textarea:focus {
+  border-color: var(--border-accent);
+  background-color: var(--input-bg);
+  color: var(--input-text);
+}
+
+.modal-body .form-label {
+  color: var(--text-secondary);
+}
+
+.modal-body .text-muted {
+  color: var(--text-tertiary) !important;
+}
+
+.modal-body small {
+  color: var(--text-tertiary);
 }
 
 /* Order Info Grid */
@@ -1236,15 +1315,15 @@ export default {
 }
 
 .info-card {
-  background: #f9fafb;
+  background: var(--surface-tertiary);
   padding: 1rem;
   border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-secondary);
 }
 
 .info-label {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-tertiary);
   text-transform: uppercase;
   font-weight: 600;
   margin-bottom: 0.5rem;
@@ -1253,7 +1332,7 @@ export default {
 
 .info-value {
   font-size: 0.938rem;
-  color: #1f2937;
+  color: var(--text-primary);
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -1264,21 +1343,21 @@ export default {
 .delivery-section {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 2px solid #e5e7eb;
+  border-top: 2px solid var(--border-secondary);
 }
 
 .delivery-address-card {
-  background: #f9fafb;
+  background: var(--surface-tertiary);
   border-radius: 0.5rem;
   padding: 1rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-secondary);
 }
 
 /* Items Section */
 .items-section {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 2px solid #e5e7eb;
+  border-top: 2px solid var(--border-secondary);
 }
 
 .section-title {
@@ -1286,13 +1365,13 @@ export default {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  color: #1f2937;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 1rem;
 }
 
 .items-list {
-  background: #f9fafb;
+  background: var(--surface-tertiary);
   border-radius: 0.5rem;
   padding: 0.75rem;
   margin-bottom: 1rem;
@@ -1303,10 +1382,10 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 0.875rem;
-  background: white;
+  background: var(--surface-primary);
   border-radius: 0.375rem;
   margin-bottom: 0.5rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-secondary);
 }
 
 .item-row:last-child {
@@ -1319,13 +1398,13 @@ export default {
 
 .item-name {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
 .item-details {
   font-size: 0.813rem;
-  color: #6b7280;
+  color: var(--text-tertiary);
 }
 
 .item-quantity {
@@ -1333,27 +1412,28 @@ export default {
 }
 
 .qty-badge {
-  background: #e0e7ff;
-  color: #3730a3;
+  background: var(--surface-tertiary);
+  color: var(--primary);
   padding: 0.25rem 0.75rem;
   border-radius: 1rem;
   font-weight: 600;
   font-size: 0.875rem;
+  border: 1px solid var(--border-accent);
 }
 
 .item-total {
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   min-width: 100px;
   text-align: right;
 }
 
 /* Price Summary */
 .price-summary {
-  background: #f9fafb;
+  background: var(--surface-tertiary);
   border-radius: 0.5rem;
   padding: 1rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-secondary);
 }
 
 .summary-row {
@@ -1361,22 +1441,22 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .summary-row:not(:last-child) {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .total-row {
   margin-top: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 2px solid #d1d5db !important;
+  border-top: 2px solid var(--border-primary) !important;
   font-size: 1.125rem;
 }
 
 .total-value {
-  color: #567cdc;
+  color: var(--primary);
   font-size: 1.25rem;
 }
 
@@ -1384,9 +1464,9 @@ export default {
 .additional-info {
   margin-top: 1.5rem;
   padding: 1rem;
-  background: #eff6ff;
+  background: var(--surface-tertiary);
   border-radius: 0.5rem;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--border-secondary);
 }
 
 .info-row {
@@ -1394,7 +1474,7 @@ export default {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
-  color: #1e40af;
+  color: var(--text-secondary);
 }
 
 .info-row:last-child {
@@ -1463,7 +1543,7 @@ export default {
     text-align: left;
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border-secondary);
   }
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="online-orders-page">
+  <div class="online-orders-page surface-secondary transition-theme">
     <!-- Loading State -->
     <div v-if="loading" class="loading-overlay">
       <div class="spinner"></div>
@@ -36,28 +36,28 @@
           </ul>
         </div>
 
-        <div class="tab-content">
+        <div class="tab-content surface-tertiary transition-theme">
           <!-- No orders message -->
           <div v-if="filteredOrders.length === 0" class="no-orders">
             <p>No {{ activeTab }} orders</p>
           </div>
 
           <!-- Order Cards -->
-          <div 
-            class="oocard" 
+          <div
+            class="oocard surface-primary border-theme shadow-md transition-theme"
             :class="{ selected: selectedOrder && selectedOrder._id === order._id }"
-            v-for="order in filteredOrders" 
-            :key="order._id" 
+            v-for="order in filteredOrders"
+            :key="order._id"
             @click="selectOrder(order)"
           >
             <div class="cardtop">
-              <h1>Order # {{ order._id }}</h1>
-              <h2>{{ order.timestamp }}</h2>
+              <h1 class="text-primary">Order # {{ order._id }}</h1>
+              <h2 class="text-secondary">{{ order.timestamp }}</h2>
             </div>
-            <div class="cardbot">    
-              <h2>Items: {{ order.quantity }}</h2>
+            <div class="cardbot">
+              <h2 class="text-secondary">Items: {{ order.quantity }}</h2>
               <div class="cdbot-right">
-                <h2>₱{{ order.total_price.toFixed(2) }}</h2>
+                <h2 class="text-primary">₱{{ order.total_price.toFixed(2) }}</h2>
                 <span :class="getBadgeClass(order.order_status)">
                   {{ getBadgeText(order.order_status) }}
                 </span>
@@ -68,14 +68,14 @@
       </div>
       
       <!-- RIGHT SIDE: Order Details -->
-      <div v-if="selectedOrder" class="oo-right">
+      <div v-if="selectedOrder" class="oo-right surface-primary border-theme shadow-md transition-theme">
         <!-- Header -->
         <div class="or-title">
           <div class="title-left">
-            <h1 style="font-weight: bold; font-size: 30px;">Order</h1>
-            <h2># {{ selectedOrder._id }}</h2>
+            <h1 class="text-primary" style="font-weight: bold; font-size: 24px;">Order</h1>
+            <h2 class="text-secondary" style="font-size: 14px; margin-top: 0.35rem;"># {{ selectedOrder._id }}</h2>
           </div>
-          <button @click="selectedOrder = null" class="close-btn hover-accent transition-theme-fast">
+          <button @click="selectedOrder = null" class="close-btn text-secondary hover-accent transition-theme-fast">
             <CircleX :size="24" />
           </button>
         </div>
@@ -93,40 +93,33 @@
         <!-- Items List -->
         <div class="or-body">
           <div class="orb-header">
-            <h3>Item</h3>
-            <h3>Qty</h3>
-            <h3>✓</h3>
+            <h3 class="text-tertiary">Item</h3>
+            <h3 class="text-tertiary">Qty</h3>
           </div>
           <div class="orb-body">
-            <div v-for="item in selectedOrder.items" :key="item.product_id" class="orbb-card">
-              <span class="item-name">{{ item.product_name }}</span>
-              <span class="item-qty">{{ item.quantity }}</span>
-              <input 
-                type="checkbox" 
-                v-model="item.completed" 
-                class="item-checkbox"
-                :disabled="selectedOrder.order_status === 'completed'"
-              />
+            <div v-for="item in selectedOrder.items" :key="item.product_id" class="orbb-card surface-elevated border-theme-subtle transition-theme">
+              <span class="item-name text-primary">{{ item.product_name }}</span>
+              <span class="item-qty text-primary">{{ item.quantity }}</span>
             </div>
           </div>
         </div>
 
         <!-- Customer Info -->
-        <div class="customer-section">
+        <div class="customer-section surface-elevated border-theme-subtle transition-theme">
           <div class="location-row">
-            <MapPin class="location-icon" :size="20" />
+            <MapPin class="location-icon text-secondary" :size="20" />
             <div class="location-text">
-              <p class="community">{{ selectedOrder.customer.community }}</p>
-              <p class="address">{{ selectedOrder.customer.address }}</p>
+              <p class="community text-primary">{{ selectedOrder.customer.community }}</p>
+              <p class="address text-secondary">{{ selectedOrder.customer.address }}</p>
             </div>
           </div>
-          
+
           <div class="phone-row">
-            <span>{{ selectedOrder.customer.phone }}</span>
+            <span class="text-primary">{{ selectedOrder.customer.phone }}</span>
           </div>
-          
+
           <div class="notes-row">
-            <p><strong>Notes:</strong> {{ selectedOrder.notes }}</p>
+            <p class="text-secondary"><strong>Notes:</strong> {{ selectedOrder.notes }}</p>
           </div>
         </div>
 
@@ -167,11 +160,10 @@
           </button>
           
           <!-- Mark Ready for Delivery -->
-          <button 
+          <button
             v-if="selectedOrder.order_status === 'processing'"
             class="action-btn btn-ready"
             @click="progressOrder"
-            :disabled="!allItemsChecked"
           >
             Mark Ready for Delivery
           </button>
@@ -244,21 +236,15 @@ export default {
       return this.orders.filter(order => order.order_status === 'completed').length
     },
 
-    allItemsChecked() {
-      if (!this.selectedOrder) return false
-      return this.selectedOrder.items.every(item => item.completed)
-    },
-    
     canCompleteOrder() {
       if (!this.selectedOrder) return false
-      
-      const allItemsCompleted = this.selectedOrder.items.every(item => item.completed)
-      const paymentReady = this.selectedOrder.payment_method === 'cod' 
-        ? this.selectedOrder.cashReceived 
+
+      const paymentReady = this.selectedOrder.payment_method === 'cod'
+        ? this.selectedOrder.cashReceived
         : this.selectedOrder.payment_status === 'paid'
       const isOnTheWay = this.selectedOrder.order_status === 'on_the_way'
-      
-      return allItemsCompleted && paymentReady && isOnTheWay
+
+      return paymentReady && isOnTheWay
     }
   },
 
@@ -305,10 +291,7 @@ export default {
         quantity: apiOrder.items.reduce((sum, item) => sum + item.quantity, 0),
         timestamp: this.formatTime(apiOrder.transaction_date),
         cashReceived: apiOrder.payment_status === 'paid',
-        items: apiOrder.items.map(item => ({
-          ...item,
-          completed: false
-        })),
+        items: apiOrder.items,
         customer: {
           community: apiOrder.delivery_address.barangay || 'Not specified',
           address: `${apiOrder.delivery_address.street}, ${apiOrder.delivery_address.city}`,
@@ -375,23 +358,19 @@ export default {
       try {
         const orderId = this.selectedOrder._id
         const currentStatus = this.selectedOrder.order_status
-        
+
         if (currentStatus === 'pending' || currentStatus === 'confirmed') {
           await this.startProcessing(orderId)
         } else if (currentStatus === 'processing') {
-          if (!this.allItemsChecked) {
-            alert('Please check off all items before marking ready for delivery')
-            return
-          }
           await this.markReady(orderId)
         }
-        
+
         await this.loadOrders()
         const updatedOrder = this.orders.find(o => o._id === orderId)
         if (updatedOrder) {
           this.selectedOrder = updatedOrder
         }
-        
+
       } catch (error) {
         console.error('Error progressing order:', error)
         alert('Failed to update order status')
@@ -501,7 +480,8 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--surface-primary);
+  opacity: 0.95;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -510,8 +490,8 @@ export default {
 }
 
 .spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #6f42c1;
+  border: 4px solid var(--border-secondary);
+  border-top: 4px solid var(--primary);
   border-radius: 50%;
   width: 50px;
   height: 50px;
@@ -525,13 +505,13 @@ export default {
 }
 
 .loading-overlay p {
-  color: #6f42c1;
+  color: var(--primary);
   font-weight: 600;
 }
 
 .error-banner {
-  background-color: #f8d7da;
-  color: #721c24;
+  background-color: var(--error-light);
+  color: var(--error-dark);
   padding: 1rem;
   margin: 1rem;
   border-radius: 8px;
@@ -541,34 +521,47 @@ export default {
 }
 
 .retry-btn {
-  background-color: #dc3545;
-  color: white;
+  background-color: var(--error);
+  color: var(--text-inverse);
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 5px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .retry-btn:hover {
-  background-color: #c82333;
+  background-color: var(--error-dark);
 }
 
 /* Main Layout */
 .online-orders-page {
   padding: 0;
+  overflow-x: hidden;
 }
 
 .oo-contents {
-  padding: 2rem 0 2rem 2rem; /* Add top and bottom padding */
+  padding: 2rem 1.5rem 2rem 2rem;
   display: flex;
   height: 74vh;
-  gap: 0.5rem;
-} 
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-secondary);
+  max-width: 100vw;
+  box-sizing: border-box;
+  border-radius: 1rem;
+}
 
 /* Left Side */
 .oo-left {
-  width: 74%;
+  flex: 1;
+  min-width: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-headers {
+  flex-shrink: 0;
 }
 
 .nav-tabs {
@@ -605,15 +598,17 @@ export default {
 }
 
 .tab-content {
-  padding: 0;
-  overflow-y: scroll;
-  height: 100%;
+  padding: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  border-radius: 0 0.5rem 0.5rem 0.5rem;
 }
 
 .no-orders {
   text-align: center;
   padding: 3rem;
-  color: #6c757d;
+  color: var(--text-tertiary);
   font-size: 1.2rem;
 }
 
@@ -623,25 +618,28 @@ export default {
   flex-direction: column;
   padding: 20px;
   border-radius: 12px;
-  margin-top: 20px;
+  margin-bottom: 0.75rem;
   cursor: pointer;
 }
 
 .oocard:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-color: #dee2e6;
+  box-shadow: var(--shadow-lg) !important;
+  border-color: var(--border-accent) !important;
+  transform: translateY(-2px);
 }
 
 .oocard.selected {
-  background-color: #6f42c1;
-  color: white;
-  border-color: #6f42c1;
-  border-width: 3px;
+  background-color: var(--primary) !important;
+  color: var(--text-inverse) !important;
+  border-color: var(--primary) !important;
+  border-width: 2px !important;
 }
 
 .oocard.selected h1,
-.oocard.selected h2 {
-  color: white;
+.oocard.selected h2,
+.oocard.selected .text-primary,
+.oocard.selected .text-secondary {
+  color: var(--text-inverse) !important;
 }
 
 .cardtop {
@@ -652,15 +650,19 @@ export default {
 }
 
 .cardtop h1 {
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 600;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cardtop h2 {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 500;
   margin: 0;
+  white-space: nowrap;
 }
 
 .cardbot {
@@ -700,11 +702,14 @@ export default {
 
 /* Right Side */
 .oo-right {
-  width: 24%;
-  height: 79vh;
-  background-color: white;
+  width: 320px;
+  min-width: 280px;
+  max-width: 350px;
+  height: 100%;
   border-radius: 10px;
   overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
 }
 
 .or-title {
@@ -712,44 +717,48 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-right: 10px;
-  margin-left: 20px;
+  padding: 0 1rem;
   margin-bottom: 1rem;
 }
 
 .title-left {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .close-btn {
   background: none;
   border: none;
   cursor: pointer;
-  color: #6c757d;
   padding: 0.25rem;
   border-radius: 50%;
   transition: all 0.2s ease;
 }
 
 .close-btn:hover {
-  background-color: #f8f9fa;
-  color: #dc3545;
+  background-color: var(--state-hover);
+  color: var(--error);
 }
 
 /* Status Badges */
 .status-badge-container {
-  margin: 0 1rem 1rem 1rem;
+  padding: 0 1rem;
+  margin-bottom: 1rem;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .status-badge {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 14px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 16px;
+  font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .status-pending {
@@ -778,115 +787,141 @@ export default {
 }
 
 .payment-badge {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 12px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 16px;
+  font-size: 11px;
   font-weight: 600;
-  background-color: #f8f9fa;
-  color: #495057;
+  background-color: var(--surface-elevated);
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 /* Items List */
 .or-body {
-  margin: 0 1rem;
+  padding: 0 1rem;
 }
 
 .orb-header {
   display: flex;
   justify-content: space-between;
-  padding: 0 0.5rem;
+  padding: 0 1rem;
   margin-bottom: 0.5rem;
+  gap: 1rem;
 }
 
-.orb-header h3 {
-  font-size: 16px;
-  color: #6c757d;
+.orb-header h3:first-child {
+  flex: 1;
+  font-size: 13px;
+}
+
+.orb-header h3:last-child {
+  width: 28px;
+  text-align: center;
+  font-size: 13px;
 }
 
 .orb-body {
   max-height: 30vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .orbb-card {
-  height: 50px;
+  height: 45px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 1rem;
   margin-bottom: 0.5rem;
+  gap: 1rem;
 }
 
 .item-name {
   flex: 1;
-  font-size: 14px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .item-qty {
-  width: 30px;
+  width: 28px;
   text-align: center;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-}
-
-.item-checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* Customer Section */
 .customer-section {
   margin: 1rem;
-  padding: 1rem;
-  border-radius: 10px;
+  padding: 0.75rem;
+  border-radius: 8px;
 }
 
 .location-row {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  gap: 0.5rem;
 }
 
 .location-icon {
-  margin-right: 0.5rem;
   flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.location-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .location-text p {
   margin: 0.2rem 0;
-  font-size: 14px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .community {
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .phone-row {
-  margin-bottom: 1rem;
-  font-size: 14px;
+  margin-bottom: 0.75rem;
+  font-size: 13px;
   font-weight: 600;
+  word-break: break-word;
 }
 
 .notes-row p {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Payment Section */
 .payment-section {
-  margin: 1rem;
+  padding: 0 1rem;
+  margin-bottom: 1rem;
 }
 
 .payment-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .cash-label {
   font-weight: 600;
+  font-size: 13px;
+  flex: 1;
 }
 
 .toggle-switch {
@@ -940,7 +975,8 @@ input:disabled + .slider {
 
 /* Payment Confirmation */
 .payment-confirm-section {
-  margin: 1rem;
+  padding: 0 1rem;
+  margin-bottom: 1rem;
 }
 
 .confirm-payment-btn {
@@ -948,10 +984,11 @@ input:disabled + .slider {
   background-color: #17a2b8;
   color: white;
   border: none;
-  padding: 0.75rem;
-  border-radius: 10px;
+  padding: 0.65rem;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 13px;
   transition: all 0.2s ease;
 }
 
@@ -961,7 +998,8 @@ input:disabled + .slider {
 
 /* Action Buttons */
 .actions-section {
-  margin: 1rem;
+  padding: 0 1rem;
+  margin-bottom: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -969,11 +1007,12 @@ input:disabled + .slider {
 
 .action-btn {
   width: 100%;
-  padding: 0.75rem;
-  border-radius: 10px;
+  padding: 0.65rem;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
   font-weight: 600;
+  font-size: 13px;
   transition: all 0.2s ease;
 }
 
@@ -991,14 +1030,8 @@ input:disabled + .slider {
   color: white;
 }
 
-.btn-ready:hover:not(:disabled) {
+.btn-ready:hover {
   background-color: #218838;
-}
-
-.btn-ready:disabled {
-  background-color: #6c757d;
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 
 .btn-cancel {
@@ -1015,13 +1048,14 @@ input:disabled + .slider {
   background-color: #28a745;
   color: white;
   border: none;
-  padding: 0.75rem;
-  border-radius: 10px;
+  padding: 0.65rem;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+  font-size: 13px;
   transition: all 0.2s ease;
 }
 
@@ -1036,15 +1070,21 @@ input:disabled + .slider {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .oo-contents {
     flex-direction: column;
     height: auto;
+    padding: 1.5rem;
   }
-  
-  .oo-left,
+
+  .oo-left {
+    width: 100%;
+  }
+
   .oo-right {
     width: 100%;
+    max-width: 100%;
+    min-width: 100%;
   }
 }
 </style>

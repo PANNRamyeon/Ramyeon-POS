@@ -5,18 +5,18 @@
       <div class="stats-section">
         <KpiCard
           title="Total Revenue"
-          :value="'₱26,145'"
-          subtitle="This month's total earnings"
-          change=""
+          :value="totalRevenueDisplay"
+          subtitle="Today's total revenue"
+          :change="''"
           changeType="positive"
           variant="profit"
         />
         
         <KpiCard
           title="Total Orders"
-          :value="1039"
-          subtitle="Orders processed this month"
-          change=""
+          :value="totalOrders"
+          subtitle="Orders processed today"
+          :change="''"
           changeType="positive"
           variant="orders"
         />
@@ -188,6 +188,8 @@
 
 <script>
 import KpiCard from '@/components/KPICard.vue'
+import salesAPI from '@/services/apiSales.js'
+import { useLocalStorage } from '@/composables/data/useLocalStorage.js'
 
 export default {
   name: 'Dashboard',
@@ -197,6 +199,13 @@ export default {
   data() {
     return {
       activePeriod: 'This week',
+      // KPI state
+      totalRevenue: 0,
+      totalOrders: 0,
+      lastUpdated: null,
+      // cache helpers
+      storage: null,
+      cacheTTLms: 10 * 60 * 1000, // refresh every 10 minutes within the day
       timePeriods: ['This week', 'This month', 'This year'],
       orderedItems: [
         { id: 1, name: 'Noodle 1', orders: 42, ppu: 100, revenue: 4200 },
@@ -209,8 +218,64 @@ export default {
       ]
     }
   },
-  mounted() {
-    console.log('Dashboard page loaded with KPI cards')
+  computed: {
+    totalRevenueDisplay() {
+      return `₱${this.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 0 })}`
+    }
+  },
+  async mounted() {
+    const ls = useLocalStorage()
+    this.storage = ls.withPrefix('dashboard')
+    await this.refreshDailyKpis()
+    this._kpiTimer = setInterval(this.refreshDailyKpis, 10 * 60 * 1000)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this.refreshDailyKpis()
+    })
+  },
+  beforeUnmount() {
+    if (this._kpiTimer) clearInterval(this._kpiTimer)
+  },
+  methods: {
+    getTodayKey() {
+      const d = new Date()
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    },
+    async refreshDailyKpis() {
+      try {
+        const today = this.getTodayKey()
+        const cached = this.storage.getItem(`kpi:${today}`, null)
+        if (cached) {
+          this.totalRevenue = Number(cached.totalRevenue || 0)
+          this.totalOrders = Number(cached.totalOrders || 0)
+          this.lastUpdated = cached.lastUpdated || null
+        }
+        const data = await salesAPI.getDailySummary(today)
+        const totalRevenue = Number(data.total_revenue || data.revenue || 0)
+        const totalOrders = Number(data.total_orders || data.orders || 0)
+        this.totalRevenue = totalRevenue
+        this.totalOrders = totalOrders
+        this.lastUpdated = new Date().toISOString()
+        this.storage.setItem(`kpi:${today}`, {
+          totalRevenue,
+          totalOrders,
+          lastUpdated: this.lastUpdated
+        }, this.cacheTTLms)
+        if (Array.isArray(data.top_items) && data.top_items.length > 0) {
+          this.orderedItems = data.top_items.map((it, idx) => ({
+            id: it.id || idx,
+            name: it.name || it.product_name || `Item ${idx+1}`,
+            orders: it.orders || it.count || 0,
+            ppu: it.ppu || it.price || 0,
+            revenue: it.revenue || Math.round((it.orders || 0) * (it.ppu || it.price || 0))
+          }))
+        }
+      } catch (e) {
+        console.error('Failed to refresh daily KPIs:', e)
+      }
+    }
   }
 }
 </script>
@@ -268,14 +333,12 @@ export default {
 .items-table th {
   text-align: left;
   padding: 0.75rem;
-  border-bottom: 2px solid var(--border-primary);
   font-weight: 600;
   font-size: 0.875rem;
 }
 
 .items-table td {
   padding: 0.75rem;
-  border-bottom: 1px solid var(--border-secondary);
 }
 
 .item-info {
@@ -308,7 +371,6 @@ export default {
 
 .tab {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--border-secondary);
   border-radius: 0.375rem;
   cursor: pointer;
   font-size: 0.875rem;
@@ -316,7 +378,7 @@ export default {
 
 .tab.active {
   background-color: var(--primary) !important;
-  color: white !important;
+  color: var(--text-inverse) !important;
   border-color: var(--primary) !important;
 }
 

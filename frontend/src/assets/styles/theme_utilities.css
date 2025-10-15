@@ -142,7 +142,7 @@
 
 .text-error {
 
-  color: var(--status-error) !important;
+  color: var(--text-error) !important;
 
 }
 
@@ -150,7 +150,7 @@
 
 .text-success {
 
-  color: var(--status-success) !important;
+  color: var(--text-success) !important;
 
 }
 
@@ -158,7 +158,7 @@
 
 .text-warning {
 
-  color: var(--status-warning) !important;
+  color: var(--text-warning) !important;
 
 }
 
@@ -166,7 +166,7 @@
 
 .text-info {
 
-  color: var(--status-info) !important;
+  color: var(--text-info) !important;
 
 }
 

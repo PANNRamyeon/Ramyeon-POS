@@ -151,13 +151,13 @@
               <p>Switch between light and dark theme</p>
             </div>
             <div class="form-check form-switch">
-              <input 
-                class="form-check-input" 
-                type="checkbox" 
-                role="switch" 
-                id="switchCheckChecked" 
-                @change="toggleDark" 
-                v-model="darkMode"
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="switchCheckChecked"
+                @change="toggleTheme"
+                :checked="isDarkMode"
               >
             </div>
           </div>
@@ -170,19 +170,26 @@
 
 <script>
 import apiSettings from '@/services/apiSettings'
+import { useTheme } from '@/composables/ui/useTheme'
 
 export default {
   name: 'Settings',
+  setup() {
+    const { currentTheme, toggleTheme } = useTheme()
+
+    return {
+      currentTheme,
+      toggleTheme
+    }
+  },
   data() {
     return {
       isEditingPassword: false,
-      darkMode: false,
       loading: true,
       error: null,
       errorMessage: '',
       successMessage: '',
       passwordMismatch: false,
-      isDarkMode: false, // Changed to reactive data property
       user: {
         id: '',
         email: '',
@@ -205,6 +212,9 @@ export default {
              this.passwordForm.confirmPassword &&
              !this.passwordMismatch &&
              this.passwordForm.newPassword.length >= 6;
+    },
+    isDarkMode() {
+      return this.currentTheme === 'dark';
     }
   },
   methods: {
@@ -229,22 +239,7 @@ export default {
       this.passwordMismatch = false;
       this.clearErrors();
     },
-    
-    toggleDark() {
-      this.darkMode = !this.darkMode;
 
-      if (this.darkMode) {
-        document.body.classList.add('dark-mode');
-        document.documentElement.setAttribute('data-theme', 'dark');
-      } else {
-        document.body.classList.remove('dark-mode');
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
-      
-      // Save preference to localStorage
-      localStorage.setItem('darkMode', this.darkMode);
-    },
-    
     async loadUserData() {
       try {
         this.loading = true
@@ -382,22 +377,16 @@ export default {
       return statusClasses[status?.toLowerCase()] || 'badge-default';
     }
   },
-  
+
   async mounted() {
     await this.loadUserData();
-    
-    // Check if dark mode was previously enabled
-    const savedDarkMode = localStorage.getItem('darkMode');
-    if (savedDarkMode === 'true') {
-      this.darkMode = true;
-      document.body.classList.add('dark-mode');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
   }
 }
 </script>
 
 <style scoped>
+@import '@/assets/styles/theme_utilities.css';
+
 .settings-container {
   padding: 0;
   max-width: 1200px;
@@ -413,10 +402,11 @@ export default {
 }
 
 .contents-section h1 {
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   font-size: 1.875rem;
   font-weight: 600;
   margin-bottom: 2rem;
+  transition: color 0.3s ease;
 }
 
 .settings-content {
@@ -444,8 +434,9 @@ export default {
 .section-header h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .profile-info {
@@ -464,13 +455,15 @@ export default {
 
 .info-row label {
   font-weight: 500;
-  color: var(--tertiary-medium);
+  color: var(--text-secondary);
   font-size: 0.9375rem;
+  transition: color 0.3s ease;
 }
 
 .info-value {
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   font-size: 0.9375rem;
+  transition: color 0.3s ease;
 }
 
 .badge {
@@ -529,7 +522,8 @@ export default {
 .password-placeholder {
   padding: 2rem;
   text-align: center;
-  color: var(--tertiary-medium);
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .form-group {
@@ -539,9 +533,10 @@ export default {
 .form-group label {
   display: block;
   font-weight: 500;
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
   font-size: 0.9375rem;
+  transition: color 0.3s ease;
 }
 
 .form-control {
@@ -550,7 +545,14 @@ export default {
   border: 1px solid var(--neutral);
   border-radius: 0.5rem;
   font-size: 0.9375rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  color: var(--text-primary);
+  background-color: var(--surface-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.3s ease, background-color 0.3s ease;
+}
+
+.form-control::placeholder {
+  color: var(--text-tertiary);
+  transition: color 0.3s ease;
 }
 
 .form-control:focus {
@@ -571,7 +573,8 @@ export default {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.8125rem;
-  color: var(--tertiary-medium);
+  color: var(--text-tertiary);
+  transition: color 0.3s ease;
 }
 
 .password-feedback {
@@ -631,7 +634,8 @@ export default {
 
 .btn-secondary {
   background-color: var(--neutral-medium);
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
 }
 
 .btn-secondary:hover {
@@ -648,22 +652,25 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: white;
+  background: var(--surface-primary);
   border-radius: 0.5rem;
-  border: 1px solid var(--neutral);
+  border: 1px solid var(--border-primary);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .theme-info h3 {
   font-size: 1rem;
   font-weight: 500;
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   margin: 0 0 0.25rem 0;
+  transition: color 0.3s ease;
 }
 
 .theme-info p {
   font-size: 0.875rem;
-  color: var(--tertiary-medium);
+  color: var(--text-secondary);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .form-check-input {
@@ -680,7 +687,8 @@ export default {
 .loading {
   text-align: center;
   padding: 3rem;
-  color: var(--tertiary-medium);
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .spinner {
