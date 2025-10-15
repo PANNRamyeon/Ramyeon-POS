@@ -30,46 +30,22 @@
       <div class="settings-section">
         <div class="section-header">
           <h2>Profile Information</h2>
-          <button type="button" class="btn btn-primary" @click="toggleEditProfile">
-            {{ isEditingProfile ? 'Cancel' : 'Edit Profile' }}
-          </button>
         </div>
         
         <div class="profile-info">
           <div class="info-row">
             <label>Full Name</label>
-            <input 
-              v-if="isEditingProfile"
-              class="form-control" 
-              type="text" 
-              v-model="editForm.full_name"
-              placeholder="Enter full name"
-            />
-            <span v-else class="info-value">{{ user.full_name || 'Not set' }}</span>
+            <span class="info-value">{{ user.full_name || 'Not set' }}</span>
           </div>
           
           <div class="info-row">
             <label>Username</label>
-            <input 
-              v-if="isEditingProfile"
-              class="form-control" 
-              type="text" 
-              v-model="editForm.username"
-              placeholder="Enter username"
-            />
-            <span v-else class="info-value">{{ user.username }}</span>
+            <span class="info-value">{{ user.username }}</span>
           </div>
           
           <div class="info-row">
             <label>Email</label>
-            <input 
-              v-if="isEditingProfile"
-              class="form-control" 
-              type="email" 
-              v-model="editForm.email"
-              placeholder="Enter email"
-            />
-            <span v-else class="info-value">{{ user.email }}</span>
+            <span class="info-value">{{ user.email }}</span>
           </div>
           
           <div class="info-row">
@@ -88,15 +64,6 @@
                 {{ formatStatus(user.status) }}
               </span>
             </span>
-          </div>
-          
-          <div v-if="isEditingProfile" class="action-buttons">
-            <button type="button" class="btn btn-secondary" @click="cancelProfileEdit">
-              Cancel
-            </button>
-            <button type="button" class="btn btn-primary" @click="saveProfileChanges">
-              Save Changes
-            </button>
           </div>
         </div>
       </div>
@@ -184,13 +151,13 @@
               <p>Switch between light and dark theme</p>
             </div>
             <div class="form-check form-switch">
-              <input 
-                class="form-check-input" 
-                type="checkbox" 
-                role="switch" 
-                id="switchCheckChecked" 
-                @change="toggleDark" 
-                v-model="darkMode"
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="switchCheckChecked"
+                @change="toggleTheme"
+                :checked="isDarkMode"
               >
             </div>
           </div>
@@ -203,20 +170,26 @@
 
 <script>
 import apiSettings from '@/services/apiSettings'
+import { useTheme } from '@/composables/ui/useTheme'
 
 export default {
   name: 'Settings',
+  setup() {
+    const { currentTheme, toggleTheme } = useTheme()
+
+    return {
+      currentTheme,
+      toggleTheme
+    }
+  },
   data() {
     return {
-      isEditingProfile: false,
       isEditingPassword: false,
-      darkMode: false,
       loading: true,
       error: null,
       errorMessage: '',
       successMessage: '',
       passwordMismatch: false,
-      isDarkMode: false, // Changed to reactive data property
       user: {
         id: '',
         email: '',
@@ -224,11 +197,6 @@ export default {
         full_name: '',
         role: '',
         status: ''
-      },
-      editForm: {
-        full_name: '',
-        username: '',
-        email: ''
       },
       passwordForm: {
         currentPassword: '',
@@ -244,35 +212,17 @@ export default {
              this.passwordForm.confirmPassword &&
              !this.passwordMismatch &&
              this.passwordForm.newPassword.length >= 6;
+    },
+    isDarkMode() {
+      return this.currentTheme === 'dark';
     }
   },
   methods: {
-    toggleEditProfile() {
-      this.isEditingProfile = !this.isEditingProfile;
-      if (this.isEditingProfile) {
-        // Copy current user data to edit form
-        this.editForm = {
-          full_name: this.user.full_name,
-          username: this.user.username,
-          email: this.user.email
-        };
-      }
-    },
-    
     toggleEditPassword() {
       this.isEditingPassword = !this.isEditingPassword;
       if (!this.isEditingPassword) {
         this.resetPasswordForm();
       }
-    },
-    
-    cancelProfileEdit() {
-      this.isEditingProfile = false;
-      this.editForm = {
-        full_name: this.user.full_name,
-        username: this.user.username,
-        email: this.user.email
-      };
     },
     
     cancelPasswordChange() {
@@ -289,75 +239,13 @@ export default {
       this.passwordMismatch = false;
       this.clearErrors();
     },
-    
-    async saveProfileChanges() {
-      try {
-        this.errorMessage = '';
-        this.successMessage = '';
-        
-        // Validate form
-        if (!this.editForm.username || !this.editForm.email) {
-          this.errorMessage = 'Username and email are required';
-          return;
-        }
-        
-        const updateData = {
-          username: this.editForm.username,
-          email: this.editForm.email,
-          full_name: this.editForm.full_name,
-          role: this.user.role,
-          status: this.user.status
-        };
-        
-        const result = await apiSettings.updateUser(this.user.id, updateData);
-        
-        // Update local user data
-        this.user.full_name = this.editForm.full_name;
-        this.user.username = this.editForm.username;
-        this.user.email = this.editForm.email;
-        
-        this.successMessage = 'Profile updated successfully';
-        this.isEditingProfile = false;
-        
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          this.successMessage = '';
-        }, 3000);
-        
-      } catch (error) {
-        console.error('Profile update error:', error);
-        this.errorMessage = error.message;
-      }
-    },
-    
-    toggleDark() {
-      this.darkMode = !this.darkMode;
 
-      if (this.darkMode) {
-        document.body.classList.add('dark-mode');
-        document.documentElement.setAttribute('data-theme', 'dark');
-      } else {
-        document.body.classList.remove('dark-mode');
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
-      
-      // Save preference to localStorage
-      localStorage.setItem('darkMode', this.darkMode);
-    },
-    
     async loadUserData() {
       try {
         this.loading = true
         this.error = null
         
         this.user = await apiSettings.getCurrentUser();
-        
-        // Initialize edit form with user data
-        this.editForm = {
-          full_name: this.user.full_name,
-          username: this.user.username,
-          email: this.user.email
-        };
         
       } catch (error) {
         this.error = error.message
@@ -489,22 +377,16 @@ export default {
       return statusClasses[status?.toLowerCase()] || 'badge-default';
     }
   },
-  
+
   async mounted() {
     await this.loadUserData();
-    
-    // Check if dark mode was previously enabled
-    const savedDarkMode = localStorage.getItem('darkMode');
-    if (savedDarkMode === 'true') {
-      this.darkMode = true;
-      document.body.classList.add('dark-mode');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
   }
 }
 </script>
 
 <style scoped>
+@import '@/assets/styles/theme_utilities.css';
+
 .settings-container {
   padding: 0;
   max-width: 1200px;
@@ -520,10 +402,11 @@ export default {
 }
 
 .contents-section h1 {
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   font-size: 1.875rem;
   font-weight: 600;
   margin-bottom: 2rem;
+  transition: color 0.3s ease;
 }
 
 .settings-content {
@@ -551,8 +434,9 @@ export default {
 .section-header h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .profile-info {
@@ -571,13 +455,15 @@ export default {
 
 .info-row label {
   font-weight: 500;
-  color: var(--tertiary-medium);
+  color: var(--text-secondary);
   font-size: 0.9375rem;
+  transition: color 0.3s ease;
 }
 
 .info-value {
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   font-size: 0.9375rem;
+  transition: color 0.3s ease;
 }
 
 .badge {
@@ -636,7 +522,8 @@ export default {
 .password-placeholder {
   padding: 2rem;
   text-align: center;
-  color: var(--tertiary-medium);
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .form-group {
@@ -646,9 +533,10 @@ export default {
 .form-group label {
   display: block;
   font-weight: 500;
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
   font-size: 0.9375rem;
+  transition: color 0.3s ease;
 }
 
 .form-control {
@@ -657,7 +545,14 @@ export default {
   border: 1px solid var(--neutral);
   border-radius: 0.5rem;
   font-size: 0.9375rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  color: var(--text-primary);
+  background-color: var(--surface-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.3s ease, background-color 0.3s ease;
+}
+
+.form-control::placeholder {
+  color: var(--text-tertiary);
+  transition: color 0.3s ease;
 }
 
 .form-control:focus {
@@ -678,7 +573,8 @@ export default {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.8125rem;
-  color: var(--tertiary-medium);
+  color: var(--text-tertiary);
+  transition: color 0.3s ease;
 }
 
 .password-feedback {
@@ -738,7 +634,8 @@ export default {
 
 .btn-secondary {
   background-color: var(--neutral-medium);
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
 }
 
 .btn-secondary:hover {
@@ -755,22 +652,25 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: white;
+  background: var(--surface-primary);
   border-radius: 0.5rem;
-  border: 1px solid var(--neutral);
+  border: 1px solid var(--border-primary);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .theme-info h3 {
   font-size: 1rem;
   font-weight: 500;
-  color: var(--tertiary-dark);
+  color: var(--text-primary);
   margin: 0 0 0.25rem 0;
+  transition: color 0.3s ease;
 }
 
 .theme-info p {
   font-size: 0.875rem;
-  color: var(--tertiary-medium);
+  color: var(--text-secondary);
   margin: 0;
+  transition: color 0.3s ease;
 }
 
 .form-check-input {
@@ -787,7 +687,8 @@ export default {
 .loading {
   text-align: center;
   padding: 3rem;
-  color: var(--tertiary-medium);
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .spinner {

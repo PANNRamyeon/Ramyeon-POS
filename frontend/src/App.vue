@@ -55,7 +55,9 @@ html, body {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #f9fafb;
+  background-color: var(--surface-secondary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #app {
@@ -63,5 +65,18 @@ body {
   height: 100vh;
   margin: 0;
   padding: 0;
+}
+
+/* Bootstrap overrides for dark mode compatibility */
+.text-muted {
+  color: var(--text-tertiary) !important;
+}
+
+.btn-close {
+  filter: var(--bs-btn-close-filter, none);
+}
+
+:root[data-theme="dark"] .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
 }
 </style>

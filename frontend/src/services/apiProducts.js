@@ -40,32 +40,39 @@ class ProductAPIService {
   }
 
   transformProductData(products) {
-    if (!Array.isArray(products)) {
-        console.warn('⚠️ transformProductData received non-array:', products)
-        return [];
-    }
+    if (!Array.isArray(products)) return [];
     
     return products.map(product => {
-        // ✅ Extract ID with more options
         const productId = product._id || product.id || product.product_id
         
-        console.log(`🔧 Transforming product:`, {
-            original_id: product._id,
-            transformed_id: productId,
-            name: product.product_name || product.name
-        })
+        // ✅ FORCE: Always use batch_stock if available
+        let stockValue;
+        if (product.batch_stock !== undefined && product.batch_stock !== null) {
+            stockValue = product.batch_stock
+        } else if (product.stock_quantity !== undefined) {
+            stockValue = product.stock_quantity
+        } else {
+            stockValue = product.stock || 0
+        }
+        
+        console.log(`📦 ${productId}: Using batch stock = ${stockValue}`)
+        
+        // ✅ ADD: Log category for debugging
+        const categoryId = product.category || product.category_id
+        console.log(`   📂 Category: ${categoryId}`)
         
         return {
-            id: productId,  // ✅ Make sure this matches what cart uses
-            _id: productId, // ✅ Keep both for compatibility
+            id: productId,
+            _id: productId,
             name: product.name || product.product_name,
-            description: product.description || '',
             price: product.price || product.selling_price || 0,
-            category: product.category || product.category_id,
-            subcategory: product.subcategory || product.subcategory_name || product.sub_category,
+            stock: stockValue,
+            batch_stock: product.batch_stock,
+            batches_count: product.batches_count || 0,
             image: product.image || product.image_url || this.generatePlaceholderImage(product.name || product.product_name),
-            stock: product.stock_quantity || product.stock || 0,  // ✅ Backend uses "stock"
-            sku: product.sku || product.SKU || ''
+            sku: product.sku || product.SKU || '',
+            category: categoryId,  // ✅ Make sure this is set
+            subcategory: product.subcategory || product.subcategory_name
         }
     });
   }

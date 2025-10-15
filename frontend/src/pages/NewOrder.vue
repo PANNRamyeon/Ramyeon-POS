@@ -1,26 +1,26 @@
 <template>
-  <div class="new-order-page">
+  <div class="new-order-page page-container transition-theme">
     <!-- Main Content Area -->
-    <div class="main-area">
-      <div class="no-contents">
+    <div class="main-area content-container">
+      <div class="no-contents surface-primary text-primary transition-theme">
         <!-- Header Section -->
-        <div class="no-header">
-          <div class="category-search">
+        <div class="no-header header-theme">
+          <div class="category-search surface-primary border-bottom-theme transition-theme">
             <input 
               type="text" 
               v-model="categorySearch" 
               placeholder="Search products..." 
-              class="search-input"
+              class="search-input input-complete focus-ring-theme"
             />
           </div>
           
           <!-- Categories -->
-          <div class="header-bot">
+          <div class="header-bot surface-secondary transition-theme">
             <div class="categories-container">
               <div 
                 v-for="category in categories" 
                 :key="category.id"
-                :class="['cat-card', { active: activeCategory === category.id }]"
+                :class="['cat-card card-complete hover-lift', { active: activeCategory === category.id }]"
                 @click="selectCategory(category.id)">
                 <div class="cat-icon">
                   <component :is="category.icon" />
@@ -28,7 +28,7 @@
                 <span class="cat-label">{{ category.name }}</span>
                 <button 
                   v-if="category.isCustom"
-                  class="delete-category-btn"
+                  class="delete-category-btn btn-complete"
                   @click.stop="deleteCategory(category.id)"
                   title="Delete Category">
                   <X :size="12" />
@@ -36,7 +36,7 @@
               </div>
               
               <!-- Add Category Button -->
-              <div class="cat-card add-category" @click="showCategoryModal = true">
+              <div class="cat-card add-category card-complete hover-lift" @click="showCategoryModal = true">
                 <div class="cat-icon">
                   <Plus :size="24" />
                 </div>
@@ -47,11 +47,11 @@
         </div>
         
         <!-- Navigation Breadcrumbs -->
-        <div v-if="breadcrumbs.length > 0" class="breadcrumb-nav">
+        <div v-if="breadcrumbs.length > 0" class="breadcrumb-nav surface-secondary border-bottom-theme transition-theme">
           <button 
             v-for="(crumb, index) in breadcrumbs" 
             :key="index"
-            class="breadcrumb-item"
+            class="breadcrumb-item nav-link-theme hover-surface focus-ring-theme"
             @click="navigateTo(crumb)">
             {{ crumb.name }}
             <ChevronRight v-if="index < breadcrumbs.length - 1" :size="16" />
@@ -59,23 +59,23 @@
         </div>
 
         <!-- Loading State -->
-        <div v-if="loading || productsLoading" class="loading-state">
+        <div v-if="loading || productsLoading" class="loading-state text-secondary">
           <div class="spinner"></div>
           <p>Loading...</p>
         </div>
 
         <!-- Error State -->
-        <div v-else-if="error" class="error-state">
+        <div v-else-if="error" class="error-state status-error">
           <p class="error-message">{{ error }}</p>
-          <button class="btn-primary" @click="retryLoad">Retry</button>
+          <button class="btn-primary btn-complete" @click="retryLoad">Retry</button>
         </div>
 
-        <!-- Products Grid -->
-        <div v-else class="products-grid">
+        <!-- Products Grid with Infinite Scroll -->
+        <div v-else class="products-grid" @scroll="handleProductsScroll">
           <div 
             v-for="product in paginatedProducts" 
             :key="product.id"
-            class="product-card"
+            class="product-card card-complete hover-lift transition-theme"
             @click="handleProductClick(product)">
             <div class="product-image">
               <img 
@@ -91,16 +91,16 @@
               <p v-if="!product.isSubcategory" class="product-description">
                 Stock: {{ product.stock || 0 }}
               </p>
-              <div v-if="!product.isSubcategory" class="product-price">
+              <div v-if="!product.isSubcategory" class="product-price text-accent">
                 ₱{{ formatPrice(product.price) }}
               </div>
-              <div v-else class="subcategory-indicator">
+              <div v-else class="subcategory-indicator text-accent">
                 <ChevronRight :size="16" /> View Items
               </div>
             </div>
             <button 
               v-if="!product.isSubcategory && isCustomCategory" 
-              class="delete-product-btn" 
+              class="delete-product-btn btn-complete" 
               @click.stop="removeFromCategory(product.id)" 
               title="Remove from category">
               <X :size="14" />
@@ -110,7 +110,7 @@
           <!-- Add Products Option (Custom Categories Only) -->
           <div 
             v-if="viewMode === 'products' && isCustomCategory && customCategoryItems.length < 8"
-            class="product-card add-item-card"
+            class="product-card add-item-card card-complete hover-lift"
             @click="openProductSelectorModal()">
             <div class="add-item-content">
               <ShoppingBag :size="32" />
@@ -118,37 +118,21 @@
               <small>{{ allAvailableProductsCount }} available</small>
             </div>
           </div>
-        </div>
-
-        <!-- Pagination -->
-        <div v-if="viewMode === 'products' && totalPages > 1" class="pagination">
-          <button 
-            class="page-btn" 
-            :disabled="currentPage === 1"
-            @click="goToPage(currentPage - 1)">
-            Previous
-          </button>
           
-          <span class="page-info">
-            Page {{ currentPage }} of {{ totalPages }} ({{ filteredProducts.length }} items)
-          </span>
-          
-          <button 
-            class="page-btn" 
-            :disabled="currentPage === totalPages"
-            @click="goToPage(currentPage + 1)">
-            Next
-          </button>
+          <!-- Loading More Indicator -->
+          <div v-if="hasMoreItems && paginatedProducts.length > 0" class="load-more-indicator text-secondary">
+            <p>Scroll for more...</p>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Category Creation Modal -->
-    <div v-if="showCategoryModal" class="modal-overlay" @click="closeCategoryModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
+    <div v-if="showCategoryModal" class="modal-overlay modal-overlay-theme" @click="closeCategoryModal">
+      <div class="modal-content modal-theme transition-theme" @click.stop>
+        <div class="modal-header header-theme">
           <h3>Create New Category</h3>
-          <button class="close-btn" @click="closeCategoryModal">
+          <button class="close-btn btn-complete" @click="closeCategoryModal">
             <X :size="20" />
           </button>
         </div>
@@ -159,27 +143,32 @@
               type="text" 
               v-model="newCategory.name" 
               placeholder="Enter category name"
-              class="form-input"
+              class="form-input input-complete focus-ring-theme"
               maxlength="20"
             />
           </div>
           <div class="form-group">
             <label>Icon</label>
             <div class="icon-selector">
-              <div 
+              <button 
                 v-for="iconOption in iconOptions" 
                 :key="iconOption.name"
-                :class="['icon-option', { selected: newCategory.icon === iconOption.name }]"
-                @click="newCategory.icon = iconOption.name">
+                type="button"
+                :aria-pressed="newCategory.icon === iconOption.name"
+                :class="[
+                  'icon-option card-complete hover-lift',
+                  newCategory.icon === iconOption.name ? 'state-selected border-theme-accent text-accent selected' : ''
+                ]"
+                @click.stop.prevent="selectIcon(iconOption.name)">
                 <component :is="iconOption.name" :size="20" />
-              </div>
+              </button>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeCategoryModal">Cancel</button>
+          <button class="btn-secondary btn-complete" @click="closeCategoryModal">Cancel</button>
           <button 
-            class="btn-primary" 
+            class="btn-primary btn-complete" 
             @click="createCategory" 
             :disabled="!newCategory.name.trim()">
             Create Category
@@ -189,11 +178,11 @@
     </div>
 
     <!-- Product Selection Modal -->
-    <div v-if="showProductSelectorModal" class="modal-overlay" @click="closeProductSelectorModal">
-      <div class="modal-content large-modal" @click.stop>
-        <div class="modal-header">
+    <div v-if="showProductSelectorModal" class="modal-overlay modal-overlay-theme" @click="closeProductSelectorModal">
+      <div class="modal-content large-modal modal-theme transition-theme" @click.stop>
+        <div class="modal-header header-theme">
           <h3>Add Products to {{ getCurrentCategoryName() }}</h3>
-          <button class="close-btn" @click="closeProductSelectorModal">
+          <button class="close-btn btn-complete" @click="closeProductSelectorModal">
             <X :size="20" />
           </button>
         </div>
@@ -203,7 +192,7 @@
             <button 
               v-for="category in availableSourceCategories" 
               :key="category.id"
-              :class="['tab-btn', { active: selectedSourceCategory === category.id }]"
+              :class="['tab-btn nav-link-theme hover-surface', { active: selectedSourceCategory === category.id }]"
               @click="selectedSourceCategory = category.id">
               {{ category.name }} ({{ productCountsByCategory[category.id] || 0 }})
             </button>
@@ -215,12 +204,12 @@
               type="text" 
               v-model="productSearchQuery" 
               placeholder="Search products..."
-              class="search-input"
+              class="search-input input-complete focus-ring-theme"
             />
           </div>
           
           <!-- Loading State -->
-          <div v-if="productsLoading" class="loading-state">
+          <div v-if="productsLoading" class="loading-state text-secondary">
             <p>Loading products...</p>
           </div>
           
@@ -263,9 +252,9 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeProductSelectorModal">Cancel</button>
+          <button class="btn-secondary btn-complete" @click="closeProductSelectorModal">Cancel</button>
           <button 
-            class="btn-primary" 
+            class="btn-primary btn-complete" 
             @click="addSelectedProductsToCategory" 
             :disabled="selectedProducts.length === 0 || wouldExceedLimit">
             Add {{ selectedProducts.length }} Products
@@ -278,22 +267,22 @@
     </div>
 
     <!-- Shopping Cart Sidebar -->
-    <div v-if="showCart" class="cart-sidebar">
-      <div class="cart-header">
+    <div v-if="showCart" class="cart-sidebar sidebar-theme transition-theme">
+      <div class="cart-header header-theme">
         <h2>New Order</h2>
-        <button class="cart-close" @click="closeCart">
+        <button class="cart-close btn-complete" @click="closeCart">
           <X :size="20" />
         </button>
       </div>
       
       <div class="cart-items">
-        <div v-if="cartItems.length === 0" class="empty-cart-message">
+        <div v-if="cartItems.length === 0" class="empty-cart-message text-secondary">
           <ShoppingCart :size="48" class="empty-cart-icon" />
           <p>Your cart is empty</p>
           <p>Add items to get started!</p>
         </div>
         
-        <div v-for="item in cartItems" :key="item.productId" class="cart-item">
+        <div v-for="item in cartItems" :key="item.productId" class="cart-item surface-secondary border-theme-subtle transition-theme">
           <img :src="item.image" :alt="item.productName" class="cart-item-image" />
           <div class="cart-item-info">
             <h4>{{ item.productName }}</h4>
@@ -302,13 +291,13 @@
           <div class="cart-item-controls">
             <button 
               @click="decreaseQuantity(item)" 
-              class="quantity-btn minus">
+              class="quantity-btn minus btn-complete">
               <Minus :size="16" />
             </button>
             <span class="quantity">{{ item.quantity }}</span>
             <button 
               @click="increaseQuantity(item)" 
-              class="quantity-btn plus">
+              class="quantity-btn plus btn-complete">
               <Plus :size="16" />
             </button>
           </div>
@@ -317,47 +306,135 @@
           </div>
           <button 
             @click="removeFromCart(item)" 
-            class="remove-btn">
+            class="remove-btn btn-complete">
             <Trash2 :size="16" />
           </button>
         </div>
       </div>
       
-      <!-- Cart Summary -->
-      <div class="cart-footer">
-        <div class="input-group" style="margin-bottom: 20px;">
-          <input 
-            type="text" 
-            class="form-control" 
-            placeholder="Enter promo code"
-            v-model="promoCode"
-            style="gap: 10px;"
-          >
-          <button class="btn btn-primary" type="button" @click="applyPromotion">
-            Apply
-          </button>
+      <!-- Cart Footer -->
+      <div class="cart-footer surface-primary border-top-theme transition-theme">
+        
+       <!-- Manual Promo Code with Smart Suggestions -->
+        <div class="promo-section">
+          <h4 class="section-title">Have a Promo Code?</h4>
+          
+          <div class="promo-input-wrapper">
+            <div class="input-group">
+              <input 
+                type="text" 
+                class="form-control input-theme input-complete focus-ring-theme" 
+                placeholder="Enter promo code or select below"
+                v-model="promoCode"
+                @focus="showPromoSuggestions = true"
+                @blur="hidePromoSuggestionsDelayed"
+                @input="filterPromoSuggestions"
+              />
+              <button 
+                class="btn btn-primary btn-complete" 
+                type="button" 
+                @click="applyPromoCodeManually"
+                :disabled="!promoCode.trim()"
+              >
+                Apply
+              </button>
+            </div>
+            
+            <!-- Promo Suggestions Dropdown -->
+            <div 
+              v-if="showPromoSuggestions && filteredPromoSuggestions.length > 0" 
+              class="promo-suggestions-dropdown card-theme transition-theme"
+            >
+              <div class="suggestions-header">
+                <span class="suggestions-title">✨ Available Promotions</span>
+                <span class="suggestions-count">{{ filteredPromoSuggestions.length }}</span>
+              </div>
+              
+              <div class="suggestions-list">
+                <div 
+                  v-for="promo in filteredPromoSuggestions" 
+                  :key="promo._id"
+                  class="suggestion-item"
+                  @mousedown.prevent="selectPromoFromSuggestion(promo)"
+                >
+                  <div class="suggestion-icon">🎁</div>
+                  <div class="suggestion-content">
+                    <div class="suggestion-name">{{ promo.name }}</div>
+                    <div class="suggestion-description">{{ promo.description }}</div>
+                    <div class="suggestion-details">
+                      <span class="suggestion-discount">
+                        {{ formatPromotionValue(promo) }}
+                      </span>
+                      <span class="suggestion-target">
+                        {{ formatPromotionTarget(promo) }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="suggestion-savings">
+                    <div class="savings-label">Save</div>
+                    <div class="savings-amount">₱{{ formatPrice(promo.calculatedDiscount) }}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-if="availablePromotions.length === 0" class="no-suggestions">
+                <span>🔍 No promotions available for your cart</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Applied Promo Display -->
+          <div v-if="appliedPromotion" class="applied-promo-display">
+            <div class="applied-promo-content">
+              <span class="applied-icon">✅</span>
+              <div class="applied-info">
+                <span class="applied-name">{{ appliedPromotion.name }}</span>
+                <span class="applied-savings">-₱{{ formatPrice(promoDiscount) }}</span>
+              </div>
+            </div>
+            <button class="btn-remove-promo" @click="removePromotion">
+              <X :size="16" />
+            </button>
+          </div>
         </div>
-        <div class="cart-summary">
+
+        <!-- Cart Summary -->
+        <div class="cart-summary card-elevated transition-theme">
+          <!-- Subtotal -->
           <div class="cart-info">
             <div class="item-count">{{ totalItems }} items</div>
-            <div class="cart-total">₱{{ formatPrice(cartTotal) }}</div>
+            <div class="cart-total">₱{{ formatPrice(cartSubtotal) }}</div>
           </div>
+          
+          <!-- Promo Discount -->
+          <div v-if="promoDiscount > 0" class="discounts-section">
+            <div class="discount-row">
+              <span class="discount-label">
+                {{ appliedPromotion.name }}
+              </span>
+              <span class="discount-amount">-₱{{ formatPrice(promoDiscount) }}</span>
+            </div>
+            
+            <div class="discount-divider"></div>
+            
+            <div class="final-total-row">
+              <span class="final-label">Total</span>
+              <span class="final-amount">₱{{ formatPrice(finalTotal) }}</span>
+            </div>
+          </div>
+          
           <button 
-            class="pay-btn" 
+            class="pay-btn btn-complete focus-ring-theme" 
             @click="checkout"
             :disabled="cartItems.length === 0">
             <span>Checkout →</span>
           </button>
         </div>
-         <div v-if="appliedPromotion" class="alert alert-success mt-2">
-            ✅ {{ appliedPromotion.name }} applied
-            <button @click="removePromotion" class="btn-close"></button>
-          </div>
       </div>
     </div>
         
     <!-- Cart Toggle Button -->
-    <button v-if="!showCart && cartItems.length > 0" class="cart-toggle" @click="openCart">
+    <button v-if="!showCart && cartItems.length > 0" class="cart-toggle btn-complete focus-ring-theme" @click="openCart">
       <ShoppingCart :size="24" />
       <span class="cart-badge">{{ totalItems }}</span>
     </button>
@@ -368,6 +445,9 @@
 import { useCartStore } from '@/stores/cartStores'
 import categoriesAPI from '@/services/apiCategory.js'
 import productsAPI from '@/services/apiProducts.js'
+import { api } from '@/services/api.js'
+import { useLocalStorage } from '@/composables/data/useLocalStorage.js'
+import { useCache } from '@/composables/data/useCache.js'
 
 export default {
   name: 'NewOrder',
@@ -404,10 +484,12 @@ export default {
       // Navigation state
       viewMode: 'products',
       currentSubcategory: null,
-      currentPage: 1,
-      itemsPerPage: 12,
       categorySearch: '',
       breadcrumbs: [],
+      
+      // Infinite scroll
+      displayedItemsCount: 24,
+      itemsPerLoad: 12,
       
       // Custom category creation
       nextCategoryId: 100,
@@ -422,6 +504,14 @@ export default {
       selectedProducts: [],
       productSearchQuery: '',
       
+      // Promotions
+      promoCode: '',
+      appliedPromotion: null,
+      availablePromotions: [],
+      showOtherPromotions: false,
+      showPromoSuggestions: false, 
+      filteredPromoSuggestions: [],
+      
       // Icon options for custom categories
       iconOptions: [
         { name: 'Package' },
@@ -435,12 +525,88 @@ export default {
         { name: 'ShoppingBag' },
         { name: 'Utensils' }
       ],
+
+      // Caching utilities
+      cacheTTLms: 24 * 60 * 60 * 1000, // 24 hours for localStorage
+      memCacheTTLms: 30 * 60 * 1000, // 30 minutes for in-memory cache
+      storage: null,
+      memCache: null,
     }
   },
 
   async mounted() {
+    console.log('🚀 NewOrder component mounted')
+    // initialize caches
+    const ls = useLocalStorage()
+    this.storage = ls.withPrefix('newOrder')
+    this.memCache = useCache({ maxEntries: 300 })
+    // Hydrate from localStorage immediately to avoid spinner on revisit
+    try {
+      const cachedCategories = this.storage.getItem('categories', null)
+      if (Array.isArray(cachedCategories) && cachedCategories.length > 0) {
+        this.backendCategories = cachedCategories
+        const lastActive = this.storage.getItem('lastActiveCategory', null)
+        const fallbackCat = cachedCategories[0]?.id
+        const catId = cachedCategories.find(c => c.id === lastActive) ? lastActive : fallbackCat
+        if (catId) {
+          this.activeCategory = catId
+          const cachedProducts = this.storage.getItem(`products:${catId}:__all__`, null)
+          if (Array.isArray(cachedProducts)) {
+            this.products = cachedProducts
+            console.log('📦 Hydrated products from cache:', cachedProducts.length)
+          }
+        }
+      }
+    } catch (_) {}
     await this.initializeSession()
     await this.loadCategories()
+    
+    // Debug: Check products grid after mount
+    this.$nextTick(() => {
+      const grid = document.querySelector('.products-grid')
+      if (grid) {
+        console.log('📐 Products Grid Element Found:')
+        console.log('  - scrollHeight:', grid.scrollHeight)
+        console.log('  - clientHeight:', grid.clientHeight)
+        console.log('  - overflow-y:', window.getComputedStyle(grid).overflowY)
+        console.log('  - flex:', window.getComputedStyle(grid).flex)
+        console.log('  - min-height:', window.getComputedStyle(grid).minHeight)
+        console.log('  - Is scrollable?', grid.scrollHeight > grid.clientHeight)
+      } else {
+        console.warn('⚠️ Products grid element not found')
+      }
+    })
+  },
+
+  watch: {
+    // Watch cart changes to update available promotions
+    'cartStore.items': {
+      handler() {
+        this.fetchAvailablePromotions()
+      },
+      deep: true
+    },
+    
+    // Debug: Watch products changes
+    products: {
+      handler(newVal) {
+        console.log('📦 Products changed:', newVal?.length || 0, 'items')
+        this.$nextTick(() => {
+          const grid = document.querySelector('.products-grid')
+          if (grid) {
+            console.log('📐 Grid dimensions after products update:')
+            console.log('  - scrollHeight:', grid.scrollHeight)
+            console.log('  - clientHeight:', grid.clientHeight)
+            console.log('  - Can scroll?', grid.scrollHeight > grid.clientHeight)
+          }
+        })
+      }
+    },
+    
+    // Debug: Watch displayedItemsCount
+    displayedItemsCount(newVal) {
+      console.log('🔢 Displayed items count changed to:', newVal)
+    }
   },
 
   computed: {
@@ -449,16 +615,78 @@ export default {
       return [...this.backendCategories, ...this.customCategories]
     },
 
+    // Cart items from store
     cartItems() {
       return this.cartStore.items
     },
     
-    cartTotal() {
+    // Cart subtotal
+    cartSubtotal() {
       return this.cartStore.total
     },
     
+    // Total items from store
     totalItems() {
       return this.cartStore.itemCount
+    },
+    
+    // Calculate promo discount
+    promoDiscount() {
+      if (!this.appliedPromotion) return 0
+      
+      const promotion = this.appliedPromotion
+      const targetType = promotion.discount_config?.target_type
+      const targetIds = promotion.discount_config?.target_ids || []
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+      } else if (targetType === 'categories') {
+        eligibleAmount = this.cartItems
+          .filter(item => {
+            const product = this.products.find(p => p.id === item.productId)
+            return product && targetIds.includes(product.category)
+          })
+          .reduce((sum, item) => sum + item.subtotal, 0)
+      } else if (targetType === 'products') {
+        eligibleAmount = this.cartItems
+          .filter(item => targetIds.includes(item.productId))
+          .reduce((sum, item) => sum + item.subtotal, 0)
+      }
+      
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+      }
+      
+      return Math.round(discount * 100) / 100
+    },
+    
+    // Final total with discounts
+    finalTotal() {
+      return Math.max(0, this.cartSubtotal - this.promoDiscount)
+    },
+    
+    // Best promotion (highest discount)
+    bestPromotion() {
+      if (this.availablePromotions.length === 0) return null
+      
+      return this.availablePromotions.reduce((best, current) => {
+        return current.calculatedDiscount > best.calculatedDiscount ? current : best
+      })
+    },
+    
+    // Other promotions (excluding best)
+    otherPromotions() {
+      if (!this.bestPromotion) return this.availablePromotions
+      
+      return this.availablePromotions.filter(
+        promo => promo._id !== this.bestPromotion._id
+      )
     },
 
     filteredProducts() {
@@ -500,14 +728,12 @@ export default {
         return this.filteredProducts
       }
       
-      const start = (this.currentPage - 1) * this.itemsPerPage
-      const end = start + this.itemsPerPage
-      return this.filteredProducts.slice(start, end)
+      // Return items up to displayedItemsCount for infinite scroll
+      return this.filteredProducts.slice(0, this.displayedItemsCount)
     },
 
-    totalPages() {
-      if (this.viewMode === 'subcategories') return 1
-      return Math.ceil(this.filteredProducts.length / this.itemsPerPage)
+    hasMoreItems() {
+      return this.displayedItemsCount < this.filteredProducts.length
     },
 
     isCustomCategory() {
@@ -548,21 +774,33 @@ export default {
       return this.customCategoryItems.length + this.selectedProducts.length > 8
     },
 
-    // ✅ FIX: Product counts by category (REACTIVE COMPUTED PROPERTY)
+    // Count products by category for the product selector modal
     productCountsByCategory() {
       const counts = {}
-      
-      this.availableSourceCategories.forEach(category => {
-        counts[category.id] = this.allProducts.filter(
-          product => product.category === category.id
-        ).length
+
+      // Count products in each category
+      this.allProducts.forEach(product => {
+        if (product.category) {
+          counts[product.category] = (counts[product.category] || 0) + 1
+        }
       })
-      
+
       return counts
-    },
+    }
   },
 
   methods: {
+    selectIcon(iconName) {
+      console.log('[NewOrder] Icon clicked:', iconName)
+      this.newCategory.icon = iconName
+      this.$nextTick(() => {
+        console.log('[NewOrder] newCategory.icon set to:', this.newCategory.icon)
+      })
+    },
+    // ================================================================
+    // INITIALIZATION
+    // ================================================================
+    
     async initializeSession() {
       try {
         console.log('🔄 Initializing session...')
@@ -581,7 +819,7 @@ export default {
         
         this.cartStore.initializeSession(cashierId, shiftId)
         
-        console.log('✅ Session initialized (frontend cart)')
+        console.log('✅ Session initialized')
         
       } catch (error) {
         console.error('❌ Session initialization failed:', error)
@@ -594,7 +832,8 @@ export default {
     async openProductSelectorModal() {
       this.showProductSelectorModal = true
       
-      // Load ALL products from ALL available categories
+      // Always load products from all available categories
+      console.log('📦 Loading products from all categories...')
       await this.loadAllProductsForSelection()
       
       // Then select the first category
@@ -608,12 +847,14 @@ export default {
       try {
         this.productsLoading = true
         
-        console.log('📦 Loading products from all categories...')
+        console.log('📦 Loading products from all available categories...')
         
-        // Fetch products from ALL available source categories in parallel
-        const productPromises = this.availableSourceCategories.map(category => 
-          productsAPI.getProductsByCategory(category.id)
-        )
+        // Load from ALL available source categories (excluding current active category)
+        // This will use cache first, then localStorage, then API
+        const productPromises = this.availableSourceCategories.map(category => {
+          console.log(`  → Loading category: ${category.name} (ID: ${category.id})`)
+          return this.getProductsCached(category.id)
+        })
         
         // Wait for all requests to complete
         const allCategoryProducts = await Promise.all(productPromises)
@@ -634,10 +875,19 @@ export default {
 
     async loadCategories() {
       try {
-        this.loading = true
+        // Only show loader if we don't already have categories hydrated
+        if (this.backendCategories.length === 0) this.loading = true
         this.error = null
         
-        this.backendCategories = await categoriesAPI.getActiveCategories()
+        // Try cache first
+        const cached = this.getCategoriesCached()
+        if (cached) {
+          this.backendCategories = cached
+        } else {
+          const fresh = await categoriesAPI.getActiveCategories()
+          this.backendCategories = Array.isArray(fresh) ? fresh : []
+          this.setCategoriesCache(this.backendCategories)
+        }
         
         if (this.backendCategories.length > 0 && !this.activeCategory) {
           this.activeCategory = this.backendCategories[0].id
@@ -654,10 +904,12 @@ export default {
 
     async selectCategory(categoryId) {
       this.activeCategory = categoryId
-      this.currentPage = 1
+      this.displayedItemsCount = this.itemsPerLoad // Reset to initial load
       this.categorySearch = ''
       this.breadcrumbs = []
       this.currentSubcategory = null
+      // Persist last active category (24 hours)
+      try { this.storage?.setItem('lastActiveCategory', categoryId, this.cacheTTLms) } catch (_) {}
       
       const category = this.categories.find(cat => cat.id === categoryId)
       
@@ -669,6 +921,11 @@ export default {
       } else {
         this.viewMode = 'products'
         if (!category.isCustom) {
+          // Show cached products immediately if any
+          const cachedProducts = this.storage?.getItem(`products:${categoryId}:__all__`, null)
+          if (Array.isArray(cachedProducts)) {
+            this.products = cachedProducts
+          }
           await this.loadProducts(categoryId)
         }
       }
@@ -676,7 +933,6 @@ export default {
 
     async loadProducts(categoryId, subcategoryName = null) {
       try {
-        this.productsLoading = true
         this.error = null
         
         if (this.isCustomCategory) {
@@ -684,7 +940,17 @@ export default {
           return
         }
         
-        const products = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
+        // Try immediate cached read (no spinner, no network)
+        const cacheKey = `products:${categoryId}:${subcategoryName || '__all__'}`
+        const lsHit = this.storage?.getItem(cacheKey, null)
+        if (Array.isArray(lsHit)) {
+          this.products = lsHit
+          return
+        }
+        
+        // No cache: show loader and fetch
+        this.productsLoading = true
+        const products = await this.getProductsCached(categoryId, subcategoryName)
         this.products = products
         
       } catch (error) {
@@ -694,6 +960,41 @@ export default {
       } finally {
         this.productsLoading = false
       }
+    },
+
+    // Cached fetchers
+    getCategoriesCached() {
+      // in-memory first
+      const k = 'categories'
+      const memHit = this.memCache?.get(k, null)
+      if (memHit) return memHit
+      // localStorage next
+      const lsHit = this.storage?.getItem(k, null)
+      if (lsHit) {
+        this.memCache?.set(k, lsHit, this.memCacheTTLms)
+        return lsHit
+      }
+      return null
+    },
+    setCategoriesCache(categories) {
+      const k = 'categories'
+      this.memCache?.set(k, categories, this.memCacheTTLms)
+      this.storage?.setItem(k, categories, this.cacheTTLms)
+    },
+    async getProductsCached(categoryId, subcategoryName = null) {
+      const key = `products:${categoryId}:${subcategoryName || '__all__'}`
+      const memHit = this.memCache?.get(key, null)
+      if (memHit) return memHit
+      const lsHit = this.storage?.getItem(key, null)
+      if (lsHit) {
+        this.memCache?.set(key, lsHit, this.memCacheTTLms)
+        return lsHit
+      }
+      const fresh = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
+      const normalized = Array.isArray(fresh) ? fresh : []
+      this.memCache?.set(key, normalized, this.memCacheTTLms)
+      this.storage?.setItem(key, normalized, this.cacheTTLms)
+      return normalized
     },
 
     generateSubcategoryImage(subcategoryName) {
@@ -841,10 +1142,37 @@ export default {
       }
     },
 
-    goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
+    handleProductsScroll(event) {
+      const container = event.target
+      const scrollTop = container.scrollTop
+      const scrollHeight = container.scrollHeight
+      const clientHeight = container.clientHeight
+      
+      console.log('🖱️ Scroll Event Detected:')
+      console.log('  - scrollTop:', scrollTop)
+      console.log('  - scrollHeight:', scrollHeight)
+      console.log('  - clientHeight:', clientHeight)
+      console.log('  - Distance from bottom:', scrollHeight - (scrollTop + clientHeight))
+      console.log('  - Has more items:', this.hasMoreItems)
+      console.log('  - Displayed:', this.displayedItemsCount, '/', this.filteredProducts.length)
+      
+      // Check if scrolled near bottom (within 100px)
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        console.log('✅ Near bottom - Loading more items...')
+        this.loadMoreItems()
       }
+    },
+
+    loadMoreItems() {
+      if (!this.hasMoreItems) return
+      
+      // Load next batch of items
+      this.displayedItemsCount += this.itemsPerLoad
+      console.log(`📦 Loaded more items. Now showing: ${this.displayedItemsCount}/${this.filteredProducts.length}`)
+    },
+
+    resetInfiniteScroll() {
+      this.displayedItemsCount = this.itemsPerLoad
     },
 
     retryLoad() {
@@ -856,9 +1184,271 @@ export default {
       }
     },
 
+    // ================================================================
+    // PROMOTIONS
+    // ================================================================
+    
+    async fetchAvailablePromotions() {
+      if (this.cartItems.length === 0) {
+        this.availablePromotions = []
+        this.filteredPromoSuggestions = []
+        return
+      }
+      
+      try {
+        console.log('🎟️ Fetching available promotions...')
+        console.log('📦 Cart items:', this.cartItems.length)
+        
+        // ✅ USE BACKOFFICE ENDPOINT
+        const response = await api.get('/promotions/active/')
+        
+        console.log('📦 Full response:', response)
+        console.log('📦 Response data:', response.data)
+        
+        // Parse response - Backoffice structure
+        let allPromotions = []
+        
+        if (response && response.data) {
+          if (response.data.success === true) {
+            // Backoffice returns: { success: true, promotions: [...], count: n }
+            allPromotions = response.data.promotions || []
+            console.log('✅ Found promotions in response.data.promotions')
+          } else {
+            console.warn('⚠️ Success is not true')
+          }
+        }
+        
+        console.log('📋 Parsed promotions:', allPromotions)
+        console.log('📋 Promotions count:', allPromotions.length)
+        
+        if (!Array.isArray(allPromotions)) {
+          console.error('❌ allPromotions is not an array:', typeof allPromotions)
+          this.availablePromotions = []
+          this.filteredPromoSuggestions = []
+          return
+        }
+        
+        if (allPromotions.length === 0) {
+          console.warn('⚠️ No promotions found')
+          this.availablePromotions = []
+          this.filteredPromoSuggestions = []
+          return
+        }
+        
+        console.log('🔄 Calculating discounts for promotions...')
+        console.log('📦 Current cart items:', this.cartItems)
+        console.log('📦 Current products:', this.products)
+        
+        // Calculate discount for each promotion
+        const applicablePromotions = []
+        
+        for (const promo of allPromotions) {
+          try {
+            console.log(`\n  🎁 Checking: ${promo.name}`)
+            console.log(`     Type: ${promo.type} (${promo.discount_value}${promo.type === 'percentage' ? '%' : ' PHP'})`)
+            console.log(`     Target: ${promo.discount_config?.target_type}`)
+            console.log(`     Target IDs:`, promo.discount_config?.target_ids)
+            
+            const discount = this.calculatePromotionDiscount(promo)
+            console.log(`     💰 Calculated discount: ₱${discount}`)
+            
+            if (discount > 0) {
+              applicablePromotions.push({
+                ...promo,
+                calculatedDiscount: discount,
+                isApplicable: true
+              })
+              console.log(`     ✅ APPLICABLE - Added to list`)
+            } else {
+              console.log(`     ❌ NOT APPLICABLE - Discount is 0`)
+            }
+          } catch (calcError) {
+            console.error(`❌ Error calculating discount for ${promo.name}:`, calcError)
+          }
+        }
+        
+        // Sort by discount amount
+        applicablePromotions.sort((a, b) => b.calculatedDiscount - a.calculatedDiscount)
+        
+        this.availablePromotions = applicablePromotions
+        this.filteredPromoSuggestions = applicablePromotions
+        
+        console.log(`\n✅ FINAL RESULT: Found ${applicablePromotions.length} applicable promotions`)
+        console.log('📊 Applicable promotions:', applicablePromotions)
+        
+      } catch (error) {
+        console.error('❌ Failed to fetch promotions:', error)
+        console.error('❌ Error details:', error.response?.data)
+        
+        this.availablePromotions = []
+        this.filteredPromoSuggestions = []
+      }
+    },
+    
+    calculatePromotionDiscount(promotion) {
+      // ✅ SAFETY CHECK: Handle missing discount_config
+      if (!promotion.discount_config) {
+        console.warn(`⚠️ Promotion "${promotion.name}" missing discount_config!`)
+        console.warn('   Full promotion object:', promotion)
+        return 0
+      }
+      
+      const targetType = promotion.discount_config.target_type
+      const targetIds = promotion.discount_config.target_ids || []
+      
+      console.log(`   🎯 Target Type: ${targetType}`)
+      console.log(`   🎯 Target IDs:`, targetIds)
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+        console.log(`   💰 All items eligible: ₱${eligibleAmount}`)
+      } else if (targetType === 'categories') {
+        // Get eligible items from target categories
+        const eligibleItems = this.cartItems.filter(item => {
+          const product = this.products.find(p => p.id === item.productId)
+          const isEligible = product && targetIds.includes(product.category)
+          
+          if (isEligible) {
+            console.log(`      ✅ ${product.name} (${product.category}) - ₱${item.subtotal}`)
+          }
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Category items eligible: ₱${eligibleAmount}`)
+      } else if (targetType === 'products') {
+        // Get eligible items from target products
+        const eligibleItems = this.cartItems.filter(item => {
+          const isEligible = targetIds.includes(item.productId)
+          
+          if (isEligible) {
+            const product = this.products.find(p => p.id === item.productId)
+            console.log(`      ✅ ${product?.name || item.productName} - ₱${item.subtotal}`)
+          }
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Product items eligible: ₱${eligibleAmount}`)
+      }
+      
+      if (eligibleAmount === 0) {
+        console.log(`   ❌ No eligible items found`)
+        return 0
+      }
+      
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+      }
+      
+      return Math.round(discount * 100) / 100
+    },
+    
+    async applyPromotionById(promotionId) {
+      try {
+        const promotion = this.availablePromotions.find(p => p._id === promotionId)
+        
+        if (!promotion) {
+          alert('Promotion not found')
+          return
+        }
+        
+        // Validate promotion is still active
+        const now = new Date()
+        const startDate = new Date(promotion.start_date)
+        const endDate = new Date(promotion.end_date)
+        
+        if (now < startDate) {
+          alert('This promotion has not started yet')
+          return
+        }
+        
+        if (now > endDate) {
+          alert('This promotion has expired')
+          return
+        }
+        
+        this.appliedPromotion = promotion
+        console.log('✅ Applied promotion:', promotion.name)
+        
+      } catch (error) {
+        console.error('❌ Failed to apply promotion:', error)
+        alert('Failed to apply promotion')
+      }
+    },
+    
+    async applyPromoCodeManually() {
+      if (!this.promoCode.trim()) {
+        alert('Please enter a promo code')
+        return
+      }
+      
+      try {
+        console.log('🎟️ Applying manual promo code:', this.promoCode)
+        
+        // Find promotion by name/code in available promotions first
+        const foundPromo = this.availablePromotions.find(
+          p => p.name.toLowerCase() === this.promoCode.trim().toLowerCase()
+        )
+        
+        if (foundPromo) {
+          this.applyPromotionById(foundPromo._id)
+          this.promoCode = ''
+          return
+        }
+        
+        // If not found in available, try API
+        const response = await api.get('/promotions/active/')
+        
+        if (response.data.success) {
+          const allPromotions = response.data.data.promotions || []
+          const matchingPromo = allPromotions.find(
+            p => p.name.toLowerCase() === this.promoCode.trim().toLowerCase()
+          )
+          
+          if (matchingPromo) {
+            // Check if it applies to cart
+            const discount = this.calculatePromotionDiscount(matchingPromo)
+            
+            if (discount > 0) {
+              this.appliedPromotion = matchingPromo
+              this.promoCode = ''
+              console.log('✅ Manual promo applied:', matchingPromo.name)
+            } else {
+              alert('This promo code does not apply to items in your cart')
+            }
+          } else {
+            alert('Invalid promo code')
+          }
+        }
+        
+      } catch (error) {
+        console.error('❌ Manual promo failed:', error)
+        alert('Failed to apply promo code')
+      }
+    },
+    
+    removePromotion() {
+      this.appliedPromotion = null
+      this.promoCode = ''
+      console.log('🗑️ Promotion removed')
+    },
+
+    // ================================================================
+    // CART MANAGEMENT
+    // ================================================================
+    
     addToCart(product) {
       try {
-        console.log('🛒 Adding to cart (frontend):', product.name)
+        console.log('🛒 Adding to cart:', product.name)
         
         if (!product.id || !product.name || !product.price) {
           throw new Error('Invalid product data')
@@ -872,7 +1462,7 @@ export default {
         this.cartStore.addItem(product)
         this.showCart = true
         
-        console.log('✅ Item added instantly')
+        console.log('✅ Item added')
         
       } catch (error) {
         console.error('❌ Add to cart failed:', error)
@@ -881,17 +1471,14 @@ export default {
     },
     
     removeFromCart(item) {
-      console.log('🗑️ Removing from cart (frontend):', item.productName)
       this.cartStore.removeItem(item.productId)
     },
     
     increaseQuantity(item) {
-      console.log('➕ Increasing quantity (frontend):', item.productName)
       this.cartStore.increaseQuantity(item.productId)
     },
     
     decreaseQuantity(item) {
-      console.log('➖ Decreasing quantity (frontend):', item.productName)
       this.cartStore.decreaseQuantity(item.productId)
     },
     
@@ -902,6 +1489,18 @@ export default {
       }
       
       console.log('🛒 Proceeding to checkout...')
+      
+      // Store promotion info for checkout
+      if (this.appliedPromotion) {
+        sessionStorage.setItem('appliedPromotion', JSON.stringify({
+          promotion_id: this.appliedPromotion._id,
+          promotion_name: this.appliedPromotion.name,
+          discount_amount: this.promoDiscount
+        }))
+      } else {
+        sessionStorage.removeItem('appliedPromotion')
+      }
+      
       this.$router.push('/checkout')
     },
 
@@ -911,8 +1510,67 @@ export default {
 
     openCart() {
       this.showCart = true
+      // Fetch promotions when cart opens
+      this.fetchAvailablePromotions()
     },
+    filterPromoSuggestions() {
+      const searchQuery = this.promoCode.toLowerCase().trim()
+      
+      if (!searchQuery) {
+        // Show all available promotions if input is empty
+        this.filteredPromoSuggestions = this.availablePromotions
+      } else {
+        // Filter promotions by name or description
+        this.filteredPromoSuggestions = this.availablePromotions.filter(promo => 
+          promo.name.toLowerCase().includes(searchQuery) ||
+          promo.description.toLowerCase().includes(searchQuery)
+        )
+      }
+    },
+    
+    hidePromoSuggestionsDelayed() {
+      // Delay hiding to allow click events to fire
+      setTimeout(() => {
+        this.showPromoSuggestions = false
+      }, 200)
+    },
+    
+    selectPromoFromSuggestion(promo) {
+      this.promoCode = promo.name
+      this.showPromoSuggestions = false
+      this.applyPromotionById(promo._id)
+    },
+    
+    formatPromotionValue(promo) {
+      if (promo.type === 'percentage') {
+        return `${promo.discount_value}% OFF`
+      } else if (promo.type === 'fixed') {
+        return `₱${this.formatPrice(promo.discount_value)} OFF`
+      }
+      return 'Discount'
+    },
+    
+    formatPromotionTarget(promo) {
+      const targetType = promo.discount_config?.target_type
+      
+      if (targetType === 'all') {
+        return 'All items'
+      } else if (targetType === 'categories') {
+        const count = promo.discount_config?.target_ids?.length || 0
+        return `${count} ${count === 1 ? 'category' : 'categories'}`
+      } else if (targetType === 'products') {
+        const count = promo.discount_config?.target_ids?.length || 0
+        return `${count} ${count === 1 ? 'product' : 'products'}`
+      }
+      return 'Selected items'
+    },
+    
+    
 
+    // ================================================================
+    // UTILITIES
+    // ================================================================
+    
     formatPrice(price) {
       return parseFloat(price || 0).toFixed(2)
     }
@@ -922,4 +1580,5 @@ export default {
 
 <style scoped>
 @import '@/assets/styles/NewOrder.css'
+
 </style>

@@ -32,12 +32,17 @@
       <!-- Online Order with Notification -->
       <div class="nav-item transition-theme" @click="handleNavigation('online-order')" :class="{ active: currentPage === 'online-order' }">
         <div class="nav-icon-placeholder">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
-            <path d="m320-410 79-110h170L320-716v306ZM551-80 406-392 240-160v-720l560 440H516l144 309-109 51ZM399-520Z"/>
+          <svg v-if="pendingCount > 0" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
+            <!-- Bell with notification (filled) -->
+            <path d="M480-80q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80Zm320-240v-240q0-116-77-198t-195-90v-22q0-17-11.5-28.5T488-910q-17 0-28.5 11.5T448-870v22q-118 8-195 90t-77 198v240l-80 80v40h784v-40l-80-80Zm-80 0H240v-240q0-92 64-156t156-64q92 0 156 64t64 156v240Z"/>
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
+            <!-- Inbox icon when none pending -->
+            <path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h153l47-80h240l47 80h153v-480H160v480Zm320-120q-50 0-85-35t-35-85h80q0 17 11.5 28.5T480-440q17 0 28.5-11.5T520-480h80q0 50-35 85t-85 35Z"/>
           </svg>
         </div>
         <span class="nav-label">Pending Order</span>
-        <div class="notification-badge">1</div>
+        <div v-if="pendingCount > 0" class="notification-badge">{{ pendingCount > 99 ? '99+' : pendingCount }}</div>
       </div>
 
       <!-- History -->
@@ -74,11 +79,16 @@
 </template>
 
 <script>
+import onlineOrdersAPI from '@/services/apiOnlineOrder.js'
 export default {
   name: 'Sidebar',
   data(){
     return{
       currentPage: 'dashboard',
+      pendingCount: 0,
+      _pendingPoller: null,
+      _originalTitle: document.title,
+      _originalFaviconHref: null,
     }
   },
   methods: {
@@ -92,6 +102,121 @@ export default {
       console.log('Sidebar logout clicked')
       // Emit event to parent (MainLayout)
       this.$emit('logout')
+    },
+
+    async fetchPendingCount() {
+      try {
+        const data = await onlineOrdersAPI.getAllOrders({ status: 'pending' })
+        console.log('[Sidebar] Pending orders raw response:', data)
+        let count = 0
+        let branch = 'none'
+        if (Array.isArray(data)) {
+          count = data.length
+          branch = 'array'
+        } else if (Array.isArray(data?.results)) {
+          count = data.results.length
+          branch = 'results[]'
+        } else if (typeof data?.count === 'number') {
+          count = data.count
+          branch = 'count'
+        } else if (Array.isArray(data?.orders)) {
+          count = data.orders.length
+          branch = 'orders[]'
+        }
+        console.log('[Sidebar] Parsed pending count:', count, 'via branch:', branch)
+        this.pendingCount = count
+        this.updateAppBadge(count)
+      } catch (e) {
+        console.error('[Sidebar] Failed to fetch pending orders count:', e)
+      }
+    },
+
+    updateAppBadge(count) {
+      const capped = count > 99 ? 99 : count
+      // 1) Try App Badging API (PWA-capable browsers)
+      if (navigator && 'setAppBadge' in navigator) {
+        if (capped > 0) {
+          navigator.setAppBadge(capped).catch(() => {})
+        } else {
+          navigator.clearAppBadge && navigator.clearAppBadge().catch(() => {})
+        }
+      }
+      // 2) Update document title as fallback
+      if (capped > 0) {
+        document.title = `(${capped}) ${this._originalTitle}`
+      } else {
+        document.title = this._originalTitle
+      }
+      // 3) Favicon badge fallback
+      this.updateFaviconBadge(capped)
+    },
+
+    updateFaviconBadge(count) {
+      // find current favicon
+      const linkEl = document.querySelector('link[rel="icon"]') || document.createElement('link')
+      if (!this._originalFaviconHref) {
+        this._originalFaviconHref = linkEl.href || '/favicon.ico'
+      }
+      if (count <= 0) {
+        if (linkEl) {
+          linkEl.rel = 'icon'
+          linkEl.href = this._originalFaviconHref
+          document.head.appendChild(linkEl)
+        }
+        return
+      }
+      const img = document.createElement('img')
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const size = 64
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')
+        ctx.clearRect(0, 0, size, size)
+        // draw base icon
+        ctx.drawImage(img, 0, 0, size, size)
+        // draw badge
+        const badgeSize = 28
+        const x = size - badgeSize
+        const y = 0
+        ctx.fillStyle = '#e11d48' // rose-600 like
+        ctx.beginPath()
+        ctx.arc(x + badgeSize/2, y + badgeSize/2, badgeSize/2, 0, Math.PI * 2)
+        ctx.fill()
+        // text
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 18px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        const label = count > 99 ? '99+' : String(count)
+        ctx.fillText(label, x + badgeSize/2, y + badgeSize/2 + 1)
+        // apply
+        const url = canvas.toDataURL('image/png')
+        linkEl.rel = 'icon'
+        linkEl.href = url
+        document.head.appendChild(linkEl)
+      }
+      img.src = this._originalFaviconHref || '/favicon.ico'
+    }
+  },
+  mounted() {
+    this.fetchPendingCount()
+    this._pendingPoller = setInterval(this.fetchPendingCount, 15000)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this.fetchPendingCount()
+    })
+  },
+  beforeUnmount() {
+    if (this._pendingPoller) clearInterval(this._pendingPoller)
+    // reset badge/title/favicon
+    if (navigator && 'clearAppBadge' in navigator) {
+      navigator.clearAppBadge().catch(() => {})
+    }
+    document.title = this._originalTitle
+    const linkEl = document.querySelector('link[rel="icon"]')
+    if (linkEl && this._originalFaviconHref) {
+      linkEl.href = this._originalFaviconHref
     }
   }
 }
@@ -202,6 +327,12 @@ export default {
   justify-content: center;
   font-size: 0.75rem;
   font-weight: bold;
+  background-color: var(--status-error);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-sm);
+  border: 2px solid var(--surface-primary);
+  line-height: 1;
+  z-index: 1;
 }
 
 @media (max-width: 768px) {
