@@ -212,7 +212,7 @@
               <div class="payment-grid">
                 <div class="payment-item" v-for="(amount, method) in shiftSummary.paymentBreakdown" :key="method">
                   <span class="payment-method">{{ formatPaymentMethod(method) }}</span>
-                  <span class="payment-amount">₱{{ formatCurrency(amount) }}</span>
+                  <span class="payment-amount"> ₱{{ formatCurrency(amount) }}</span>
                 </div>
               </div>
             </div>

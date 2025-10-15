@@ -139,6 +139,28 @@ class HistoryAPIService {
         }
       }
 
+      // Apply client-side status filter (works for both POS and Online)
+      if (params.status && params.status !== '') {
+        const normalizeStatus = (txn) => {
+          // Prefer raw status from original data if available
+          const raw = (txn.originalData?.status || txn.originalData?.order_status || txn.status || '').toString().toLowerCase();
+          return raw;
+        };
+        const wanted = params.status.toLowerCase();
+        allTransactions = allTransactions.filter(txn => normalizeStatus(txn) === wanted);
+      }
+
+      // Apply client-side payment method filter
+      if (params.paymentMethod && params.paymentMethod !== '') {
+        const normalizeMethod = (txn) => {
+          // Prefer raw method from original data if available
+          const raw = (txn.originalData?.payment_method || txn.paymentMethod || '').toString().toLowerCase();
+          return raw;
+        };
+        const wantedMethod = params.paymentMethod.toLowerCase();
+        allTransactions = allTransactions.filter(txn => normalizeMethod(txn) === wantedMethod || normalizeMethod(txn).includes(wantedMethod));
+      }
+
       // Sort by date (newest first)
       allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -178,12 +200,11 @@ class HistoryAPIService {
    */
   async fetchPOSTransactions(params = {}) {
     const queryParams = new URLSearchParams({
-      page: 1,
-      page_size: 1000, // Fetch large amount for client-side pagination
-      ...(params.dateFrom && { date_from: params.dateFrom }),
-      ...(params.dateTo && { date_to: params.dateTo }),
+      limit: 1000, // Fetch large amount for client-side pagination
+      ...(params.dateFrom && { start_date: params.dateFrom }),
+      ...(params.dateTo && { end_date: params.dateTo }),
       ...(params.status && { status: params.status }),
-      ...(params.paymentMethod && { payment_method: params.paymentMethod }),
+      // payment_method is currently not supported by backend POS list; filter client-side
       ...(params.cashierId && { cashier_id: params.cashierId }),
       ...(params.shiftId && { shift_id: params.shiftId })
     });
@@ -205,8 +226,8 @@ class HistoryAPIService {
       limit: 1000, // Fetch large amount for client-side pagination
       ...(params.dateFrom && { start_date: params.dateFrom }),
       ...(params.dateTo && { end_date: params.dateTo }),
-      ...(params.status && { status: params.status }),
-      ...(params.paymentMethod && { payment_method: params.paymentMethod })
+      ...(params.status && { status: params.status })
+      // payment_method filter is not supported in backend online list; filter client-side
     });
 
     const response = await api.get(`/online/orders/?${queryParams}`);
@@ -313,7 +334,7 @@ class HistoryAPIService {
   async voidSale(saleId, voidReason, managerId) {
     try {
       const response = await api.post(`/pos/sales/${saleId}/void/`, {
-        void_reason: voidReason,
+        reason: voidReason,    
         manager_id: managerId
       });
       return this.handleResponse(response);

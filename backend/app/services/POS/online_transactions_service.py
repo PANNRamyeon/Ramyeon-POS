@@ -233,11 +233,11 @@ class OnlineTransactionService:
             if points_to_redeem == 0:
                 return {'valid': True, 'error': None}
             
-            # Minimum redemption: 200 points
-            if points_to_redeem < 200:
+            # Minimum redemption: 40 points (₱10)
+            if points_to_redeem < 40:
                 return {
                     'valid': False,
-                    'error': 'Minimum redemption is 200 points (₱50)'
+                    'error': 'Minimum redemption is 40 points (₱10)'
                 }
             
             # Get customer
@@ -255,15 +255,15 @@ class OnlineTransactionService:
                     'error': f'Insufficient points. Available: {available_points}, Requested: {points_to_redeem}'
                 }
             
-            # Check max discount (50% of subtotal)
+            # Check max discount: min(₱20, 20% of subtotal)
             points_discount = self.calculate_points_discount(points_to_redeem)
-            max_discount = subtotal * 0.50
+            max_discount = min(20, subtotal * 0.20)
             
             if points_discount > max_discount:
                 max_points = int(max_discount * 4)  # Convert back to points
                 return {
                     'valid': False,
-                    'error': f'Points discount cannot exceed 50% of subtotal. Maximum: {max_points} points'
+                    'error': f'Points discount exceeds cap. Maximum: {max_points} points (₱{max_discount:.2f})'
                 }
             
             return {'valid': True, 'error': None}

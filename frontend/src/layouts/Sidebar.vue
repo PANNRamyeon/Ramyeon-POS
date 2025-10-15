@@ -181,6 +181,7 @@ export default {
 </script>
 
 <style scoped>
+
 .sidebar {
   position: fixed;
   top: 0;
@@ -277,6 +278,8 @@ export default {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
+  background-color: #dc3545;
+  color: white;
   border-radius: 50%;
   min-width: 20px;
   height: 20px;

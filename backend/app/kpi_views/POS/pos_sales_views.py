@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone, timedelta
 from django.http import HttpResponse
 import csv
 from ...services.POS.pos_sales_service import POSSalesService
@@ -376,17 +376,41 @@ class POSSalesReceiptView(APIView):
         try:
             pos_service = POSSalesService()
             sale = pos_service.get_sale_by_id(sale_id)
-            
+
             if not sale:
                 return Response({
                     'success': False,
                     'error': 'Sale not found'
                 }, status=status.HTTP_404_NOT_FOUND)
-            
-            # ✅ Build receipt data with discount breakdown and loyalty points
+
+            # ✅ Convert UTC to Philippine Time (UTC+8)
+            transaction_date_utc = sale.get('transaction_date')
+            transaction_date_local = None
+
+            if transaction_date_utc:
+                try:
+                    # Convert from string or naive datetime
+                    if isinstance(transaction_date_utc, str):
+                        # Ensure proper parsing with timezone awareness
+                        transaction_date_utc = datetime.fromisoformat(
+                            transaction_date_utc.replace("Z", "+00:00")
+                        )
+                    elif transaction_date_utc.tzinfo is None:
+                        # Force UTC if missing timezone info
+                        transaction_date_utc = transaction_date_utc.replace(tzinfo=timezone.utc)
+
+                    # Convert UTC → Philippine time (+8)
+                    ph_tz = timezone(timedelta(hours=8))
+                    transaction_date_local = transaction_date_utc.astimezone(ph_tz).isoformat()
+
+                except Exception as tz_err:
+                    print(f"⚠️ Timezone conversion error: {tz_err}")
+                    transaction_date_local = None
+
+            # ✅ Build receipt data
             receipt_data = {
                 'sale_id': sale.get('_id'),
-                'transaction_date': sale.get('transaction_date'),
+                'transaction_date': transaction_date_local,
                 'cashier': {
                     'id': sale.get('cashier_id'),
                     'shift_id': sale.get('shift_id')
@@ -395,29 +419,29 @@ class POSSalesReceiptView(APIView):
                 'subtotal': sale.get('subtotal', 0),
                 'tax_amount': sale.get('tax_amount', 0),
                 'discount_amount': sale.get('discount_amount', 0),
-                
+
                 # ✅ Discount breakdown
                 'discount_breakdown': sale.get('discount_breakdown', {
                     'promotion_discount': 0,
                     'points_discount': 0,
                     'total_discount': 0
                 }),
-                
+
                 'total_amount': sale.get('total_amount', 0),
                 'payment_method': sale.get('payment_method'),
                 'payment_details': sale.get('payment_details', {}),
                 'status': sale.get('status'),
                 'customer_id': sale.get('customer_id'),
-                
+
                 # ✅ Loyalty points info
                 'loyalty_points': sale.get('loyalty_points')
             }
-            
+
             return Response({
                 'success': True,
                 'data': receipt_data
             }, status=status.HTTP_200_OK)
-            
+
         except Exception as e:
             return Response({
                 'success': False,

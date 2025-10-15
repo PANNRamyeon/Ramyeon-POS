@@ -167,7 +167,7 @@
             </div>
 
             <!-- Points Redemption Panel -->
-            <div v-if="pointsMode === 'use' && selectedCustomer.loyalty_points >= 100" class="points-redemption-panel">
+            <div v-if="pointsMode === 'use' && selectedCustomer.loyalty_points >= 40" class="points-redemption-panel">
               <div class="redemption-header">
                 <h6>Redeem Points</h6>
                 <button class="btn-text" @click="setPointsMode('earn')" :disabled="isProcessing">Cancel</button>
@@ -180,8 +180,8 @@
                   placeholder="Enter points amount"
                   v-model.number="pointsToRedeem"
                   :max="Math.min(selectedCustomer.loyalty_points, maxRedeemablePoints)"
-                  min="100"
-                  step="100"
+                  min="40"
+                  step="20"
                   :disabled="isProcessing"
                 />
                 <button 
@@ -196,7 +196,7 @@
               <div class="redemption-info-box">
                 <div class="info-row">
                   <span>Minimum:</span>
-                  <span>100 pts (₱25)</span>
+                  <span>40 pts (₱10)</span>
                 </div>
                 <div class="info-row">
                   <span>Maximum:</span>
@@ -462,7 +462,7 @@
     <div v-if="showSuccessModal" class="position-fixed top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center modal-overlay-theme" style="z-index: 10000;" @click="closeSuccessModal">
       <div class="modal-theme rounded-4 overflow-hidden success-modal" style="max-width: 500px; width: 90%;" @click.stop>
         <div class="text-center p-5 text-white position-relative" style="background: linear-gradient(135deg, #4ea87a 0%, #5eb488 100%);">
-          <div class="d-flex align-items-center justify-content-center mx-auto mb-3 bg-white text-success rounded-circle shadow-lg" style="width: 80px; height: 80px; font-size: 48px; font-weight: bold;">
+          <div class="d-flex align-items-center justify-content-center mx-auto mb-3 bg-white text-success rounded-circle shadow-lg" style="width: 80px; height: 80px; font-size: 48px; font-weight: bold; color: green;">
             ✓
           </div>
           <h3 class="fs-4 mb-0">Order Completed!</h3>
@@ -704,19 +704,17 @@ export default {
     // Points calculations
     maxRedeemablePoints() {
       if (!this.selectedCustomer) return 0
-      
-      const baseAmount = this.subtotalAfterPromo
-      const maxDiscountAmount = baseAmount * 0.5
-      const maxPointsFromCart = Math.floor(maxDiscountAmount * 4)
+      // Business rule: Cap at ₱20 per transaction regardless of subtotal
+      const maxDiscountAmount = 20
+      const maxPointsFromCart = Math.floor(maxDiscountAmount * 4) // 80 points
       const customerPoints = this.selectedCustomer.loyalty_points || 0
-      const finalMaxPoints = Math.min(maxPointsFromCart, customerPoints)
-      
-      return finalMaxPoints
+      return Math.min(maxPointsFromCart, customerPoints)
     },
     
     canRedeemPoints() {
       if (!this.pointsToRedeem || !this.selectedCustomer) return false
-      if (this.pointsToRedeem < 100) return false
+      // Minimum ₱10 = 40 points
+      if (this.pointsToRedeem < 40) return false
       if (this.pointsToRedeem > this.selectedCustomer.loyalty_points) return false
       if (this.pointsToRedeem > this.maxRedeemablePoints) return false
       return true
@@ -1005,6 +1003,11 @@ export default {
       }
       
       const discount = this.pointsToRedeem / 4
+      // Enforce absolute max ₱20 at apply time as well
+      if (discount > 20) {
+        alert('Maximum points discount per transaction is ₱20')
+        return
+      }
       
       if (discount > this.subtotalAfterPromo) {
         alert('Points discount cannot exceed cart total')
@@ -1328,18 +1331,38 @@ export default {
     // ----------------------------------------------------------------
     
     handleSaleSuccess(result, paymentMethod) {
+      console.log('[handleSaleSuccess] start', { paymentMethod, result })
+      // Prefer backend-calculated change; fallback to a pre-clear snapshot
+      const backendChange = result?.payment_details?.change
+      const snapshotChange = Math.max(0, (this.cashTendered || 0) - (result?.total_amount ?? this.grandTotal))
+      const finalChange = paymentMethod === 'cash' 
+        ? (typeof backendChange === 'number' ? backendChange : snapshotChange)
+        : 0
+
       this.cartStore.clearCart()
       sessionStorage.removeItem('appliedPromotion')
       sessionStorage.removeItem('checkoutCustomer')
       
+      console.log('[handleSaleSuccess] TX dates', result?.transaction_date_local, result?.transaction_date)
+
+      // Normalize transaction date: if backend didn't include timezone, assume UTC
+      let transactionDateRaw = result.transaction_date_local || result.transaction_date
+      if (typeof transactionDateRaw === 'string') {
+        const hasTz = /Z$|[zZ]$|[+-]\d{2}:?\d{2}$/.test(transactionDateRaw)
+        if (!hasTz) {
+          transactionDateRaw = transactionDateRaw + 'Z'
+        }
+      }
+
       this.completedSale = {
         saleId: result._id || result.sale_id,
-        transactionDate: result.transaction_date || new Date().toISOString(),
+        transactionDate: result.payment_details?.timestamp || transactionDateRaw,
         totalAmount: result.total_amount,
         paymentMethod: paymentMethod,
-        change: paymentMethod === 'cash' ? this.changeAmount : 0,
+        change: finalChange,
         shiftId: result.shift_id || this.cartStore.shiftId
       }
+      console.log('[handleSaleSuccess] completedSale', this.completedSale)
       
       this.showSuccessModal = true
       console.log('🎉 Sale completed successfully!')
@@ -1400,14 +1423,27 @@ export default {
     
     formatDateTime(dateString) {
       if (!dateString) return ''
-      const date = new Date(dateString)
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      const source = new Date(dateString)
+      try {
+        console.log('[formatDateTime] input', dateString)
+        const datePart = source.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+          timeZone: 'Asia/Manila'
+        })
+        // Use 24-hour time like currentDateTime() from your snippet, forced to PH time
+        const timePart = source.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Manila'
+        })
+        return `${datePart} ${timePart}`
+      } catch (error) {
+        console.error('Date formatting error:', error)
+        return source.toString()
+      }
     }
   }
 }
