@@ -1,7 +1,7 @@
 <template>
   <div class="new-order-page page-container transition-theme">
     <!-- Main Content Area -->
-    <div class="main-area content-container">
+    <div class="main-area content-container with-sidebar">
       <div class="no-contents surface-primary text-primary transition-theme">
         <!-- Header Section -->
         <div class="no-header header-theme">
@@ -12,6 +12,16 @@
               placeholder="Search products..." 
               class="search-input input-complete focus-ring-theme"
             />
+            <button 
+              class="refresh-stock-btn btn-complete focus-ring-theme" 
+              @click="manualStockRefresh"
+              :disabled="isRefreshingStock"
+              title="Refresh stock levels"
+            >
+              <RefreshCw :size="18" :class="{ 'spinning': isRefreshingStock }" />
+              <span v-if="!isRefreshingStock">Refresh</span>
+              <span v-else>Refreshing...</span>
+            </button>
           </div>
           
           <!-- Categories -->
@@ -75,8 +85,32 @@
           <div 
             v-for="product in paginatedProducts" 
             :key="product.id"
-            class="product-card card-complete hover-lift transition-theme"
+            :class="['product-card card-complete hover-lift transition-theme', { 'sold-out': !product.isSubcategory && (product.total_stock === null || product.total_stock <= 0) }]"
             @click="handleProductClick(product)">
+            <!-- Sold Out Overlay -->
+            <div v-if="!product.isSubcategory && (product.total_stock === null || product.total_stock <= 0)" class="sold-out-overlay">
+              <div class="sold-out-badge">SOLD OUT</div>
+              
+              <!-- Hover Tooltip for Sold Out Products -->
+              <div class="sold-out-tooltip">
+                <div class="tooltip-content">
+                  <div class="tooltip-header">
+                    <h4 class="tooltip-title">{{ product.name }}</h4>
+                    <div class="tooltip-price">₱{{ formatPrice(product.price) }}</div>
+                  </div>
+                  <div class="tooltip-details">
+                    <div class="tooltip-stock">
+                      <span class="stock-label">Stock:</span>
+                      <span class="stock-value">{{ product.total_stock || 0 }}</span>
+                    </div>
+                    <div class="tooltip-description">
+                      <small>This item is currently out of stock</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div class="product-image">
               <img 
                 :src="product.image" 
@@ -267,7 +301,7 @@
     </div>
 
     <!-- Shopping Cart Sidebar -->
-    <div v-if="showCart" class="cart-sidebar sidebar-theme transition-theme">
+    <div class="cart-sidebar sidebar-theme transition-theme">
       <div class="cart-header header-theme">
         <h2>New Order</h2>
         <button class="cart-close btn-complete" @click="closeCart">
@@ -432,12 +466,6 @@
         </div>
       </div>
     </div>
-        
-    <!-- Cart Toggle Button -->
-    <button v-if="!showCart && cartItems.length > 0" class="cart-toggle btn-complete focus-ring-theme" @click="openCart">
-      <ShoppingCart :size="24" />
-      <span class="cart-badge">{{ totalItems }}</span>
-    </button>
   </div>
 </template>
 
@@ -448,13 +476,16 @@ import productsAPI from '@/services/apiProducts.js'
 import { api } from '@/services/api.js'
 import { useLocalStorage } from '@/composables/data/useLocalStorage.js'
 import { useCache } from '@/composables/data/useCache.js'
+import { useStockCache } from '@/composables/data/useStockCache.js'
+import { RefreshCw } from 'lucide-vue-next'
 
 export default {
   name: 'NewOrder',
   
   setup() {
     const cartStore = useCartStore()
-    return { cartStore }
+    const stockCache = useStockCache()
+    return { cartStore, stockCache }
   },
   
   data() {
@@ -474,8 +505,8 @@ export default {
       customCategoryProducts: {},
       allProducts: [],
       
-      // Cart UI state
-      showCart: false,
+      // Cart UI state - always visible now
+      showCart: true,
       
       // Modal states
       showCategoryModal: false,
@@ -491,7 +522,7 @@ export default {
       displayedItemsCount: 24,
       itemsPerLoad: 12,
       
-      // Custom category creation
+      // Custom category creation - will be loaded from localStorage
       nextCategoryId: 100,
       nextProductId: 1000,
       newCategory: {
@@ -531,15 +562,44 @@ export default {
       memCacheTTLms: 30 * 60 * 1000, // 30 minutes for in-memory cache
       storage: null,
       memCache: null,
+      
+      // Stock refresh
+      stockRefreshInterval: null,
+      stockRefreshIntervalMs: 5 * 60 * 1000, // 5 minutes
+      isRefreshingStock: false,
     }
   },
 
   async mounted() {
-    console.log('🚀 NewOrder component mounted')
+    
+    // Check if returning from checkout
+    const shouldRefreshStock = sessionStorage.getItem('refreshStockAfterCheckout')
+    if (shouldRefreshStock === 'true') {
+      sessionStorage.removeItem('refreshStockAfterCheckout')
+    }
+    
+    // Read targeted product IDs to refresh (set by checkout/payment callback)
+    let targetedProductIds = []
+    try {
+      const raw = sessionStorage.getItem('refreshProductIds')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          targetedProductIds = [...new Set(parsed)]
+        }
+      }
+    } catch (_) {}
+    
     // initialize caches
     const ls = useLocalStorage()
     this.storage = ls.withPrefix('newOrder')
     this.memCache = useCache({ maxEntries: 300 })
+    
+    // Load custom categories and products from localStorage
+    this.loadCustomCategories()
+    this.loadCustomCategoryProducts()
+    this.loadIdCounters()
+    
     // Hydrate from localStorage immediately to avoid spinner on revisit
     try {
       const cachedCategories = this.storage.getItem('categories', null)
@@ -553,7 +613,6 @@ export default {
           const cachedProducts = this.storage.getItem(`products:${catId}:__all__`, null)
           if (Array.isArray(cachedProducts)) {
             this.products = cachedProducts
-            console.log('📦 Hydrated products from cache:', cachedProducts.length)
           }
         }
       }
@@ -561,21 +620,32 @@ export default {
     await this.initializeSession()
     await this.loadCategories()
     
-    // Debug: Check products grid after mount
-    this.$nextTick(() => {
-      const grid = document.querySelector('.products-grid')
-      if (grid) {
-        console.log('📐 Products Grid Element Found:')
-        console.log('  - scrollHeight:', grid.scrollHeight)
-        console.log('  - clientHeight:', grid.clientHeight)
-        console.log('  - overflow-y:', window.getComputedStyle(grid).overflowY)
-        console.log('  - flex:', window.getComputedStyle(grid).flex)
-        console.log('  - min-height:', window.getComputedStyle(grid).minHeight)
-        console.log('  - Is scrollable?', grid.scrollHeight > grid.clientHeight)
-      } else {
-        console.warn('⚠️ Products grid element not found')
+    // Set up periodic stock refresh (skip immediate auto-refresh if returning from checkout)
+    this.startStockRefresh(shouldRefreshStock !== 'true')
+    
+    // Fetch promotions since cart is always visible
+    this.fetchAvailablePromotions()
+    
+    // If returning from checkout, perform targeted refresh when possible, fallback to full refresh
+    if (shouldRefreshStock === 'true') {
+      try {
+        if (targetedProductIds.length > 0) {
+          await this.refreshSpecificStockLevels(targetedProductIds)
+        } else {
+          await this.refreshStockLevels()
+        }
+      } finally {
+        try { sessionStorage.removeItem('refreshProductIds') } catch (_) {}
       }
-    })
+    }
+  },
+
+  beforeUnmount() {
+    // Clean up stock refresh interval
+    if (this.stockRefreshInterval) {
+      clearInterval(this.stockRefreshInterval)
+      this.stockRefreshInterval = null
+    }
   },
 
   watch: {
@@ -585,27 +655,6 @@ export default {
         this.fetchAvailablePromotions()
       },
       deep: true
-    },
-    
-    // Debug: Watch products changes
-    products: {
-      handler(newVal) {
-        console.log('📦 Products changed:', newVal?.length || 0, 'items')
-        this.$nextTick(() => {
-          const grid = document.querySelector('.products-grid')
-          if (grid) {
-            console.log('📐 Grid dimensions after products update:')
-            console.log('  - scrollHeight:', grid.scrollHeight)
-            console.log('  - clientHeight:', grid.clientHeight)
-            console.log('  - Can scroll?', grid.scrollHeight > grid.clientHeight)
-          }
-        })
-      }
-    },
-    
-    // Debug: Watch displayedItemsCount
-    displayedItemsCount(newVal) {
-      console.log('🔢 Displayed items count changed to:', newVal)
     }
   },
 
@@ -720,7 +769,14 @@ export default {
         )
       }
       
-      return products
+      // Sort products: in-stock first, sold-out last
+      return products.sort((a, b) => {
+        const aInStock = a.total_stock !== null && a.total_stock > 0
+        const bInStock = b.total_stock !== null && b.total_stock > 0
+        
+        if (aInStock === bInStock) return 0
+        return aInStock ? -1 : 1
+      })
     },
 
     paginatedProducts() {
@@ -791,35 +847,344 @@ export default {
 
   methods: {
     selectIcon(iconName) {
-      console.log('[NewOrder] Icon clicked:', iconName)
       this.newCategory.icon = iconName
-      this.$nextTick(() => {
-        console.log('[NewOrder] newCategory.icon set to:', this.newCategory.icon)
-      })
     },
+    
+    // Image handlers and fallback for robustness
+    handleImageLoad(event) {
+      const img = event?.target
+      if (img) img.dataset.loaded = 'true'
+    },
+    handleImageError(event, product) {
+      const img = event?.target
+      if (!img) return
+      img.onerror = null
+      const name = product?.name || 'Product'
+      img.src = this.getFallbackProductImage(name)
+    },
+    
+    // ================================================================
+    // STOCK REFRESH
+    // ================================================================
+    
+    startStockRefresh(refreshImmediately = true) {
+      if (refreshImmediately) {
+        this.refreshStockLevels()
+      }
+      this.stockRefreshInterval = setInterval(() => {
+        this.refreshStockLevels()
+      }, this.stockRefreshIntervalMs)
+    },
+    
+    async manualStockRefresh() {
+      if (this.isRefreshingStock) return
+      
+      try {
+        this.isRefreshingStock = true
+        console.log('🔄 Manual stock refresh triggered')
+        
+        // Clear cache for current category to force fresh data
+        if (this.activeCategory) {
+          const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
+          this.storage?.removeItem(cacheKey)
+          this.memCache?.delete(cacheKey)
+          console.log('🗑️ Cleared cache for:', cacheKey)
+        }
+        
+        await this.refreshStockLevels()
+        
+        // Force reload current category products
+        if (this.activeCategory) {
+          await this.loadProducts(this.activeCategory, this.currentSubcategory?.name)
+        }
+        
+        // Show success feedback
+        console.log('✅ Manual stock refresh completed')
+        
+      } catch (error) {
+        console.error('❌ Manual stock refresh failed:', error)
+        alert('Failed to refresh stock levels. Please try again.')
+      } finally {
+        this.isRefreshingStock = false
+      }
+    },
+    
+    async refreshStockLevels() {
+      try {
+        // Initialize stockUpdates at the beginning
+        let stockUpdates = {}
+        
+        // Get all unique product IDs currently in cache
+        const productIdsToRefresh = new Set()
+        
+        // Add products from current view
+        this.products.forEach(p => productIdsToRefresh.add(p.id))
+        
+        // Add products from custom categories
+        Object.values(this.customCategoryProducts).forEach(products => {
+          products.forEach(p => {
+            // Use originalId for custom category products
+            if (p.originalId) productIdsToRefresh.add(p.originalId)
+            else productIdsToRefresh.add(p.id)
+          })
+        })
+        
+        if (productIdsToRefresh.size === 0) {
+          return
+        }
+        
+        // Fetch fresh stock data in batch
+        const productIds = Array.from(productIdsToRefresh)
+        
+        try {
+          const freshProducts = await productsAPI.getProductsBatch(productIds)
+          
+          if (!Array.isArray(freshProducts) || freshProducts.length === 0) {
+            return
+          }
+          
+          // Build a map of productId -> fresh stock (use total_stock if available, otherwise null)
+          stockUpdates = {}
+          freshProducts.forEach(product => {
+            // Use total_stock if available, otherwise fallback to batch_stock
+            const stockValue = (product.total_stock !== undefined && product.total_stock !== null)
+              ? product.total_stock
+              : (product.batch_stock !== undefined && product.batch_stock !== null)
+              ? product.batch_stock
+              : null
+            
+            console.log(`🔄 Stock update for ${product.name}:`, {
+              id: product.id,
+              total_stock: product.total_stock,
+              batch_stock: product.batch_stock,
+              stock: product.stock,
+              selectedValue: stockValue
+            })
+            
+            if (product.id) {
+              stockUpdates[product.id] = stockValue
+            }
+          })
+          
+          // Update all cache entries with fresh stock
+          const allKeys = []
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)
+              if (key && key.startsWith('newOrder_products:')) {
+                allKeys.push(key)
+              }
+            }
+          } catch (error) {
+            console.error('  ❌ Error reading localStorage keys:', error)
+          }
+          
+          let updatedCount = 0
+          allKeys.forEach(fullKey => {
+            try {
+              const key = fullKey.replace('newOrder_', '')
+              const cached = this.storage?.getItem(key, null)
+              
+              if (!Array.isArray(cached)) return
+              
+              let wasUpdated = false
+              const updated = cached.map(product => {
+                const newStock = stockUpdates[product.id]
+                
+                if (newStock !== null && newStock !== (product.total_stock || product.stock)) {
+                  wasUpdated = true
+                  return {
+                    ...product,
+                    stock: newStock,
+                    total_stock: newStock
+                  }
+                }
+                
+                return product
+              })
+              
+              if (wasUpdated) {
+                this.storage?.setItem(key, updated, this.cacheTTLms)
+                this.memCache?.set(key, updated, this.memCacheTTLms)
+                updatedCount++
+              }
+              
+            } catch (error) {
+              console.error('  ❌ Error updating cache key', fullKey, ':', error)
+            }
+          })
+          
+          
+          
+        } catch (error) {
+          console.error('  ❌ Failed to fetch products batch:', error)
+          return
+        }
+        
+        // Update custom category products with fresh stock data
+        this.updateCustomCategoryProductsStock(stockUpdates)
+        
+        // Reload current view to show updated stock
+        if (this.activeCategory) {
+          const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
+          const refreshedProducts = this.storage?.getItem(cacheKey, null)
+          if (Array.isArray(refreshedProducts)) {
+            console.log('🔄 Reloading products after stock update:', refreshedProducts.length, 'products')
+            // Log first few products to see their stock values
+            refreshedProducts.slice(0, 3).forEach(p => {
+              console.log(`  - ${p.name}: stock=${p.stock}, total_stock=${p.total_stock}`)
+            })
+            this.products = refreshedProducts
+          }
+        }
+        
+      } catch (error) {
+        console.error('❌ Stock refresh failed:', error)
+        // Don't throw - this is a background operation
+      }
+    },
+    
+    // Targeted stock refresh for specific product IDs
+    async refreshSpecificStockLevels(productIds) {
+      try {
+        const uniqueIds = Array.from(new Set((productIds || []).filter(Boolean)))
+        if (uniqueIds.length === 0) {
+          return
+        }
+        
+        // Fetch fresh data
+        const freshProducts = await productsAPI.getProductsBatch(uniqueIds)
+        if (!Array.isArray(freshProducts) || freshProducts.length === 0) {
+          return
+        }
+        
+        // Build updates map (use total_stock if available, otherwise null)
+        const stockUpdates = {}
+        freshProducts.forEach(product => {
+          const stockValue = (product.total_stock !== undefined && product.total_stock !== null)
+            ? product.total_stock
+            : (product.batch_stock !== undefined && product.batch_stock !== null)
+            ? product.batch_stock
+            : null
+          if (product.id) {
+            stockUpdates[product.id] = stockValue
+          }
+        })
+        
+        // Update current in-memory view (products)
+        if (Array.isArray(this.products) && this.products.length > 0) {
+          let changed = false
+          const updated = this.products.map(p => {
+            const newStock = stockUpdates[p.id]
+            if (newStock !== null && newStock !== (p.total_stock || p.stock)) {
+              changed = true
+              return { ...p, stock: newStock, total_stock: newStock }
+            }
+            return p
+          })
+          if (changed) {
+            this.products = updated
+          }
+        }
+        
+        // Update custom category products with fresh stock data
+        this.updateCustomCategoryProductsStock(stockUpdates)
+        
+        // Update localStorage-backed caches for any categories that include these products
+        const allKeys = []
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && key.startsWith('newOrder_products:')) {
+              allKeys.push(key)
+            }
+          }
+        } catch (error) {
+          console.error('  ❌ Error reading localStorage keys:', error)
+        }
+        
+        let updatedCount = 0
+        allKeys.forEach(fullKey => {
+          try {
+            const key = fullKey.replace('newOrder_', '')
+            const cached = this.storage?.getItem(key, null)
+            if (!Array.isArray(cached)) return
+            let wasUpdated = false
+            const updated = cached.map(product => {
+              const newStock = stockUpdates[product.id]
+              if (newStock !== undefined && newStock !== product.stock) {
+                wasUpdated = true
+                return { ...product, stock: newStock }
+              }
+              return product
+            })
+            if (wasUpdated) {
+              this.storage?.setItem(key, updated, this.cacheTTLms)
+              this.memCache?.set(key, updated, this.memCacheTTLms)
+              updatedCount++
+            }
+          } catch (error) {
+            console.error('  ❌ Error updating cache key', fullKey, ':', error)
+          }
+        })
+        
+        
+        // Update custom category items in-memory if they reference affected products
+        try {
+          Object.keys(this.customCategoryProducts || {}).forEach(catId => {
+            const items = this.customCategoryProducts[catId]
+            if (!Array.isArray(items) || items.length === 0) return
+            let changed = false
+            const updated = items.map(item => {
+              const baseId = item.originalId || item.id
+              const newStock = stockUpdates[baseId]
+              if (newStock !== undefined && newStock !== item.stock) {
+                changed = true
+                return { ...item, stock: newStock }
+              }
+              return item
+            })
+            if (changed) {
+              this.customCategoryProducts[catId] = updated
+            }
+          })
+        } catch (error) {
+          console.error('  ❌ Error updating custom category items:', error)
+        }
+        
+        // If current view is activeCategory, try to re-hydrate from cache to ensure consistency
+        if (this.activeCategory) {
+          const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
+          const refreshedProducts = this.storage?.getItem(cacheKey, null)
+          if (Array.isArray(refreshedProducts)) {
+            // Merge in-memory updates with cache to avoid flicker
+            const merged = refreshedProducts.map(prod => {
+              const newStock = stockUpdates[prod.id]
+              return newStock !== undefined ? { ...prod, stock: newStock } : prod
+            })
+            this.products = merged
+          }
+        }
+      } catch (error) {
+        console.error('❌ Targeted stock refresh failed:', error)
+      }
+    },
+    
     // ================================================================
     // INITIALIZATION
     // ================================================================
     
     async initializeSession() {
       try {
-        console.log('🔄 Initializing session...')
-        
         const userData = JSON.parse(localStorage.getItem('userData') || '{}')
         const cashierId = userData.user_id || userData.id || userData._id
-        
-        console.log('👤 Cashier ID:', cashierId)
         
         if (!cashierId) {
           throw new Error('No cashier ID found. Please log in again.')
         }
         
         const shiftId = localStorage.getItem('activeShiftId') || null
-        console.log('⏰ Shift ID:', shiftId)
-        
         this.cartStore.initializeSession(cashierId, shiftId)
-        
-        console.log('✅ Session initialized')
         
       } catch (error) {
         console.error('❌ Session initialization failed:', error)
@@ -833,7 +1198,6 @@ export default {
       this.showProductSelectorModal = true
       
       // Always load products from all available categories
-      console.log('📦 Loading products from all categories...')
       await this.loadAllProductsForSelection()
       
       // Then select the first category
@@ -847,12 +1211,9 @@ export default {
       try {
         this.productsLoading = true
         
-        console.log('📦 Loading products from all available categories...')
-        
         // Load from ALL available source categories (excluding current active category)
         // This will use cache first, then localStorage, then API
         const productPromises = this.availableSourceCategories.map(category => {
-          console.log(`  → Loading category: ${category.name} (ID: ${category.id})`)
           return this.getProductsCached(category.id)
         })
         
@@ -861,9 +1222,6 @@ export default {
         
         // Flatten all products into a single array
         this.allProducts = allCategoryProducts.flat()
-        
-        console.log('✅ Loaded all products:', this.allProducts.length)
-        console.log('📊 Products by category:', this.productCountsByCategory)
         
       } catch (error) {
         console.error('Failed to load all products:', error)
@@ -1000,6 +1358,9 @@ export default {
     generateSubcategoryImage(subcategoryName) {
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(subcategoryName)}&size=200&background=A07BE3&color=fff`
     },
+    getFallbackProductImage(productName) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(productName || 'Product')}&size=200&background=7392E2&color=fff`
+    },
 
     createCategory() {
       if (!this.newCategory.name.trim()) return
@@ -1016,6 +1377,12 @@ export default {
       
       this.customCategoryProducts[categoryId] = []
       this.customCategories.push(category)
+      
+      // Save to localStorage for persistence
+      this.saveCustomCategories()
+      this.saveCustomCategoryProducts()
+      this.saveIdCounters()
+      
       this.closeCategoryModal()
       this.selectCategory(categoryId)
     },
@@ -1024,6 +1391,10 @@ export default {
       if (confirm('Are you sure you want to delete this category and all its items?')) {
         this.customCategories = this.customCategories.filter(cat => cat.id !== categoryId)
         delete this.customCategoryProducts[categoryId]
+        
+        // Save to localStorage after deletion
+        this.saveCustomCategories()
+        this.saveCustomCategoryProducts()
         
         if (this.activeCategory === categoryId) {
           this.activeCategory = this.categories[0]?.id
@@ -1095,6 +1466,10 @@ export default {
         this.customCategoryProducts[this.activeCategory].push(newProduct)
       })
       
+      // Save to localStorage after adding products
+      this.saveCustomCategoryProducts()
+      this.saveIdCounters()
+      
       this.$forceUpdate()
       this.closeProductSelectorModal()
     },
@@ -1104,6 +1479,9 @@ export default {
         this.customCategoryProducts[this.activeCategory] = 
           this.customCategoryProducts[this.activeCategory].filter(product => product.id !== productId)
         
+        // Save to localStorage after removing product
+        this.saveCustomCategoryProducts()
+        
         this.$forceUpdate()
       }
     },
@@ -1112,6 +1490,10 @@ export default {
       if (product.isSubcategory) {
         this.selectSubcategory(product.subcategoryData)
       } else {
+        // Prevent adding sold-out products to cart
+        if (product.total_stock === null || product.total_stock <= 0) {
+          return
+        }
         this.addToCart(product)
       }
     },
@@ -1148,17 +1530,8 @@ export default {
       const scrollHeight = container.scrollHeight
       const clientHeight = container.clientHeight
       
-      console.log('🖱️ Scroll Event Detected:')
-      console.log('  - scrollTop:', scrollTop)
-      console.log('  - scrollHeight:', scrollHeight)
-      console.log('  - clientHeight:', clientHeight)
-      console.log('  - Distance from bottom:', scrollHeight - (scrollTop + clientHeight))
-      console.log('  - Has more items:', this.hasMoreItems)
-      console.log('  - Displayed:', this.displayedItemsCount, '/', this.filteredProducts.length)
-      
       // Check if scrolled near bottom (within 100px)
       if (scrollTop + clientHeight >= scrollHeight - 100) {
-        console.log('✅ Near bottom - Loading more items...')
         this.loadMoreItems()
       }
     },
@@ -1168,7 +1541,6 @@ export default {
       
       // Load next batch of items
       this.displayedItemsCount += this.itemsPerLoad
-      console.log(`📦 Loaded more items. Now showing: ${this.displayedItemsCount}/${this.filteredProducts.length}`)
     },
 
     resetInfiniteScroll() {
@@ -1196,14 +1568,8 @@ export default {
       }
       
       try {
-        console.log('🎟️ Fetching available promotions...')
-        console.log('📦 Cart items:', this.cartItems.length)
-        
         // ✅ USE BACKOFFICE ENDPOINT
         const response = await api.get('/promotions/active/')
-        
-        console.log('📦 Full response:', response)
-        console.log('📦 Response data:', response.data)
         
         // Parse response - Backoffice structure
         let allPromotions = []
@@ -1212,14 +1578,11 @@ export default {
           if (response.data.success === true) {
             // Backoffice returns: { success: true, promotions: [...], count: n }
             allPromotions = response.data.promotions || []
-            console.log('✅ Found promotions in response.data.promotions')
           } else {
             console.warn('⚠️ Success is not true')
           }
         }
         
-        console.log('📋 Parsed promotions:', allPromotions)
-        console.log('📋 Promotions count:', allPromotions.length)
         
         if (!Array.isArray(allPromotions)) {
           console.error('❌ allPromotions is not an array:', typeof allPromotions)
@@ -1235,22 +1598,12 @@ export default {
           return
         }
         
-        console.log('🔄 Calculating discounts for promotions...')
-        console.log('📦 Current cart items:', this.cartItems)
-        console.log('📦 Current products:', this.products)
-        
         // Calculate discount for each promotion
         const applicablePromotions = []
         
         for (const promo of allPromotions) {
           try {
-            console.log(`\n  🎁 Checking: ${promo.name}`)
-            console.log(`     Type: ${promo.type} (${promo.discount_value}${promo.type === 'percentage' ? '%' : ' PHP'})`)
-            console.log(`     Target: ${promo.discount_config?.target_type}`)
-            console.log(`     Target IDs:`, promo.discount_config?.target_ids)
-            
             const discount = this.calculatePromotionDiscount(promo)
-            console.log(`     💰 Calculated discount: ₱${discount}`)
             
             if (discount > 0) {
               applicablePromotions.push({
@@ -1258,9 +1611,6 @@ export default {
                 calculatedDiscount: discount,
                 isApplicable: true
               })
-              console.log(`     ✅ APPLICABLE - Added to list`)
-            } else {
-              console.log(`     ❌ NOT APPLICABLE - Discount is 0`)
             }
           } catch (calcError) {
             console.error(`❌ Error calculating discount for ${promo.name}:`, calcError)
@@ -1272,9 +1622,6 @@ export default {
         
         this.availablePromotions = applicablePromotions
         this.filteredPromoSuggestions = applicablePromotions
-        
-        console.log(`\n✅ FINAL RESULT: Found ${applicablePromotions.length} applicable promotions`)
-        console.log('📊 Applicable promotions:', applicablePromotions)
         
       } catch (error) {
         console.error('❌ Failed to fetch promotions:', error)
@@ -1288,56 +1635,36 @@ export default {
     calculatePromotionDiscount(promotion) {
       // ✅ SAFETY CHECK: Handle missing discount_config
       if (!promotion.discount_config) {
-        console.warn(`⚠️ Promotion "${promotion.name}" missing discount_config!`)
-        console.warn('   Full promotion object:', promotion)
         return 0
       }
       
       const targetType = promotion.discount_config.target_type
       const targetIds = promotion.discount_config.target_ids || []
       
-      console.log(`   🎯 Target Type: ${targetType}`)
-      console.log(`   🎯 Target IDs:`, targetIds)
-      
       let eligibleAmount = 0
       
       if (targetType === 'all') {
         eligibleAmount = this.cartSubtotal
-        console.log(`   💰 All items eligible: ₱${eligibleAmount}`)
       } else if (targetType === 'categories') {
         // Get eligible items from target categories
         const eligibleItems = this.cartItems.filter(item => {
           const product = this.products.find(p => p.id === item.productId)
           const isEligible = product && targetIds.includes(product.category)
-          
-          if (isEligible) {
-            console.log(`      ✅ ${product.name} (${product.category}) - ₱${item.subtotal}`)
-          }
-          
           return isEligible
         })
         
         eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        console.log(`   💰 Category items eligible: ₱${eligibleAmount}`)
       } else if (targetType === 'products') {
         // Get eligible items from target products
         const eligibleItems = this.cartItems.filter(item => {
           const isEligible = targetIds.includes(item.productId)
-          
-          if (isEligible) {
-            const product = this.products.find(p => p.id === item.productId)
-            console.log(`      ✅ ${product?.name || item.productName} - ₱${item.subtotal}`)
-          }
-          
           return isEligible
         })
         
         eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        console.log(`   💰 Product items eligible: ₱${eligibleAmount}`)
       }
       
       if (eligibleAmount === 0) {
-        console.log(`   ❌ No eligible items found`)
         return 0
       }
       
@@ -1377,7 +1704,6 @@ export default {
         }
         
         this.appliedPromotion = promotion
-        console.log('✅ Applied promotion:', promotion.name)
         
       } catch (error) {
         console.error('❌ Failed to apply promotion:', error)
@@ -1392,8 +1718,6 @@ export default {
       }
       
       try {
-        console.log('🎟️ Applying manual promo code:', this.promoCode)
-        
         // Find promotion by name/code in available promotions first
         const foundPromo = this.availablePromotions.find(
           p => p.name.toLowerCase() === this.promoCode.trim().toLowerCase()
@@ -1421,7 +1745,6 @@ export default {
             if (discount > 0) {
               this.appliedPromotion = matchingPromo
               this.promoCode = ''
-              console.log('✅ Manual promo applied:', matchingPromo.name)
             } else {
               alert('This promo code does not apply to items in your cart')
             }
@@ -1439,7 +1762,6 @@ export default {
     removePromotion() {
       this.appliedPromotion = null
       this.promoCode = ''
-      console.log('🗑️ Promotion removed')
     },
 
     // ================================================================
@@ -1448,8 +1770,6 @@ export default {
     
     addToCart(product) {
       try {
-        console.log('🛒 Adding to cart:', product.name)
-        
         if (!product.id || !product.name || !product.price) {
           throw new Error('Invalid product data')
         }
@@ -1460,9 +1780,6 @@ export default {
         }
         
         this.cartStore.addItem(product)
-        this.showCart = true
-        
-        console.log('✅ Item added')
         
       } catch (error) {
         console.error('❌ Add to cart failed:', error)
@@ -1488,8 +1805,6 @@ export default {
         return
       }
       
-      console.log('🛒 Proceeding to checkout...')
-      
       // Store promotion info for checkout
       if (this.appliedPromotion) {
         sessionStorage.setItem('appliedPromotion', JSON.stringify({
@@ -1504,15 +1819,7 @@ export default {
       this.$router.push('/checkout')
     },
 
-    closeCart() {
-      this.showCart = false
-    },
-
-    openCart() {
-      this.showCart = true
-      // Fetch promotions when cart opens
-      this.fetchAvailablePromotions()
-    },
+    // Cart methods removed - sidebar is always visible now
     filterPromoSuggestions() {
       const searchQuery = this.promoCode.toLowerCase().trim()
       
@@ -1565,8 +1872,131 @@ export default {
       return 'Selected items'
     },
     
+    // ================================================================
+    // CUSTOM CATEGORY STOCK UPDATE
+    // ================================================================
     
+    updateCustomCategoryProductsStock(stockUpdates) {
+      try {
+        let updated = false
+        
+        // Update all custom category products with fresh stock data
+        Object.keys(this.customCategoryProducts).forEach(categoryId => {
+          const products = this.customCategoryProducts[categoryId]
+          if (Array.isArray(products)) {
+            products.forEach(product => {
+              // Use originalId if available, otherwise use id
+              const originalId = product.originalId || product.id
+              const newStock = stockUpdates[originalId]
+              
+              if (newStock !== undefined && newStock !== product.total_stock) {
+                console.log(`🔄 Updating custom category product ${product.name}: ${product.total_stock} → ${newStock}`)
+                product.stock = newStock
+                product.total_stock = newStock
+                updated = true
+              }
+            })
+          }
+        })
+        
+        if (updated) {
+          // Save updated custom category products
+          this.saveCustomCategoryProducts()
+          console.log('✅ Updated custom category products with fresh stock data')
+        }
+        
+      } catch (error) {
+        console.error('❌ Failed to update custom category products stock:', error)
+      }
+    },
 
+    // ================================================================
+    // PERSISTENCE METHODS
+    // ================================================================
+    
+    saveCustomCategories() {
+      try {
+        this.storage?.setItem('customCategories', this.customCategories, this.cacheTTLms)
+        this.memCache?.set('customCategories', this.customCategories, this.memCacheTTLms)
+      } catch (error) {
+        console.error('❌ Failed to save custom categories:', error)
+      }
+    },
+    
+    loadCustomCategories() {
+      try {
+        // Try memory cache first
+        const memHit = this.memCache?.get('customCategories', null)
+        if (memHit) {
+          this.customCategories = memHit
+          return
+        }
+        
+        // Try localStorage
+        const lsHit = this.storage?.getItem('customCategories', null)
+        if (Array.isArray(lsHit)) {
+          this.customCategories = lsHit
+          this.memCache?.set('customCategories', lsHit, this.memCacheTTLms)
+        }
+      } catch (error) {
+        console.error('❌ Failed to load custom categories:', error)
+      }
+    },
+    
+    saveCustomCategoryProducts() {
+      try {
+        this.storage?.setItem('customCategoryProducts', this.customCategoryProducts, this.cacheTTLms)
+        this.memCache?.set('customCategoryProducts', this.customCategoryProducts, this.memCacheTTLms)
+      } catch (error) {
+        console.error('❌ Failed to save custom category products:', error)
+      }
+    },
+    
+    loadCustomCategoryProducts() {
+      try {
+        // Try memory cache first
+        const memHit = this.memCache?.get('customCategoryProducts', null)
+        if (memHit) {
+          this.customCategoryProducts = memHit
+          return
+        }
+        
+        // Try localStorage
+        const lsHit = this.storage?.getItem('customCategoryProducts', null)
+        if (lsHit && typeof lsHit === 'object') {
+          this.customCategoryProducts = lsHit
+          this.memCache?.set('customCategoryProducts', lsHit, this.memCacheTTLms)
+        }
+      } catch (error) {
+        console.error('❌ Failed to load custom category products:', error)
+      }
+    },
+    
+    saveIdCounters() {
+      try {
+        this.storage?.setItem('nextCategoryId', this.nextCategoryId, this.cacheTTLms)
+        this.storage?.setItem('nextProductId', this.nextProductId, this.cacheTTLms)
+      } catch (error) {
+        console.error('❌ Failed to save ID counters:', error)
+      }
+    },
+    
+    loadIdCounters() {
+      try {
+        const savedCategoryId = this.storage?.getItem('nextCategoryId', null)
+        const savedProductId = this.storage?.getItem('nextProductId', null)
+        
+        if (savedCategoryId && savedCategoryId > this.nextCategoryId) {
+          this.nextCategoryId = savedCategoryId
+        }
+        if (savedProductId && savedProductId > this.nextProductId) {
+          this.nextProductId = savedProductId
+        }
+      } catch (error) {
+        console.error('❌ Failed to load ID counters:', error)
+      }
+    },
+    
     // ================================================================
     // UTILITIES
     // ================================================================

@@ -1,5 +1,5 @@
 <template>
-  <div class="d-flex gap-3 p-3 page-container" style="min-height: 100vh;">
+  <div class="d-flex gap-3 p-3 page-container" style="height: 100%; max-height: 100vh; overflow: hidden;">
     <!-- Loading Overlay -->
     <div v-if="isLoading" class="loading-overlay position-fixed top-0 start-0 end-0 bottom-0 d-flex flex-column align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.95); z-index: 9999;">
       <div class="spinner-border text-primary mb-3" role="status" style="width: 60px; height: 60px;">
@@ -8,8 +8,8 @@
       <p class="text-secondary fw-medium fs-5">{{ loadingMessage }}</p>
     </div>
 
-    <div class="flex-fill surface-primary shadow-sm rounded-4">
-      <div class="d-flex align-items-center gap-3 p-4 border-bottom-theme">
+    <div class="flex-fill surface-primary shadow-sm rounded-4 d-flex flex-column" style="min-height: 0; overflow: hidden;">
+      <div class="d-flex align-items-center gap-3 p-4 border-bottom-theme flex-shrink-0">
         <button @click="goBack" class="btn btn-light rounded-3 p-2 hover-surface transition-theme" :disabled="isProcessing">
           <ChevronLeft :size="20"/>
         </button>
@@ -19,7 +19,7 @@
         </button>
       </div>
 
-      <div class="p-4 overflow-auto" style="height: calc(100vh - 100px);">
+      <div class="p-4 overflow-auto flex-fill" style="min-height: 0;">
         <!-- Empty Cart State -->
         <div v-if="cartItems.length === 0" class="d-flex flex-column align-items-center justify-content-center text-center p-5 text-secondary">
           <div class="fs-1 mb-3" style="opacity: 0.6;">🛒</div>
@@ -83,8 +83,8 @@
     </div>
 
 
-    <div class="surface-primary shadow-sm rounded-4 p-4" style="width: 400px;">
-      <div class="d-flex flex-column h-100">
+    <div class="surface-primary shadow-sm rounded-4 p-4 d-flex flex-column" style="width: 400px; min-height: 0; max-height: 100%; overflow-y: auto;">
+      <div class="d-flex flex-column flex-fill">
         <h2 class="mb-4 fs-4 text-primary fw-semibold">Order Summary</h2>
 
         <!-- Customer Section -->
@@ -374,65 +374,19 @@
         
         <!-- GCash Payment Info -->
         <div v-else-if="paymentMethod === 'gcash'" class="mt-3">
-          <div class="surface-secondary rounded-3 p-4 text-center">
-            <div class="fs-1 mb-3">📱</div>
-            <h4 class="fs-5 fw-semibold mb-2 text-primary">GCash Payment</h4>
-            <p class="text-secondary mb-3">You will be redirected to GCash to complete your payment securely.</p>
-
-            <div class="payment-flow-steps">
-              <div class="flow-step">
-                <span class="step-number bg-primary text-white">1</span>
-                <span class="step-text text-secondary">Click "Place Order"</span>
-              </div>
-              <div class="flow-step">
-                <span class="step-number bg-primary text-white">2</span>
-                <span class="step-text text-secondary">Log in to GCash</span>
-              </div>
-              <div class="flow-step">
-                <span class="step-number bg-primary text-white">3</span>
-                <span class="step-text text-secondary">Confirm payment</span>
-              </div>
-              <div class="flow-step">
-                <span class="step-number bg-primary text-white">4</span>
-                <span class="step-text text-secondary">Return here for receipt</span>
-              </div>
-            </div>
-
-            <div class="status-warning rounded-3 p-2 mt-3 fs-7">
-              <strong>💡 Test Mode:</strong> Use PayMongo test account to simulate GCash payment
-            </div>
+          <div class="surface-secondary rounded-3 p-3 text-center">
+            <div class="fs-3 mb-2">📱</div>
+            <h4 class="fs-6 fw-semibold mb-1 text-primary">GCash Payment</h4>
+            <p class="text-secondary fs-7 mb-0">You will be redirected to GCash to complete your payment securely.</p>
           </div>
         </div>
 
         <!-- Maya Payment Info -->
         <div v-else-if="paymentMethod === 'paymaya'" class="mt-3">
-          <div class="surface-secondary rounded-3 p-4 text-center">
-            <div class="fs-1 mb-3">💳</div>
-            <h4 class="fs-5 fw-semibold mb-2 text-primary">Maya (PayMaya) Payment</h4>
-            <p class="text-secondary mb-3">You will be redirected to Maya to complete your payment securely.</p>
-
-            <div class="payment-flow-steps">
-              <div class="flow-step">
-                <span class="step-number bg-primary text-white">1</span>
-                <span class="step-text text-secondary">Click "Place Order"</span>
-              </div>
-              <div class="flow-step">
-                <span class="step-number bg-primary text-white">2</span>
-                <span class="step-text text-secondary">Log in to Maya</span>
-              </div>
-              <div class="flow-step">
-                <span class="step-number bg-primary text-white">3</span>
-                <span class="step-text text-secondary">Confirm payment</span>
-              </div>
-              <div class="flow-step">
-                <span class="step-number bg-primary text-white">4</span>
-                <span class="step-text text-secondary">Return here for receipt</span>
-              </div>
-            </div>
-
-            <div class="status-warning rounded-3 p-2 mt-3 fs-7">
-              <strong>💡 Test Mode:</strong> Use PayMongo test account to simulate Maya payment
-            </div>
+          <div class="surface-secondary rounded-3 p-3 text-center">
+            <div class="fs-3 mb-2">💳</div>
+            <h4 class="fs-6 fw-semibold mb-1 text-primary">Maya (PayMaya) Payment</h4>
+            <p class="text-secondary fs-7 mb-0">You will be redirected to Maya to complete your payment securely.</p>
           </div>
         </div>
 
@@ -517,6 +471,7 @@ import { usePaymongo } from '@/composables/api/usePaymongo'
 import apiSales from '@/services/apiSales'
 import apiProducts from '@/services/apiProducts'
 import { api } from '@/services/api.js'
+import { useStockCache } from '@/composables/data/useStockCache.js'
 
 export default {
   name: 'Checkout',
@@ -524,10 +479,12 @@ export default {
   setup() {
     const cartStore = useCartStore()
     const paymongo = usePaymongo()
+    const stockCache = useStockCache()
     
     return { 
       cartStore,
-      paymongo
+      paymongo,
+      stockCache
     }
   },
   
@@ -1141,6 +1098,30 @@ export default {
     // ----------------------------------------------------------------
     
     handleSaleSuccess(result, paymentMethod) {
+      console.log('🎉 Sale completed successfully!')
+      console.log('💳 Payment method:', paymentMethod)
+      console.log('🛒 Cart items to update stock for:', this.cartItems)
+      
+      // Update stock cache with sold items
+      try {
+        console.log('🔄 Calling stockCache.updateStockAfterSale()...')
+        this.stockCache.updateStockAfterSale(this.cartItems)
+        console.log('✅ Stock cache update call completed')
+      } catch (error) {
+        console.error('❌ Failed to update stock cache:', error)
+        console.error('Error details:', error)
+        // Don't block success flow if cache update fails
+      }
+      
+      // Signal NewOrder to perform targeted stock refresh on return
+      try {
+        const affectedIds = (this.cartItems || []).map(i => i.productId).filter(Boolean)
+        if (affectedIds.length > 0) {
+          sessionStorage.setItem('refreshProductIds', JSON.stringify(affectedIds))
+        }
+        sessionStorage.setItem('refreshStockAfterCheckout', 'true')
+      } catch (_) {}
+      
       this.cartStore.clearCart()
       sessionStorage.removeItem('appliedPromotion')
       sessionStorage.removeItem('checkoutCustomer')
@@ -1155,7 +1136,6 @@ export default {
       }
       
       this.showSuccessModal = true
-      console.log('🎉 Sale completed successfully!')
     },
     
     // ================================================================
@@ -1190,6 +1170,10 @@ export default {
     startNewOrder() {
       this.cashTendered = 0
       this.paymentMethod = 'cash'
+      
+      // Signal NewOrder to refresh stock after transaction
+      sessionStorage.setItem('refreshStockAfterCheckout', 'true')
+      
       this.$router.replace('/new-order')
     },
     
@@ -1248,30 +1232,7 @@ export default {
   padding-left: 40px;
 }
 
-/* Custom payment flow steps styling */
-.payment-flow-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 1rem 0;
-}
-
-.flow-step {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.step-number {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
+/* Removed payment flow steps styling - no longer needed */
 
 /* Custom animations for success modal */
 @keyframes fadeIn {

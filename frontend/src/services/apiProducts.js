@@ -45,28 +45,33 @@ class ProductAPIService {
     return products.map(product => {
         const productId = product._id || product.id || product.product_id
         
-        // ✅ FORCE: Always use batch_stock if available
+        // Debug: Log what fields are available in the raw product
+        console.log(`🔍 Transforming product ${product.name || product.product_name}:`, {
+          id: productId,
+          total_stock: product.total_stock,
+          batch_stock: product.batch_stock,
+          stock: product.stock,
+          availableFields: Object.keys(product)
+        });
+        
+        // ✅ Use total_stock if available, otherwise fallback to batch_stock
         let stockValue;
-        if (product.batch_stock !== undefined && product.batch_stock !== null) {
+        if (product.total_stock !== undefined && product.total_stock !== null) {
+            stockValue = product.total_stock
+        } else if (product.batch_stock !== undefined && product.batch_stock !== null) {
             stockValue = product.batch_stock
-        } else if (product.stock_quantity !== undefined) {
-            stockValue = product.stock_quantity
         } else {
-            stockValue = product.stock || 0
+            stockValue = null
         }
-        
-        console.log(`📦 ${productId}: Using batch stock = ${stockValue}`)
-        
-        // ✅ ADD: Log category for debugging
         const categoryId = product.category || product.category_id
-        console.log(`   📂 Category: ${categoryId}`)
         
-        return {
+        const transformed = {
             id: productId,
             _id: productId,
             name: product.name || product.product_name,
             price: product.price || product.selling_price || 0,
             stock: stockValue,
+            total_stock: stockValue, // Use the same value for both fields
             batch_stock: product.batch_stock,
             batches_count: product.batches_count || 0,
             image: product.image || product.image_url || this.generatePlaceholderImage(product.name || product.product_name),
@@ -74,6 +79,14 @@ class ProductAPIService {
             category: categoryId,  // ✅ Make sure this is set
             subcategory: product.subcategory || product.subcategory_name
         }
+        
+        console.log(`🔍 Transformed product ${transformed.name}:`, {
+          id: transformed.id,
+          total_stock: transformed.total_stock,
+          stock: transformed.stock
+        });
+        
+        return transformed;
     });
   }
 
@@ -99,11 +112,8 @@ class ProductAPIService {
   async getProductsBatch(productIds) {
     try {
         if (!productIds || productIds.length === 0) {
-            console.warn('⚠️ No product IDs provided to getProductsBatch');
             return [];
         }
-        
-        console.log('📦 Fetching batch products:', productIds);
         
         // Join product IDs with comma
         const idsParam = productIds.join(',');
@@ -112,10 +122,15 @@ class ProductAPIService {
         const response = await api.get(`/pos/products/batch/?ids=${idsParam}`);
         const data = this.handleResponse(response);
         
-        console.log('✅ Batch products fetched:', data);
-        
         // Extract products from response
         const products = data.data || data.products || data;
+        
+        // Debug: Log raw API response
+        console.log('🔍 Raw API response for products batch:', products);
+        if (Array.isArray(products) && products.length > 0) {
+          console.log('🔍 First product from API:', products[0]);
+          console.log('🔍 total_stock field:', products[0].total_stock);
+        }
         
         // Transform products to match frontend format
         return this.transformProductData(products);

@@ -51,16 +51,23 @@ export default {
 <style scoped>
 /* App Layout Container */
 .app-layout {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background-color: var(--neutral-light);
+  display: flex;
 }
 
 /* Main Content Area */
 .main-content {
   margin-left: 280px; /* Default sidebar width */
   transition: margin-left 0.3s ease;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   min-width: 0; /* Prevent overflow issues */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .main-content.sidebar-collapsed {
@@ -70,8 +77,12 @@ export default {
 /* Page Content */
 .page-content {
   background-color: var(--neutral-light);
-  overflow-x: hidden;
-  min-height: 100vh;
+  overflow: hidden;
+  height: 100%;
+  max-height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 0; /* Remove any default padding since your router-view should handle its own spacing */
 }
 

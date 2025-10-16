@@ -106,6 +106,7 @@ import { Printer, ShoppingCart, ArrowLeft, RefreshCw } from 'lucide-vue-next'
 import { usePaymongo } from '@/composables/api/usePaymongo'
 import { useCartStore } from '@/stores/cartStores'
 import apiSales from '@/services/apiSales'
+import { useStockCache } from '@/composables/data/useStockCache.js'
 
 export default {
   name: 'PaymentCallback',
@@ -120,7 +121,8 @@ export default {
   setup() {
     const paymongo = usePaymongo()
     const cartStore = useCartStore()
-    return { paymongo, cartStore }
+    const stockCache = useStockCache()
+    return { paymongo, cartStore, stockCache }
   },
   
   data() {
@@ -241,6 +243,24 @@ export default {
         console.log('📝 Creating sale:', saleData)
         
         const result = await apiSales.createSale(saleData)
+        
+        // Update stock cache with sold items
+        try {
+          this.stockCache.updateStockAfterSale(saleData.items)
+          console.log('📦 Stock cache updated after e-wallet sale')
+        } catch (error) {
+          console.error('⚠️ Failed to update stock cache:', error)
+          // Don't block success flow if cache update fails
+        }
+        
+        // Signal NewOrder to perform targeted stock refresh on return
+        try {
+          const affectedIds = (saleData.items || []).map(i => i.product_id).filter(Boolean)
+          if (affectedIds.length > 0) {
+            sessionStorage.setItem('refreshProductIds', JSON.stringify(affectedIds))
+          }
+          sessionStorage.setItem('refreshStockAfterCheckout', 'true')
+        } catch (_) {}
         
         // Step 3: Finalize
         this.currentStep = 3
