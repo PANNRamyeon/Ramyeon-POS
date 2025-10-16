@@ -1292,6 +1292,13 @@ export default {
       console.log('💳 Payment method:', paymentMethod)
       console.log('🛒 Cart items to update stock for:', this.cartItems)
       
+      // Calculate final change (from previous version)
+      const backendChange = result?.payment_details?.change
+      const snapshotChange = Math.max(0, (this.cashTendered || 0) - (result?.total_amount ?? this.grandTotal))
+      const finalChange = paymentMethod === 'cash' 
+        ? (typeof backendChange === 'number' ? backendChange : snapshotChange)
+        : 0
+
       // Update stock cache with sold items
       try {
         console.log('🔄 Calling stockCache.updateStockAfterSale()...')
