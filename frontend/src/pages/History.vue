@@ -81,7 +81,6 @@
               <option value="gcash">GCash</option>
               <option value="paymaya">PayMaya</option>
               <option value="cod">Cash on Delivery</option>
-              <option value="gcash_paymongo">GCash (PayMongo)</option>
               <option value="bank_paymongo">Bank Transfer</option>
             </select>
           </div>

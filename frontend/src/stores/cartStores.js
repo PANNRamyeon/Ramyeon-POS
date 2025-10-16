@@ -67,14 +67,18 @@ export const useCartStore = defineStore('cart', () => {
   }
   
   function addItem(product) {
+    console.log('🛒 Adding item to cart:', product)
+    
     // Check if item already exists
     const existingItem = items.value.find(item => item.productId === product.id)
     
     if (existingItem) {
       existingItem.quantity += 1
       existingItem.subtotal = existingItem.price * existingItem.quantity
+      console.log('   ➕ Increased quantity:', existingItem.quantity)
     } else {
-      items.value.push({
+      // ✅ ADD: Store category info with cart item
+      const newItem = {
         productId: product.id,
         productName: product.name,
         sku: product.sku || '',
@@ -83,8 +87,13 @@ export const useCartStore = defineStore('cart', () => {
         subtotal: product.price,
         isTaxable: product.isTaxable !== false,
         image: product.image,
+        category: product.category,  // ✅ Store category
+        subcategory: product.subcategory,  // ✅ Store subcategory
         addedAt: new Date().toISOString()
-      })
+      }
+      
+      items.value.push(newItem)
+      console.log('   ✅ New item added:', newItem)
     }
     
     saveToLocalStorage()

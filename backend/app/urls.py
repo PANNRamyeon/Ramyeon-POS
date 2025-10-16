@@ -178,7 +178,13 @@ from .kpi_views.POS.promotion_pos_views import (
     CartPromotionView
 )
 
-from .kpi_views.POS.shift_views import ShiftActiveView
+from .kpi_views.POS.shift_views import (
+    ShiftActiveView,
+    ShiftStartView,
+    ShiftCloseView,
+    ShiftDetailView,
+    ShiftListView
+)
 
 from .views import (
     APIDocumentationView,
@@ -412,7 +418,12 @@ urlpatterns = [
     # ================================================================
     # SHIFT ENDPOINTS
     # ================================================================
-    path('pos/shifts/active/', ShiftActiveView.as_view()),
+  
+    path('pos/shifts/active/', ShiftActiveView.as_view(), name='shift-active'),
+    path('pos/shifts/start/', ShiftStartView.as_view(), name='shift-start'),
+    path('pos/shifts/<str:shift_id>/close/', ShiftCloseView.as_view(), name='shift-close'),
+    path('pos/shifts/<str:shift_id>/', ShiftDetailView.as_view(), name='shift-detail'),
+    path('pos/shifts/', ShiftListView.as_view(), name='shift-list'),
 
     # ============================================
     # SALES LOG ENDPOINTS

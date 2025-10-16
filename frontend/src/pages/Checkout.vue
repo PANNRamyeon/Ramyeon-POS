@@ -167,7 +167,7 @@
             </div>
 
             <!-- Points Redemption Panel -->
-            <div v-if="pointsMode === 'use' && selectedCustomer.loyalty_points >= 100" class="points-redemption-panel">
+            <div v-if="pointsMode === 'use' && selectedCustomer.loyalty_points >= 40" class="points-redemption-panel">
               <div class="redemption-header">
                 <h6>Redeem Points</h6>
                 <button class="btn-text" @click="setPointsMode('earn')" :disabled="isProcessing">Cancel</button>
@@ -180,8 +180,8 @@
                   placeholder="Enter points amount"
                   v-model.number="pointsToRedeem"
                   :max="Math.min(selectedCustomer.loyalty_points, maxRedeemablePoints)"
-                  min="100"
-                  step="100"
+                  min="40"
+                  step="20"
                   :disabled="isProcessing"
                 />
                 <button 
@@ -196,7 +196,7 @@
               <div class="redemption-info-box">
                 <div class="info-row">
                   <span>Minimum:</span>
-                  <span>100 pts (₱25)</span>
+                  <span>40 pts (₱10)</span>
                 </div>
                 <div class="info-row">
                   <span>Maximum:</span>
@@ -416,7 +416,7 @@
     <div v-if="showSuccessModal" class="position-fixed top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center modal-overlay-theme" style="z-index: 10000;" @click="closeSuccessModal">
       <div class="modal-theme rounded-4 overflow-hidden success-modal" style="max-width: 500px; width: 90%;" @click.stop>
         <div class="text-center p-5 text-white position-relative" style="background: linear-gradient(135deg, #4ea87a 0%, #5eb488 100%);">
-          <div class="d-flex align-items-center justify-content-center mx-auto mb-3 bg-white text-success rounded-circle shadow-lg" style="width: 80px; height: 80px; font-size: 48px; font-weight: bold;">
+          <div class="d-flex align-items-center justify-content-center mx-auto mb-3 bg-white text-success rounded-circle shadow-lg" style="width: 80px; height: 80px; font-size: 48px; font-weight: bold; color: green;">
             ✓
           </div>
           <h3 class="fs-4 mb-0">Order Completed!</h3>
@@ -495,6 +495,9 @@ export default {
       loadingMessage: 'Loading...',
       isProcessing: false,
       
+      // Products for promotion calculation
+      products: [],
+      
       // Stock validation
       validationErrors: [],
       quantityUpdating: false,
@@ -540,19 +543,102 @@ export default {
     },
     
     promoDiscount() {
-      if (!this.appliedPromotion) return 0
-      
-      const promotion = this.appliedPromotion
-      let eligibleAmount = this.cartSubtotal
-      
-      let discount = 0
-      if (promotion.type === 'percentage') {
-        discount = eligibleAmount * (promotion.discount_value / 100)
-      } else if (promotion.type === 'fixed') {
-        discount = Math.min(promotion.discount_value, eligibleAmount)
+      if (!this.appliedPromotion) {
+        console.log('⚠️ No promotion applied')
+        return 0
       }
       
-      return Math.round(discount * 100) / 100
+      const promotion = this.appliedPromotion
+      console.log('\n💰 Calculating promo discount...')
+      console.log('   Promotion:', promotion.name)
+      console.log('   Type:', promotion.type)
+      console.log('   Value:', promotion.discount_value)
+      
+      // ✅ SAFETY CHECK
+      if (!promotion.discount_config) {
+        console.warn('⚠️ Missing discount_config')
+        return 0
+      }
+      
+      const targetType = promotion.discount_config.target_type
+      const targetIds = promotion.discount_config.target_ids || []
+      
+      console.log('   Target Type:', targetType)
+      console.log('   Target IDs:', targetIds)
+      console.log('   Cart Items:', this.cartItems.length)
+      console.log('   Products Loaded:', this.products.length)
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+        console.log('   ✅ ALL items eligible: ₱' + eligibleAmount)
+        
+      } else if (targetType === 'categories') {
+        console.log('   🔍 Checking category matches...')
+        
+        // Filter cart items by category
+        const eligibleItems = this.cartItems.filter(item => {
+          const product = this.products.find(p => p.id === item.productId)
+          
+          if (!product) {
+            console.log(`      ⚠️ Product not found: ${item.productId} (${item.productName})`)
+            return false
+          }
+          
+          const productCategory = product.category
+          const isEligible = targetIds.includes(productCategory)
+          
+          console.log(`      ${isEligible ? '✅' : '❌'} ${product.name}`)
+          console.log(`         Category: "${productCategory}"`)
+          console.log(`         Targets:`, targetIds)
+          console.log(`         Subtotal: ₱${item.subtotal}`)
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Category total: ₱${eligibleAmount} (${eligibleItems.length} items)`)
+        
+      } else if (targetType === 'products') {
+        console.log('   🔍 Checking product matches...')
+        
+        // Filter cart items by product ID
+        const eligibleItems = this.cartItems.filter(item => {
+          const isEligible = targetIds.includes(item.productId)
+          
+          console.log(`      ${isEligible ? '✅' : '❌'} ${item.productName}`)
+          console.log(`         Product ID: "${item.productId}"`)
+          console.log(`         Targets:`, targetIds)
+          console.log(`         Subtotal: ₱${item.subtotal}`)
+          
+          return isEligible
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+        console.log(`   💰 Products total: ₱${eligibleAmount} (${eligibleItems.length} items)`)
+      }
+      
+      if (eligibleAmount === 0) {
+        console.log('   ❌ No eligible items - Discount = ₱0')
+        return 0
+      }
+      
+      // Calculate discount
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+        console.log(`   💰 Calculation: ₱${eligibleAmount} × ${promotion.discount_value}% = ₱${discount}`)
+      } else if (promotion.type === 'fixed') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+        console.log(`   💰 Calculation: min(₱${promotion.discount_value}, ₱${eligibleAmount}) = ₱${discount}`)
+      }
+      
+      const finalDiscount = Math.round(discount * 100) / 100
+      console.log(`   ✅ FINAL DISCOUNT: ₱${finalDiscount}\n`)
+      
+      return finalDiscount
     },
     
     subtotalAfterPromo() {
@@ -572,21 +658,20 @@ export default {
       return this.cartStore.itemCount
     },
     
+    // Points calculations
     maxRedeemablePoints() {
       if (!this.selectedCustomer) return 0
-      
-      const baseAmount = this.subtotalAfterPromo
-      const maxDiscountAmount = baseAmount * 0.5
-      const maxPointsFromCart = Math.floor(maxDiscountAmount * 4)
+      // Business rule: Cap at ₱20 per transaction regardless of subtotal
+      const maxDiscountAmount = 20
+      const maxPointsFromCart = Math.floor(maxDiscountAmount * 4) // 80 points
       const customerPoints = this.selectedCustomer.loyalty_points || 0
-      const finalMaxPoints = Math.min(maxPointsFromCart, customerPoints)
-      
-      return finalMaxPoints
+      return Math.min(maxPointsFromCart, customerPoints)
     },
     
     canRedeemPoints() {
       if (!this.pointsToRedeem || !this.selectedCustomer) return false
-      if (this.pointsToRedeem < 100) return false
+      // Minimum ₱10 = 40 points
+      if (this.pointsToRedeem < 40) return false
       if (this.pointsToRedeem > this.selectedCustomer.loyalty_points) return false
       if (this.pointsToRedeem > this.maxRedeemablePoints) return false
       return true
@@ -635,17 +720,75 @@ export default {
   
   methods: {
     // ================================================================
-    // INITIALIZATION
+    // LOAD CHECKOUT DATA
     // ================================================================
     
     async loadCheckoutData() {
       try {
-        const promoData = sessionStorage.getItem('appliedPromotion')
-        if (promoData) {
-          this.appliedPromotion = JSON.parse(promoData)
-          console.log('✅ Loaded promotion:', this.appliedPromotion.name)
-        }
+        this.isLoading = true
+        this.loadingMessage = 'Loading checkout data...'
         
+        // ✅ STEP 1: Load products for promotion calculation
+        await this.loadProductsForPromotion()
+        
+        // ✅ STEP 2: Load promotion from session
+        const promoData = sessionStorage.getItem('appliedPromotion')
+        console.log('\n🎟️ ========================================')
+        console.log('   LOADING PROMOTION FROM SESSION')
+        console.log('🎟️ ========================================')
+        console.log('Raw sessionStorage data:', promoData)
+        
+        if (promoData) {
+          try {
+            const parsedPromo = JSON.parse(promoData)
+            console.log('Parsed promotion object:', parsedPromo)
+            console.log('Promotion structure check:')
+            console.log('  - _id:', parsedPromo._id || parsedPromo.promotion_id)
+            console.log('  - name:', parsedPromo.promotion_name || parsedPromo.name)
+            console.log('  - type:', parsedPromo.type)
+            console.log('  - discount_value:', parsedPromo.discount_value)
+            console.log('  - discount_config:', parsedPromo.discount_config)
+            
+            // ✅ FIX: Handle both formats (from NewOrder.vue)
+            const promotion = {
+              _id: parsedPromo.promotion_id || parsedPromo._id,
+              name: parsedPromo.promotion_name || parsedPromo.name,
+              type: parsedPromo.type,
+              discount_value: parsedPromo.discount_value,
+              discount_config: parsedPromo.discount_config
+            }
+            
+            // ✅ Parse discount_config if it's a string
+            if (typeof promotion.discount_config === 'string') {
+              try {
+                promotion.discount_config = JSON.parse(promotion.discount_config)
+                console.log('✅ Parsed discount_config:', promotion.discount_config)
+              } catch (e) {
+                console.error('❌ Failed to parse discount_config:', e)
+              }
+            }
+            
+            // ✅ VERIFY: Ensure all required fields exist
+            if (!promotion._id || !promotion.name || !promotion.type || !promotion.discount_value) {
+              console.error('❌ Incomplete promotion data:', promotion)
+              console.error('❌ Missing required fields')
+              this.appliedPromotion = null
+            } else {
+              this.appliedPromotion = promotion
+              console.log('✅ Loaded promotion:', this.appliedPromotion.name)
+              console.log('✅ Final promotion object:', this.appliedPromotion)
+            }
+            
+          } catch (error) {
+            console.error('❌ Failed to parse promotion data:', error)
+            this.appliedPromotion = null
+          }
+        } else {
+          console.log('⚠️ No promotion in session')
+        }
+        console.log('🎟️ ========================================\n')
+        
+        // ✅ STEP 3: Load customer from session
         const customerData = sessionStorage.getItem('checkoutCustomer')
         if (customerData) {
           const customer = JSON.parse(customerData)
@@ -653,6 +796,7 @@ export default {
             _id: customer.customer_id,
             full_name: customer.full_name,
             username: customer.username || 'customer',
+            email: customer.email,
             loyalty_points: customer.currentPoints || 0
           }
           
@@ -664,8 +808,46 @@ export default {
           
           console.log('✅ Loaded customer:', this.selectedCustomer.full_name)
         }
+        
       } catch (error) {
         console.error('❌ Failed to load checkout data:', error)
+      } finally {
+        this.isLoading = false
+      }
+    },
+    
+    // ✅ NEW METHOD: Load products for promotion calculation
+    async loadProductsForPromotion() {
+      try {
+        console.log('📦 Loading products for promotion calculation...')
+        console.log('📦 Cart items:', this.cartItems.length)
+        
+        if (this.cartItems.length === 0) {
+          console.warn('⚠️ No cart items to load products for')
+          return
+        }
+        
+        // Get all unique product IDs from cart
+        const productIds = [...new Set(this.cartItems.map(item => item.productId))]
+        console.log('📦 Product IDs to fetch:', productIds)
+        
+        // Fetch products in batch
+        const products = await apiProducts.getProductsBatch(productIds)
+        console.log('📦 Fetched products:', products)
+        
+        // Store products in data for promotion calculation
+        this.products = products
+        
+        // ✅ VERIFY: Check if products have category IDs
+        console.log('\n🔍 Product Categories:')
+        products.forEach(p => {
+          console.log(`   ${p.name}: ${p.category}`)
+        })
+        
+        console.log('✅ Products loaded for promotion calculation')
+        
+      } catch (error) {
+        console.error('❌ Failed to load products:', error)
       }
     },
     
@@ -723,6 +905,8 @@ export default {
             return
           }
           
+          console.log('📋 Matched customer:', customer)
+          
           this.selectedCustomer = {
             _id: customer._id,
             username: customer.username,
@@ -732,6 +916,7 @@ export default {
             loyalty_points: customer.loyalty_points || 0
           }
           
+          console.log('✅ Selected customer:', this.selectedCustomer.full_name)
           this.customerSearchQuery = ''
           
         } else {
@@ -775,6 +960,11 @@ export default {
       }
       
       const discount = this.pointsToRedeem / 4
+      // Enforce absolute max ₱20 at apply time as well
+      if (discount > 20) {
+        alert('Maximum points discount per transaction is ₱20')
+        return
+      }
       
       if (discount > this.subtotalAfterPromo) {
         alert('Points discount cannot exceed cart total')
@@ -1126,14 +1316,26 @@ export default {
       sessionStorage.removeItem('appliedPromotion')
       sessionStorage.removeItem('checkoutCustomer')
       
+      console.log('[handleSaleSuccess] TX dates', result?.transaction_date_local, result?.transaction_date)
+
+      // Normalize transaction date: if backend didn't include timezone, assume UTC
+      let transactionDateRaw = result.transaction_date_local || result.transaction_date
+      if (typeof transactionDateRaw === 'string') {
+        const hasTz = /Z$|[zZ]$|[+-]\d{2}:?\d{2}$/.test(transactionDateRaw)
+        if (!hasTz) {
+          transactionDateRaw = transactionDateRaw + 'Z'
+        }
+      }
+
       this.completedSale = {
         saleId: result._id || result.sale_id,
-        transactionDate: result.transaction_date || new Date().toISOString(),
+        transactionDate: result.payment_details?.timestamp || transactionDateRaw,
         totalAmount: result.total_amount,
         paymentMethod: paymentMethod,
-        change: paymentMethod === 'cash' ? this.changeAmount : 0,
+        change: finalChange,
         shiftId: result.shift_id || this.cartStore.shiftId
       }
+      console.log('[handleSaleSuccess] completedSale', this.completedSale)
       
       this.showSuccessModal = true
     },
@@ -1197,14 +1399,27 @@ export default {
     
     formatDateTime(dateString) {
       if (!dateString) return ''
-      const date = new Date(dateString)
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      const source = new Date(dateString)
+      try {
+        console.log('[formatDateTime] input', dateString)
+        const datePart = source.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+          timeZone: 'Asia/Manila'
+        })
+        // Use 24-hour time like currentDateTime() from your snippet, forced to PH time
+        const timePart = source.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Manila'
+        })
+        return `${datePart} ${timePart}`
+      } catch (error) {
+        console.error('Date formatting error:', error)
+        return source.toString()
+      }
     }
   }
 }

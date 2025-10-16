@@ -157,13 +157,29 @@ class ApiService {
     }
   }
 
-  async logout(closing_cash = 0) {
+  async logout(closingCash = 0) {
     try {
+      console.log('📤 Logging out with closing cash:', closingCash);
+      
+      // Get active shift ID from localStorage
+      const activeShiftId = localStorage.getItem('activeShiftId');
+      
+      // If there's an active shift, close it first
+      if (activeShiftId) {
+        console.log('   Closing active shift:', activeShiftId);
+        await this.closeShift(activeShiftId, closingCash);
+      }
+      
+      // Then call logout endpoint
       const response = await api.post('/auth/logout/', {
-        closing_cash: closing_cash || 0
+        closing_cash: closingCash
       });
+      
+      console.log('✅ Logout successful');
       return this.handleResponse(response);
+      
     } catch (error) {
+      console.error('❌ Logout failed:', error);
       this.handleError(error);
     }
   }
@@ -367,9 +383,63 @@ class ApiService {
   // SHIFT METHODS
   async startShift(cashierId, openingCash) {
     try {
+      console.log('📤 Starting shift:', { cashierId, openingCash });
       const response = await api.post('/pos/shifts/start/', {
         cashier_id: cashierId,
         opening_cash: openingCash
+      });
+      console.log('✅ Shift started:', response.data);
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error('❌ Start shift failed:', error);
+      this.handleError(error);
+    }
+  }
+
+  async getActiveShift(cashierId) {
+    try {
+      console.log('📤 Getting active shift for:', cashierId);
+      const response = await api.get('/pos/shifts/active/', {
+        params: { cashier_id: cashierId }
+      });
+      console.log('✅ Active shift:', response.data);
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error('❌ Get active shift failed:', error);
+      this.handleError(error);
+    }
+  }
+
+  async closeShift(shiftId, closingCash) {
+    try {
+      console.log('📤 Closing shift:', { shiftId, closingCash });
+      const response = await api.post(`/pos/shifts/${shiftId}/close/`, {
+        closing_cash: closingCash
+      });
+      console.log('✅ Shift closed:', response.data);
+      return this.handleResponse(response);
+    } catch (error) {
+      console.error('❌ Close shift failed:', error);
+      this.handleError(error);
+    }
+  }
+
+  async getShiftById(shiftId) {
+    try {
+      const response = await api.get(`/pos/shifts/${shiftId}/`);
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  async getShiftSales(shiftId) {
+    try {
+      const response = await api.get('/pos/sales/', {
+        params: {
+          shift_id: shiftId,
+          limit: 1000
+        }
       });
       return this.handleResponse(response);
     } catch (error) {
@@ -377,19 +447,10 @@ class ApiService {
     }
   }
 
-  async getActiveShift(cashierId) {
+  async getShifts(filters = {}) {
     try {
-      const response = await api.get(`/pos/shifts/active/?cashier_id=${cashierId}`);
-      return this.handleResponse(response);
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
-
-  async endShift(shiftId, closingCash) {
-    try {
-      const response = await api.post(`/pos/shifts/${shiftId}/end/`, {
-        closing_cash: closingCash
+      const response = await api.get('/pos/shifts/', {
+        params: filters
       });
       return this.handleResponse(response);
     } catch (error) {

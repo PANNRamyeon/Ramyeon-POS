@@ -29,8 +29,8 @@
         <span class="nav-label">Dashboard</span>
       </div>
 
-      <!-- Online Order with Notification -->
-      <div class="nav-item transition-theme" @click="handleNavigation('online-order')" :class="{ active: currentPage === 'online-order' }">
+      <!-- Online Order with Dynamic Notification -->
+      <div class="nav-item" @click="handleNavigation('online-order')" :class="{ active: currentPage === 'online-order' }">
         <div class="nav-icon-placeholder">
           <svg v-if="pendingCount > 0" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
             <!-- Bell with notification (filled) -->
@@ -42,7 +42,10 @@
           </svg>
         </div>
         <span class="nav-label">Pending Order</span>
-        <div v-if="pendingCount > 0" class="notification-badge">{{ pendingCount > 99 ? '99+' : pendingCount }}</div>
+        <!-- ✅ Dynamic Badge -->
+        <div v-if="pendingOrderCount > 0" class="notification-badge" :class="{ 'badge-pulse': pendingOrderCount > 0 }">
+          {{ pendingOrderCount > 99 ? '99+' : pendingOrderCount }}
+        </div>
       </div>
 
       <!-- History -->
@@ -80,27 +83,102 @@
 
 <script>
 import onlineOrdersAPI from '@/services/apiOnlineOrder.js'
+import { api } from '@/services/api.js'
+
 export default {
   name: 'Sidebar',
-  data(){
-    return{
+  data() {
+    return {
       currentPage: 'dashboard',
       pendingCount: 0,
       _pendingPoller: null,
       _originalTitle: document.title,
       _originalFaviconHref: null,
+      pendingOrderCount: 0,
+      refreshInterval: null
     }
   },
+  
+  async mounted() {
+    // Initial fetch
+    await this.fetchPendingOrderCount()
+    
+    // ✅ Auto-refresh every 30 seconds
+    this.refreshInterval = setInterval(() => {
+      this.fetchPendingOrderCount()
+    }, 30000) // 30 seconds
+  },
+  
+  beforeUnmount() {
+    // ✅ Clean up interval when component is destroyed
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval)
+    }
+  },
+  
   methods: {
+    async fetchPendingOrderCount() {
+      try {
+        console.log('📦 Fetching pending order count...')
+        
+        // ✅ Fetch orders with pending/confirmed/processing status
+        const response = await api.get('/online/orders/', {
+          params: {
+            limit: 1000 // Get all orders (or use pagination)
+          }
+        })
+        
+        console.log('📦 Orders response:', response.data)
+        
+        // ✅ Extract orders from response
+        let orders = []
+        if (response.data.success && response.data.data?.orders) {
+          orders = response.data.data.orders
+        } else if (response.data.orders) {
+          orders = response.data.orders
+        } else if (Array.isArray(response.data)) {
+          orders = response.data
+        }
+        
+        console.log('📦 Total orders found:', orders.length)
+        
+        // ✅ Count orders that are not completed or cancelled
+        const pendingStatuses = ['pending', 'confirmed', 'processing', 'on_the_way']
+        const pendingOrders = orders.filter(order => 
+          pendingStatuses.includes(order.order_status?.toLowerCase())
+        )
+        
+        this.pendingOrderCount = pendingOrders.length
+        
+        console.log('✅ Pending order count:', this.pendingOrderCount)
+        console.log('   Breakdown:', {
+          pending: orders.filter(o => o.order_status === 'pending').length,
+          confirmed: orders.filter(o => o.order_status === 'confirmed').length,
+          processing: orders.filter(o => o.order_status === 'processing').length,
+          on_the_way: orders.filter(o => o.order_status === 'on_the_way').length
+        })
+        
+      } catch (error) {
+        console.error('❌ Failed to fetch pending orders:', error)
+        // Don't show error to user, just silently fail
+        this.pendingOrderCount = 0
+      }
+    },
+    
     handleNavigation(page) {
       console.log(`Sidebar navigating to: ${page}`)
-      this.currentPage = page 
+      this.currentPage = page
+      
+      // ✅ Refresh count when navigating to online-order page
+      if (page === 'online-order') {
+        this.fetchPendingOrderCount()
+      }
+      
       this.$emit('menu-changed', page)
     },
 
     handleLogout() {
       console.log('Sidebar logout clicked')
-      // Emit event to parent (MainLayout)
       this.$emit('logout')
     },
 
@@ -217,12 +295,18 @@ export default {
     const linkEl = document.querySelector('link[rel="icon"]')
     if (linkEl && this._originalFaviconHref) {
       linkEl.href = this._originalFaviconHref
+    },
+    
+    // ✅ Method to manually refresh (can be called from parent)
+    refreshNotifications() {
+      this.fetchPendingOrderCount()
     }
   }
 }
 </script>
 
 <style scoped>
+
 .sidebar {
   position: fixed;
   top: 0;
@@ -319,13 +403,15 @@ export default {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
+  background-color: #dc3545;
+  color: white;
   border-radius: 50%;
-  width: 20px;
+  min-width: 20px;
   height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: bold;
   background-color: var(--status-error);
   color: var(--text-inverse);
@@ -333,6 +419,25 @@ export default {
   border: 2px solid var(--surface-primary);
   line-height: 1;
   z-index: 1;
+  padding: 0 4px;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.4);
+}
+
+/* ✅ Pulse Animation for Badge */
+.badge-pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(220, 53, 69, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+  }
 }
 
 @media (max-width: 768px) {
@@ -370,6 +475,14 @@ export default {
   
   .logo-section {
     display: none;
+  }
+  
+  .notification-badge {
+    top: 0.25rem;
+    right: 0.25rem;
+    min-width: 16px;
+    height: 16px;
+    font-size: 0.625rem;
   }
 }
 

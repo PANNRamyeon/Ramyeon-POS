@@ -30,8 +30,8 @@ class ProductAPIService {
         const response = await api.get(url);
         const data = this.handleResponse(response);
         
-        // Transform and return the products
-        return this.transformProductData(data.products || data.data || data);
+        // ✅ Pass categoryId to transformProductData so it can use it as fallback
+        return this.transformProductData(data.products || data.data || data, categoryId);
         
     } catch (error) {
       console.error('Get all products error:', error.response?.data);
@@ -39,7 +39,7 @@ class ProductAPIService {
     }
   }
 
-  transformProductData(products) {
+  transformProductData(products, fallbackCategoryId = null) {
     if (!Array.isArray(products)) return [];
     
     return products.map(product => {
@@ -63,7 +63,20 @@ class ProductAPIService {
         } else {
             stockValue = null
         }
-        const categoryId = product.category || product.category_id
+        
+        // ✅ FIX: Get category ID in correct format
+        // Priority: product.category_id > product.category > fallbackCategoryId
+        let categoryId = product.category_id || product.category || fallbackCategoryId
+        
+        // ✅ ENSURE: Category ID is a string (not a number)
+        if (categoryId && typeof categoryId === 'number') {
+            categoryId = `CTGY-${String(categoryId).padStart(3, '0')}`
+        }
+        
+        console.log(`📦 Product: ${product.name}`)
+        console.log(`   ID: ${productId}`)
+        console.log(`   Category: ${categoryId}`)
+        console.log(`   Stock: ${stockValue}`)
         
         const transformed = {
             id: productId,
@@ -76,8 +89,10 @@ class ProductAPIService {
             batches_count: product.batches_count || 0,
             image: product.image || product.image_url || this.generatePlaceholderImage(product.name || product.product_name),
             sku: product.sku || product.SKU || '',
-            category: categoryId,  // ✅ Make sure this is set
-            subcategory: product.subcategory || product.subcategory_name
+            category: categoryId,  // ✅ This will now match promotion format
+            subcategory: product.subcategory || product.subcategory_name,
+            // ✅ ADD: Keep original data for debugging
+            originalData: product
         }
         
         console.log(`🔍 Transformed product ${transformed.name}:`, {

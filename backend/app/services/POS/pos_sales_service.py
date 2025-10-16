@@ -15,7 +15,9 @@ class POSSalesService:
         self.db = db_manager.get_database()
         self.sales_collection = self.db.sales 
         self.products_collection = self.db.products
-        self.customers_collection = self.db.customers  # ✅ ADD THIS
+        self.customers_collection = self.db.customers
+        self.users_collection = self.db.users
+        self.shifts_collection = self.db.shifts  
         self.product_service = ProductService()
         self.batch_service = BatchService()
 
@@ -88,11 +90,11 @@ class POSSalesService:
             if points_to_redeem == 0:
                 return {'valid': True, 'error': None}
             
-            # ✅ CHANGED: Minimum redemption from 200 to 100 points
-            if points_to_redeem < 100:
+            # Minimum redemption: 40 points (₱10)
+            if points_to_redeem < 40:
                 return {
                     'valid': False,
-                    'error': 'Minimum redemption is 100 points (₱25)'
+                    'error': 'Minimum redemption is 40 points (₱10)'
                 }
             
             # Get customer
@@ -110,15 +112,15 @@ class POSSalesService:
                     'error': f'Insufficient points. Available: {available_points}, Requested: {points_to_redeem}'
                 }
             
-            # Check max discount (50% of subtotal)
+            # Check max discount: min(₱20, 20% of subtotal)
             points_discount = self.calculate_points_discount(points_to_redeem)
-            max_discount = subtotal * 0.50
+            max_discount = min(20, subtotal * 0.20)
             
             if points_discount > max_discount:
                 max_points = int(max_discount * 4)  # Convert back to points
                 return {
                     'valid': False,
-                    'error': f'Points discount cannot exceed 50% of subtotal. Maximum: {max_points} points'
+                    'error': f'Points discount exceeds cap. Maximum: {max_points} points (₱{max_discount:.2f})'
                 }
             
             return {'valid': True, 'error': None}
@@ -659,6 +661,11 @@ class POSSalesService:
             if sale.get('is_voided'):
                 raise ValueError(f"Sale {sale_id} is already voided")
             
+            # ✅ VERIFY MANAGER AUTHORIZATION
+            manager = self.users_collection.find_one({'_id': manager_id, 'role': 'admin', 'status': 'active'})
+            if not manager:
+                raise PermissionError(f"Manager ID {manager_id} is invalid or not authorized to void sales.")
+            
             # ✅ PREPARE TRANSACTION INFO FOR RESTORATION
             transaction_info = {
                 'transaction_id': f"{sale_id}-VOID",
@@ -700,23 +707,28 @@ class POSSalesService:
             
             print("\n✅ Stock restored to batches\n")
             
+        
             # ✅ Refund loyalty points if used
             points_refunded = False
             customer_id = sale.get('customer_id')
-            loyalty_info = sale.get('loyalty_points', {})
-            points_used = loyalty_info.get('points_used', 0)
-            
+            loyalty_info = sale.get('loyalty_points')
+            points_used = 0
+
+            if isinstance(loyalty_info, dict):
+                points_used = loyalty_info.get('points_used', 0)
+
             if customer_id and points_used > 0:
                 print(f"🎁 Refunding {points_used} loyalty points...")
-                
+
                 self.refund_customer_points(
                     customer_id,
                     points_used,
                     sale_id
                 )
-                
+
                 points_refunded = True
                 print("   ✅ Points refunded\n")
+
             
             # ✅ Mark sale as voided
             self.sales_collection.update_one(
