@@ -1351,9 +1351,9 @@ export default {
     // SUCCESS MODAL & RECEIPT
     // ================================================================
     
-    async printReceipt() {
+     async printReceipt() {
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1/'
         const receiptUrl = `${baseUrl}/pos/sales/${this.completedSale.saleId}/receipt/`
         
         const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600')
