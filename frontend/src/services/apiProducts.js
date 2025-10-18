@@ -56,12 +56,14 @@ class ProductAPIService {
         
         // ✅ Use total_stock if available, otherwise fallback to batch_stock
         let stockValue;
-        if (product.total_stock !== undefined && product.total_stock !== null) {
+        if (product.total_stock !== undefined && product.total_stock !== null && product.total_stock >= 0) {
             stockValue = product.total_stock
-        } else if (product.batch_stock !== undefined && product.batch_stock !== null) {
+        } else if (product.batch_stock !== undefined && product.batch_stock !== null && product.batch_stock >= 0) {
             stockValue = product.batch_stock
+        } else if (product.stock !== undefined && product.stock !== null && product.stock >= 0) {
+            stockValue = product.stock
         } else {
-            stockValue = null
+            stockValue = 0  // Default to 0 instead of null
         }
         const categoryId = product.category || product.category_id
         
