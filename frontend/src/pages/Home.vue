@@ -384,6 +384,7 @@ export default {
 .dashboard-page {
   min-height: 100%;
   width: 100%;
+  overflow-y: auto;
 }
 
 .dashboard-content {

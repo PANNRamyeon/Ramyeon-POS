@@ -223,14 +223,14 @@
                     >
                       <Eye :size="16" />
                     </button>
-                    <button 
+                    <!---<button 
                       class="action-btn receipt-btn" 
                       title="View Receipt"
                       @click="viewReceipt(order.id)"
                       v-if="order.saleType === 'POS'"
                     >
                       <FileText :size="16" />
-                    </button>
+                    </button>-->
                     <button 
                       v-if="order.saleType === 'POS' && order.status === 'Completed'"
                       class="action-btn void-btn" 
@@ -395,7 +395,7 @@
                       <span class="qty-badge">×{{ item.quantity }}</span>
                     </div>
                     <div class="item-total">
-                      ₱{{ formatCurrency(item.total_price) }}
+                      ₱{{ formatCurrency(item.unit_price * item.quantity) }}
                     </div>
                   </div>
                 </div>
@@ -458,7 +458,7 @@
             >
               Close
             </button>
-            <button 
+           <!---<button 
               v-if="selectedOrder?.saleType === 'POS'" 
               type="button" 
               class="btn btn-primary"
@@ -466,7 +466,7 @@
             >
               <FileText :size="16" />
               View Receipt
-            </button>
+            </button>--> 
           </div>
         </div>
       </div>
@@ -715,7 +715,22 @@ export default {
     },
 
     formatCurrency(value) {
-      return parseFloat(value).toFixed(2)
+      // Handle null, undefined, or empty values
+      if (value === null || value === undefined || value === '') {
+        return '0.00';
+      }
+      
+      // Convert to number and handle invalid cases
+      const num = parseFloat(value);
+      
+      // Check if the conversion resulted in a valid number
+      if (isNaN(num)) {
+        console.warn('Invalid currency value:', value);
+        return '0.00';
+      }
+      
+      // Format to 2 decimal places
+      return num.toFixed(2);
     },
 
     async viewOrder(orderId) {
@@ -840,6 +855,7 @@ export default {
 .history-container {
   padding: 1.5rem;
   min-height: 100vh;
+  overflow-y: auto;
 }
 
 .history-contents {
