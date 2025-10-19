@@ -993,28 +993,55 @@ export default {
         this.isLoading = true
         this.loadingMessage = 'Validating stock...'
         
+        // Clear any previous validation errors
+        this.validationErrors = []
+        
         if (this.cartItems.length === 0) {
           this.$router.replace('/new-order')
           return
         }
         
         const productIds = this.cartItems.map(item => item.productId)
+        console.log('🔍 Fetching products for validation:', productIds)
+        
         const products = await apiProducts.getProductsBatch(productIds)
+        console.log('📦 Raw products from API:', products)
         
         const productMap = {}
         products.forEach(product => {
-          productMap[product.id || product._id] = product
+          const key = product.id || product._id
+          productMap[key] = product
+          console.log(`📋 Mapped product ${key}:`, {
+            name: product.name,
+            total_stock: product.total_stock,
+            batch_stock: product.batch_stock,
+            stock: product.stock
+          })
         })
+        
+        console.log('🗺️ Final product map:', productMap)
         
         const errors = []
         
         for (const item of this.cartItems) {
           const product = productMap[item.productId]
           
+          console.log(`🔍 Validating stock for ${item.productName}:`, {
+            productId: item.productId,
+            requested: item.quantity,
+            product: product,
+            total_stock: product?.total_stock,
+            batch_stock: product?.batch_stock,
+            stock: product?.stock
+          })
+          
           if (!product) {
             errors.push(`Product "${item.productName}" not found`)
           } else {
-            const availableStock = product.batch_stock || product.stock || 0
+            // Use total_stock first, then batch_stock, then 0 as fallback
+            const availableStock = product.total_stock ?? product.batch_stock ?? product.stock ?? 0
+            
+            console.log(`📊 Stock check for ${item.productName}: available=${availableStock}, requested=${item.quantity}`)
             
             if (availableStock < item.quantity) {
               errors.push(

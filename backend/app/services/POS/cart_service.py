@@ -615,7 +615,7 @@ class CartService:
                 if not product:
                     raise ValueError(f"Product {item['product_id']} not found")
                 
-                available_stock = product.get('stock', 0)
+                available_stock = product.get('total_stock', 0)
                 
                 if available_stock < item['quantity']:
                     raise ValueError(

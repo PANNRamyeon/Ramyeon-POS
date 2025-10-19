@@ -92,7 +92,7 @@ export function useStockCache() {
           if (stockChange) {
             wasUpdated = true
             totalProductsUpdated++
-            const oldStock = product.stock || 0
+            const oldStock = product.total_stock || 0
             const newStock = Math.max(0, oldStock - stockChange)
             
             console.log(`  ✏️ UPDATING: ${product.name} (ID: ${product.id})`)
@@ -100,7 +100,7 @@ export function useStockCache() {
             
             return {
               ...product,
-              stock: newStock
+              total_stock: newStock
             }
           }
           
@@ -158,8 +158,8 @@ export function useStockCache() {
       try {
         const freshProduct = await fetchProductFn(productId)
         if (freshProduct && freshProduct.id) {
-          updates[freshProduct.id] = freshProduct.stock
-          console.log(`  ✅ Fetched ${freshProduct.name}: stock = ${freshProduct.stock}`)
+          updates[freshProduct.id] = freshProduct.total_stock
+          console.log(`  ✅ Fetched ${freshProduct.name}: total_stock = ${freshProduct.total_stock}`)
         }
       } catch (error) {
         console.error(`❌ Failed to fetch product ${productId}:`, error)
@@ -190,13 +190,13 @@ export function useStockCache() {
         const updated = cached.map(product => {
           const newStock = updates[product.id]
           
-          if (newStock !== undefined && newStock !== product.stock) {
+          if (newStock !== undefined && newStock !== product.total_stock) {
             wasUpdated = true
-            console.log(`  ✏️ ${product.name}: ${product.stock} → ${newStock}`)
+            console.log(`  ✏️ ${product.name}: ${product.total_stock} → ${newStock}`)
             
             return {
               ...product,
-              stock: newStock
+              total_stock: newStock
             }
           }
           

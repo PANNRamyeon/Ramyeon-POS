@@ -450,6 +450,7 @@ class POSCategoryService:
                     'stock': batch_info['total_stock'],
                     'stock_quantity': batch_info['total_stock'],
                     'batch_stock': batch_info['total_stock'],
+                    'total_stock': batch_info['total_stock'],  # ✅ CRITICAL: Set total_stock field
                     'batches_count': batch_info['batches_count'],
                     'oldest_expiry': batch_info.get('oldest_batch', {}).get('expiry_date'),
                     
@@ -562,6 +563,7 @@ class POSCategoryService:
                     'product_name': 1,
                     'selling_price': 1,
                     'stock': 1,
+                    'total_stock': 1,  # Include total_stock from database
                     'SKU': 1,
                     'barcode': 1,
                     'category_id': 1,
@@ -586,16 +588,24 @@ class POSCategoryService:
             for product in products:
                 product_id = product['_id']
                 cached_stock = product.get('stock', 0)
+                db_total_stock = product.get('total_stock', 0)
                 
                 print(f"{'─'*60}")
                 print(f"Processing: {product_id}")
                 print(f"Product name: {product.get('product_name')}")
                 print(f"Cached stock (product.stock): {cached_stock}")
+                print(f"Database total_stock: {db_total_stock}")
                 
                 # ✅ Calculate batch stock
                 batch_stock = self._calculate_batch_stock(product_id)
                 
                 print(f"Calculated batch stock: {batch_stock}")
+                
+                # Use the higher value between batch calculation and database total_stock
+                # This handles cases where batch calculation might be incomplete but DB has correct value
+                final_stock = max(batch_stock, db_total_stock) if db_total_stock is not None else batch_stock
+                
+                print(f"Final stock value: {final_stock}")
                 print(f"{'─'*60}\n")
                 
                 pos_product = {
@@ -610,10 +620,11 @@ class POSCategoryService:
                     'price': product.get('selling_price', 0),
                     'unit_price': product.get('selling_price', 0),
                     
-                    # ✅ Use batch stock
-                    'stock': batch_stock,
-                    'stock_quantity': batch_stock,
+                    # ✅ Use calculated stock or fallback to database total_stock
+                    'stock': final_stock,
+                    'stock_quantity': final_stock,
                     'batch_stock': batch_stock,
+                    'total_stock': final_stock,  # Use final calculated value
                     
                     'barcode': product.get('barcode', ''),
                     'category_id': product.get('category_id', ''),
