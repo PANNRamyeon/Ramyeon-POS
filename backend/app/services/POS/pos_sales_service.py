@@ -227,22 +227,6 @@ class POSSalesService:
             
             logger.info(f"✅ Awarded {points_to_award} points to {customer_id}")
             
-            # Send notification (optional)
-            try:
-                notification_service.create_notification(
-                    title="Loyalty Points Earned!",
-                    message=f"You earned {points_to_award} points from your purchase! New balance: {new_balance} points (₱{new_balance/4:.2f})",
-                    priority="low",
-                    notification_type="loyalty",
-                    metadata={
-                        'customer_id': customer_id,
-                        'sale_id': sale_id,
-                        'points_earned': points_to_award,
-                        'new_balance': new_balance
-                    }
-                )
-            except Exception as notif_error:
-                logger.warning(f"Failed to send notification: {notif_error}")
             
         except Exception as e:
             logger.error(f"❌ Error awarding points: {str(e)}")
@@ -892,3 +876,69 @@ class POSSalesService:
             
         except Exception as e:
             raise Exception(f"Error getting cashier performance: {str(e)}")
+        
+    def get_top_products(self, date, cashier_id=None, limit=10):
+        """Get top selling products for a specific date"""
+        try:
+            from datetime import time
+            
+            start_datetime = datetime.combine(date, time.min)
+            end_datetime = datetime.combine(date, time.max)
+            
+            query = {
+                'transaction_date': {
+                    '$gte': start_datetime,
+                    '$lte': end_datetime
+                },
+                'source': 'pos',
+                'status': 'completed'
+            }
+            
+            if cashier_id:
+                query['cashier_id'] = cashier_id
+            
+            # Aggregation pipeline for top products
+            pipeline = [
+                {'$match': query},
+                {'$unwind': '$items'},
+                {'$group': {
+                    '_id': {
+                        'product_id': '$items.product_id',
+                        'product_name': '$items.product_name',
+                        'sku': '$items.sku'
+                    },
+                    'total_quantity': {'$sum': '$items.quantity'},
+                    'total_revenue': {'$sum': '$items.subtotal'},
+                    'unit_price': {'$avg': '$items.unit_price'}
+                }},
+                {'$project': {
+                    'product_id': '$_id.product_id',
+                    'product_name': '$_id.product_name',
+                    'sku': '$_id.sku',
+                    'total_quantity': 1,
+                    'total_revenue': 1,
+                    'unit_price': 1,
+                    'average_price': {'$round': ['$unit_price', 2]}
+                }},
+                {'$sort': {'total_revenue': -1}},
+                {'$limit': limit}
+            ]
+            
+            result = list(self.sales_collection.aggregate(pipeline))
+            
+            # Format the result
+            formatted_products = []
+            for product in result:
+                formatted_products.append({
+                    'id': product['product_id'],
+                    'name': product['product_name'],
+                    'sku': product.get('sku', ''),
+                    'orders': product['total_quantity'],  # This is actually quantity sold
+                    'ppu': product['average_price'],
+                    'revenue': product['total_revenue']
+                })
+            
+            return formatted_products
+            
+        except Exception as e:
+            raise Exception(f"Error getting top products: {str(e)}")

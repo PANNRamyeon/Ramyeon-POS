@@ -217,6 +217,16 @@ from .kpi_views.POS.online_transaction_views import (
     ValidateStockView,
 )
 
+from .kpi_views.POS.pos_reports_views import (
+    DailyTopProductsView,
+    TotalOrdersRevenueView,
+    CategoryStatisticsView,
+    DashboardDataView,
+    CustomRangeAnalyticsView,
+    RealTimeSalesDataView,
+    ProductPerformanceView
+)
+
 urlpatterns = [
     # ========== SYSTEM & HEALTH ==========
     path('', SystemStatusView.as_view(), name='system-status'),  # Root endpoint
@@ -472,4 +482,12 @@ urlpatterns = [
     path('customers/<str:customer_id>/points/', GetCustomerPointsView.as_view(), name='get_customer_points'),
     path('customers/<str:customer_id>/points/history/', GetPointsHistoryView.as_view(), name='get_points_history'), 
 
-]
+    #==== DASHBOARD KPI====
+    path('pos/daily-top-products/', DailyTopProductsView.as_view(), name='daily-top-products'),
+    path('pos/total-orders-revenue/', TotalOrdersRevenueView.as_view(), name='total-orders-revenue'),
+    path('pos/category-statistics/', CategoryStatisticsView.as_view(), name='category-statistics'),
+    path('pos/dashboard/', DashboardDataView.as_view(), name='dashboard'),
+    path('pos/custom-range/', CustomRangeAnalyticsView.as_view(), name='custom-range'),
+    path('pos/real-time-sales/', RealTimeSalesDataView.as_view(), name='real-time-sales'),
+    path('pos/product-performance/', ProductPerformanceView.as_view(), name='product-performance'),
+]   
