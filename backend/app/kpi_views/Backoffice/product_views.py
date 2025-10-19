@@ -570,7 +570,6 @@ class ProductsByCategoryView(APIView):
                 product['stock'] = batch_info['total_stock']
                 product['stock_quantity'] = batch_info['total_stock']
                 product['batch_stock'] = batch_info['total_stock']
-                product['total_stock'] = batch_info['total_stock']  # ✅ CRITICAL: Set total_stock field
                 product['batches_count'] = batch_info['batches_count']
                 
                 if batch_info.get('oldest_batch'):

@@ -1,4 +1,4 @@
-<!-- .notification-item.archived {
+.notification-item.archived {
   opacity: 0.8;
   background-color: #fafafa;
   border-left: 3px solid #f59e0b;
@@ -1140,10 +1140,10 @@ export default {
   .notification-actions {
     flex-direction: column;
     gap: 0.25rem;
-  } 
+  }
   
   .bulk-action-btn {
     font-size: 0.875rem;
     padding: 0.5rem 1rem;
   }
-}</style> -->
+}</style>

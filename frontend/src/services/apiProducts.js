@@ -56,14 +56,12 @@ class ProductAPIService {
         
         // ✅ Use total_stock if available, otherwise fallback to batch_stock
         let stockValue;
-        if (product.total_stock !== undefined && product.total_stock !== null && product.total_stock >= 0) {
+        if (product.total_stock !== undefined && product.total_stock !== null) {
             stockValue = product.total_stock
-        } else if (product.batch_stock !== undefined && product.batch_stock !== null && product.batch_stock >= 0) {
+        } else if (product.batch_stock !== undefined && product.batch_stock !== null) {
             stockValue = product.batch_stock
-        } else if (product.stock !== undefined && product.stock !== null && product.stock >= 0) {
-            stockValue = product.stock
         } else {
-            stockValue = 0  // Default to 0 instead of null
+            stockValue = null
         }
         
         // ✅ FIX: Get category ID in correct format

@@ -123,7 +123,7 @@
             <div class="product-info">
               <h3 class="product-name">{{ product.name }}</h3>
               <p v-if="!product.isSubcategory" class="product-description">
-                Stock: {{ product.total_stock || 0 }}
+                Stock: {{ product.stock || 0 }}
               </p>
               <div v-if="!product.isSubcategory" class="product-price text-accent">
                 ₱{{ formatPrice(product.price) }}
@@ -953,6 +953,7 @@ export default {
               id: product.id,
               total_stock: product.total_stock,
               batch_stock: product.batch_stock,
+              stock: product.stock,
               selectedValue: stockValue
             })
             
@@ -986,10 +987,11 @@ export default {
               const updated = cached.map(product => {
                 const newStock = stockUpdates[product.id]
                 
-                if (newStock !== null && newStock !== product.total_stock) {
+                if (newStock !== null && newStock !== (product.total_stock || product.stock)) {
                   wasUpdated = true
                   return {
                     ...product,
+                    stock: newStock,
                     total_stock: newStock
                   }
                 }
@@ -1026,7 +1028,7 @@ export default {
             console.log('🔄 Reloading products after stock update:', refreshedProducts.length, 'products')
             // Log first few products to see their stock values
             refreshedProducts.slice(0, 3).forEach(p => {
-              console.log(`  - ${p.name}: total_stock=${p.total_stock}`)
+              console.log(`  - ${p.name}: stock=${p.stock}, total_stock=${p.total_stock}`)
             })
             this.products = refreshedProducts
           }
@@ -1070,9 +1072,9 @@ export default {
           let changed = false
           const updated = this.products.map(p => {
             const newStock = stockUpdates[p.id]
-            if (newStock !== null && newStock !== p.total_stock) {
+            if (newStock !== null && newStock !== (p.total_stock || p.stock)) {
               changed = true
-              return { ...p, total_stock: newStock }
+              return { ...p, stock: newStock, total_stock: newStock }
             }
             return p
           })
@@ -1106,9 +1108,9 @@ export default {
             let wasUpdated = false
             const updated = cached.map(product => {
               const newStock = stockUpdates[product.id]
-              if (newStock !== undefined && newStock !== product.total_stock) {
+              if (newStock !== undefined && newStock !== product.stock) {
                 wasUpdated = true
-                return { ...product, total_stock: newStock }
+                return { ...product, stock: newStock }
               }
               return product
             })
@@ -1132,9 +1134,9 @@ export default {
             const updated = items.map(item => {
               const baseId = item.originalId || item.id
               const newStock = stockUpdates[baseId]
-              if (newStock !== undefined && newStock !== item.total_stock) {
+              if (newStock !== undefined && newStock !== item.stock) {
                 changed = true
-                return { ...item, total_stock: newStock }
+                return { ...item, stock: newStock }
               }
               return item
             })
@@ -1154,7 +1156,7 @@ export default {
             // Merge in-memory updates with cache to avoid flicker
             const merged = refreshedProducts.map(prod => {
               const newStock = stockUpdates[prod.id]
-              return newStock !== undefined ? { ...prod, total_stock: newStock } : prod
+              return newStock !== undefined ? { ...prod, stock: newStock } : prod
             })
             this.products = merged
           }
@@ -1892,7 +1894,7 @@ export default {
           throw new Error('Invalid product data')
         }
         
-        if (product.total_stock <= 0) {
+        if (product.stock <= 0) {
           alert(`${product.name} is out of stock!`)
           return
         }
@@ -2015,6 +2017,7 @@ export default {
               
               if (newStock !== undefined && newStock !== product.total_stock) {
                 console.log(`🔄 Updating custom category product ${product.name}: ${product.total_stock} → ${newStock}`)
+                product.stock = newStock
                 product.total_stock = newStock
                 updated = true
               }

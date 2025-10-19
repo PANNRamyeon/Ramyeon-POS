@@ -135,9 +135,6 @@ class BatchService:
             print(f"   Used {len(batch_deductions)} batches")
             print(f"{'='*60}\n")
             
-            # Update the product's total_stock field to reflect the new batch quantities
-            self.update_product_total_stock(product_id)
-            
             return batch_deductions
             
         except Exception as e:
@@ -164,32 +161,14 @@ class BatchService:
             }
         """
         try:
-            # First, ensure the product's total_stock field is up-to-date
-            self.update_product_total_stock(product_id)
-            
-            # Check batch stock first
+            # ✅ FIXED: Changed batch_collection to batches_collection
             batches = list(self.batches_collection.find({
                 'product_id': product_id,
                 'status': 'active',
                 'quantity_remaining': {'$gt': 0}
             }))
             
-            batch_stock = sum(batch['quantity_remaining'] for batch in batches)
-            
-            # Get the updated total_stock from database
-            product = self.products_collection.find_one(
-                {'_id': product_id},
-                {'total_stock': 1, 'stock': 1}
-            )
-            db_total_stock = product.get('total_stock', 0) if product else 0
-            
-            # Use batch calculation as the authoritative source
-            # But ensure database total_stock is updated to match
-            total_stock = batch_stock
-            
-            # If there's a discrepancy, update the database
-            if db_total_stock != batch_stock:
-                logger.info(f"📊 Stock sync: batch={batch_stock}, db={db_total_stock}, updating DB to match batch")
+            total_stock = sum(batch['quantity_remaining'] for batch in batches)
             
             return {
                 'available': total_stock >= quantity_needed,
@@ -230,9 +209,6 @@ class BatchService:
                 print(f"   Reason: {transaction_info.get('reason', 'N/A')}")
             print(f"{'='*60}\n")
             
-            # Track which products need total_stock updates
-            affected_products = set()
-            
             for batch_info in batches_used:
                 batch_id = batch_info['batch_id']
                 quantity_to_restore = batch_info['quantity_deducted']
@@ -246,9 +222,6 @@ class BatchService:
                 if not batch:
                     logger.warning(f"      ⚠️  Batch {batch_id} not found, skipping")
                     continue
-                
-                # Track the product_id for total_stock update
-                affected_products.add(batch['product_id'])
                 
                 new_quantity = batch['quantity_remaining'] + quantity_to_restore
                 
@@ -287,10 +260,6 @@ class BatchService:
             print(f"{'='*60}")
             print(f"✅ Stock restoration complete")
             print(f"{'='*60}\n")
-            
-            # Update total_stock for all affected products
-            for product_id in affected_products:
-                self.update_product_total_stock(product_id)
             
         except Exception as e:
             logger.error(f"❌ Stock restoration failed: {str(e)}")
@@ -345,58 +314,3 @@ class BatchService:
         except Exception as e:
             logger.error(f"❌ Get near-expiry batches failed: {str(e)}")
             return []
-    
-    # ================================================================
-    # TOTAL STOCK SYNCHRONIZATION
-    # ================================================================
-    
-    def update_product_total_stock(self, product_id):
-        """
-        Recalculate and update the total_stock field in products collection
-        based on current batch quantities
-        
-        Args:
-            product_id: Product ID to update
-        
-        Returns:
-            dict: Updated stock information
-        """
-        try:
-            # Calculate actual stock from active batches
-            batches = list(self.batches_collection.find({
-                'product_id': product_id,
-                'status': 'active',
-                'quantity_remaining': {'$gt': 0}
-            }))
-            
-            calculated_stock = sum(batch.get('quantity_remaining', 0) for batch in batches)
-            
-            # Update the product's total_stock field
-            result = self.products_collection.update_one(
-                {'_id': product_id},
-                {
-                    '$set': {
-                        'total_stock': calculated_stock,
-                        'updated_at': datetime.utcnow()
-                    }
-                }
-            )
-            
-            if result.modified_count > 0:
-                logger.info(f"✅ Updated total_stock for {product_id}: {calculated_stock}")
-            else:
-                logger.warning(f"⚠️ No product found to update total_stock for {product_id}")
-            
-            return {
-                'success': True,
-                'product_id': product_id,
-                'calculated_stock': calculated_stock,
-                'batches_count': len(batches)
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ Error updating total_stock for {product_id}: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
