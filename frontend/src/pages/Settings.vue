@@ -388,9 +388,13 @@ export default {
 @import '@/assets/styles/theme_utilities.css';
 
 .settings-container {
-  padding: 0;
-  max-width: 1200px;
+  padding: 1.5rem;
+  max-width: 1400px;
   margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 .contents-section {
@@ -398,7 +402,9 @@ export default {
   border-radius: 0.75rem;
   padding: 2rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  min-height: 50vh;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .contents-section h1 {
@@ -765,7 +771,25 @@ export default {
 }
 
 /* Responsive Design */
+@media (max-width: 1440px) {
+  .settings-container {
+    max-width: 1200px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .settings-container {
+    max-width: 900px;
+    padding: 1rem;
+  }
+}
+
 @media (max-width: 768px) {
+  .settings-container {
+    max-width: 100%;
+    padding: 1rem;
+  }
+  
   .contents-section {
     padding: 1.5rem;
   }
