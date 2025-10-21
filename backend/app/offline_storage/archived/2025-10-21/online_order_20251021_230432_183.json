@@ -1,0 +1,35 @@
+{
+  "_metadata": {
+    "file_id": "online_order_20251021_230432_183.json",
+    "created_at": "2025-10-21T23:04:32.184017",
+    "type": "online_order",
+    "sync_status": "pending",
+    "sync_attempts": 0
+  },
+  "data": {
+    "customer_id": "CUST-00002",
+    "items": [
+      {
+        "product_id": "PROD-00210",
+        "quantity": 5
+      },
+      {
+        "product_id": "PROD-00209",
+        "quantity": 3
+      }
+    ],
+    "delivery_address": {
+      "street": "123 Main St",
+      "city": "Manila",
+      "barangay": "Barangay 5",
+      "postal_code": "1000",
+      "recipient_name": "Sponge Bob",
+      "recipient_phone": "321321321"
+    },
+    "payment_method": "cod",
+    "points_to_redeem": 0,
+    "_offline_created": true,
+    "created_at": "2025-10-21T15:04:32.183988",
+    "status": "pending_sync"
+  }
+}
