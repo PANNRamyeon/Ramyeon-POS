@@ -299,24 +299,30 @@ export default {
           throw new Error('Closing cash cannot be negative')
         }
 
-        // Perform logout with closing cash
-        const response = await apiService.logout(this.closingCash)
-        
-        console.log('Logout response:', response)
-        
+        // ✅ OPTIMISTIC UPDATE: Close modal and redirect immediately
         this.showLogoutModal = false
-        await this.performLogout()
+        
+        // Send logout request but don't wait for response to proceed
+        const logoutPromise = apiService.logout(this.closingCash)
+        
+        // Clear local storage and redirect immediately
+        this.performLogout()
+        
+        // Optional: Wait for API call in background (but don't block user)
+        logoutPromise.catch(error => {
+          console.error('Background logout API error:', error)
+          // You could show a toast notification here if needed
+        })
         
       } catch (error) {
         console.error('Error during logout:', error)
         this.logoutError = error.message || 'Failed to end shift. Please try again.'
-      } finally {
         this.logoutLoading = false
       }
     },
 
     async performLogout() {
-      // Clear all stored data
+      // ✅ IMMEDIATE cleanup - don't wait for API response
       localStorage.removeItem('authToken')
       localStorage.removeItem('userData')
       localStorage.removeItem('userRole')
@@ -325,7 +331,7 @@ export default {
       localStorage.removeItem('shiftStartTime')
       localStorage.removeItem('openingCash')
       
-      // Reset form
+      // Reset form data
       this.loginForm = { 
         email: '', 
         password: '',
@@ -336,7 +342,7 @@ export default {
       this.closingCash = 0
       this.logoutError = null
       
-      // Navigate back to login
+      // ✅ Immediate navigation
       this.$router.push('/login')
       
       console.log('User logged out successfully')
