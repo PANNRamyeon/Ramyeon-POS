@@ -67,7 +67,8 @@ export const useCartStore = defineStore('cart', () => {
   }
   
   function addItem(product) {
-    console.log('🛒 Adding item to cart:', product)
+    console.log('🛒 Cart store - Adding item to cart:', product)
+    console.log('🛒 Cart store - Current items count:', items.value.length)
     
     // Check if item already exists
     const existingItem = items.value.find(item => item.productId === product.id)
@@ -94,9 +95,11 @@ export const useCartStore = defineStore('cart', () => {
       
       items.value.push(newItem)
       console.log('   ✅ New item added:', newItem)
+      console.log('   ✅ Cart items after adding:', items.value.length)
     }
     
     saveToLocalStorage()
+    console.log('🛒 Cart store - Final items count:', items.value.length)
   }
   
   function removeItem(productId) {
