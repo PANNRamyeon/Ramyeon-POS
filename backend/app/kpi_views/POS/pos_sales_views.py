@@ -6,63 +6,59 @@ from django.http import HttpResponse
 import csv
 from ...services.POS.pos_sales_service import POSSalesService
 from ...services.Backoffice.user_service import UserService
+import traceback
+import logging
+from app.offline.sync_engine import SyncEngine
+from app.offline.connectivity import Connectivity
 
+logger = logging.getLogger(__name__)
 
 class POSSalesCreateView(APIView):
     """
     POST /api/v1/pos/sales/create/
-    Create a new POS sale transaction
+    Create a new POS sale (works offline + online)
     """ 
     def post(self, request):
         try:
             pos_service = POSSalesService()
             
-            print(f"📋 Received sale request data: {request.data}")
-            
-            # ✅ Extract cashier_id SEPARATELY (it's a parameter, not in sale_data)
+            logger.info("🧾 Received sale request")
+            logger.debug(f"Raw sale request: {request.data}")
+
             cashier_id = request.data.get('cashier_id')
-            
-            print(f"👤 Extracted cashier_id: {cashier_id}")
-            
             if not cashier_id:
                 return Response({
                     'success': False,
                     'error': 'Cashier ID is required'
                 }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Validate required fields
+
+            # ✅ Validate required fields
             required_fields = ['items', 'total_amount', 'payment_method']
-            missing_fields = []
-            
-            for field in required_fields:
-                if field not in request.data:
-                    missing_fields.append(field)
-            
+            missing_fields = [f for f in required_fields if f not in request.data]
+
             if missing_fields:
                 return Response({
                     'success': False,
                     'error': f'Missing required fields: {", ".join(missing_fields)}'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Validate items array
             items = request.data.get('items', [])
-            if not items or len(items) == 0:
+            if not items:
                 return Response({
                     'success': False,
                     'error': 'Sale must contain at least one item'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Validate each item has required fields
+            # ✅ Validate item structure
             for idx, item in enumerate(items):
-                item_required = ['product_id', 'quantity', 'unit_price', 'subtotal']
-                for field in item_required:
+                for field in ['product_id', 'quantity', 'unit_price', 'subtotal']:
                     if field not in item:
                         return Response({
                             'success': False,
                             'error': f'Item {idx + 1} missing required field: {field}'
                         }, status=status.HTTP_400_BAD_REQUEST)
             
-            # ✅ Prepare sale_data - include ALL necessary fields
+            # ✅ Prepare sale_data (include loyalty & promo)
             sale_data = {
                 'items': items,
                 'subtotal': request.data.get('subtotal', 0),
@@ -72,48 +68,44 @@ class POSSalesCreateView(APIView):
                 'payment_method': request.data['payment_method'],
                 'payment_details': request.data.get('payment_details', {}),
                 'customer_id': request.data.get('customer_id'),
-                'promotion_applied': request.data.get('promotion_applied'),
-                'shift_id': request.data.get('shift_id'),
-                
-                # ✅ LOYALTY POINTS FIELDS
+                'promotion_id': request.data.get('promotion_id'),
+                'promotion_discount': request.data.get('promotion_discount', 0),
                 'loyalty_points_used': request.data.get('loyalty_points_used', 0),
                 'loyalty_points_earned': request.data.get('loyalty_points_earned', 0),
                 'points_discount': request.data.get('points_discount', 0),
-                
-                # ✅ PROMOTION FIELDS
-                'promotion_id': request.data.get('promotion_id'),
-                'promotion_discount': request.data.get('promotion_discount', 0),
-                
-                # ✅ COMBINED DISCOUNT
-                'discount': request.data.get('discount', 0)
+                'shift_id': request.data.get('shift_id')
             }
-            
-            print(f"💰 Sale data prepared:")
-            print(f"   Total: ₱{sale_data['total_amount']}")
-            print(f"   Payment: {sale_data['payment_method']}")
-            print(f"   Shift ID: {sale_data.get('shift_id')}")
-            print(f"   Items: {len(sale_data['items'])}")
-            print(f"   Points Used: {sale_data.get('loyalty_points_used', 0)}")
-            print(f"   Points Discount: ₱{sale_data.get('points_discount', 0)}")
-            
-            # ✅ Create the sale (TWO parameters: sale_data and cashier_id)
+
+            logger.info(f"🛒 Preparing to create sale | Total ₱{sale_data['total_amount']:.2f}")
+
+            # ✅ Create the sale (automatic offline fallback inside service)
             result = pos_service.create_sale(sale_data, cashier_id)
-            
-            print(f"✅ Sale created successfully: {result.get('data', {}).get('_id')}")
-            
-            return Response(result, status=status.HTTP_201_CREATED)
-            
+
+            sale_id = result.get('data', {}).get('_id')
+            offline_flag = result.get('offline', False)
+
+            if offline_flag:
+                logger.warning(f"📴 Offline sale recorded locally: {sale_id}")
+            else:
+                logger.info(f"🌐 Online sale created successfully: {sale_id}")
+
+            # ✅ Unified response for frontend
+            return Response({
+                'success': True,
+                'offline': offline_flag,
+                'message': result.get('message', 'Sale created successfully'),
+                'data': result.get('data', {})
+            }, status=status.HTTP_201_CREATED)
+
         except ValueError as e:
-            print(f"❌ Validation error: {str(e)}")
+            logger.error(f"❌ Validation error: {e}")
             return Response({
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
             
         except Exception as e:
-            import traceback
-            print(f"❌ Error creating sale:")
-            print(traceback.format_exc())
+            logger.error(f"❌ Unexpected error creating sale: {traceback.format_exc()}")
             return Response({
                 'success': False,
                 'error': f'Failed to create sale: {str(e)}'
@@ -446,4 +438,23 @@ class POSSalesReceiptView(APIView):
             return Response({
                 'success': False,
                 'error': f'Failed to get receipt: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ManualOfflineSyncView(APIView):
+    """POST /api/v1/pos/offline/sync/ - Manually sync offline sales"""
+
+    def post(self, request):
+        try:
+            net = Connectivity()
+            sync_engine = SyncEngine(net)
+            sync_engine.push_sales()
+
+            return Response({
+                "success": True,
+                "message": "Offline data synced successfully (if any existed)."
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": f"Manual sync failed: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -155,7 +155,8 @@ from .kpi_views.POS.pos_sales_views import (
     POSSalesDailySummaryView,
     POSSalesShiftSummaryView,
     POSSalesExportView,
-    POSSalesReceiptView
+    POSSalesReceiptView,
+    ManualOfflineSyncView
 )
 
 from .kpi_views.POS.cart_views import (
@@ -175,7 +176,8 @@ from .kpi_views.POS.promotion_pos_views import (
     PromotionCalculateView,
     PromotionBestForCartView,
     CartPromotionAvailableView,
-    CartPromotionView
+    CartPromotionView,
+    
 )
 
 from .kpi_views.POS.shift_views import (
@@ -490,4 +492,6 @@ urlpatterns = [
     path('pos/custom-range/', CustomRangeAnalyticsView.as_view(), name='custom-range'),
     path('pos/real-time-sales/', RealTimeSalesDataView.as_view(), name='real-time-sales'),
     path('pos/product-performance/', ProductPerformanceView.as_view(), name='product-performance'),
+
+    path('pos/offline/sync/', ManualOfflineSyncView.as_view(), name='pos-offline-sync'),
 ]   

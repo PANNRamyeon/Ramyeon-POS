@@ -83,6 +83,22 @@ class SettingsAPIService {
       this.handleError(error);
     }
   }
+
+    async syncOfflineData() {
+    try {
+      const response = await api.post('/pos/offline/sync/');
+      return {
+        success: true,
+        message: response.data.message || 'Offline data synced successfully',
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error syncing offline data:', error);
+      this.handleError(error);
+    }
+  }
+
+
 }
 
 // Create and export singleton instance

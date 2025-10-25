@@ -163,6 +163,25 @@
           </div>
         </div>
       </div>
+      <!-- Manual Sync Section -->
+      <div class="settings-section">
+        <div class="section-header">
+          <h2>Offline Data Sync</h2>
+        </div>
+
+        <div class="sync-content">
+          <p>Manually trigger synchronization of offline sales data to the server.</p>
+          <button
+            class="btn btn-primary"
+            @click="handleManualSync"
+            :disabled="isSyncing"
+          >
+            <span v-if="!isSyncing">Sync Offline Data</span>
+            <span v-else>Syncing...</span>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -184,6 +203,7 @@ export default {
   },
   data() {
     return {
+      isSyncing: false,
       isEditingPassword: false,
       loading: true,
       error: null,
@@ -218,6 +238,23 @@ export default {
     }
   },
   methods: {
+    async handleManualSync() {
+      try {
+        this.isSyncing = true;
+        this.successMessage = '';
+        this.errorMessage = '';
+
+        const result = await apiSettings.syncOfflineData();
+
+        this.successMessage = result.message;
+        setTimeout(() => { this.successMessage = ''; }, 5000);
+      } catch (error) {
+        this.errorMessage = error.message || 'Failed to sync offline data';
+      } finally {
+        this.isSyncing = false;
+      }
+    },
+
     toggleEditPassword() {
       this.isEditingPassword = !this.isEditingPassword;
       if (!this.isEditingPassword) {
@@ -821,4 +858,15 @@ export default {
     width: 100%;
   }
 }
+.sync-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sync-content p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
 </style>
