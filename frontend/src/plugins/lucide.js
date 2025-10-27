@@ -42,7 +42,16 @@ import {
   ChevronLeft, 
   Archive,
   ToggleLeft,
-  ToggleRight 
+  ToggleRight,
+  // 👇 Add these missing ones
+  AlertCircle,
+  CreditCard,
+  Wallet,
+  Users,
+  MapPin,
+  User,
+  Clock,
+  Award
 } from 'lucide-vue-next'
 
 export default {
@@ -90,5 +99,13 @@ export default {
     app.component('Upload', Upload)
     app.component('Utensils', Utensils)
     app.component('X', X)
+    app.component('AlertCircle', AlertCircle)
+    app.component('CreditCard', CreditCard)
+    app.component('Wallet', Wallet)
+    app.component('Users', Users)
+    app.component('MapPin', MapPin)
+    app.component('User', User)
+    app.component('Clock', Clock)
+    app.component('Award', Award)
   }
 }
