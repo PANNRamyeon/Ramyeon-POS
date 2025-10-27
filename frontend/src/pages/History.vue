@@ -49,7 +49,7 @@
           </div>
 
           <!-- Status Filter -->
-          <div class="col-md-2">
+         <div class="col-md-2">
             <label class="form-label text-secondary">Status</label>
             <select
               class="form-select input-theme"
@@ -66,6 +66,7 @@
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
+
 
           <!-- Payment Method Filter -->
           <div class="col-md-2">
@@ -84,7 +85,6 @@
               <option value="bank_paymongo">Bank Transfer</option>
             </select>
           </div>
-
           <!-- Source Filter -->
           <div class="col-md-2">
             <label class="form-label text-secondary">Source</label>
@@ -571,7 +571,8 @@ export default {
         dateFrom: null,
         dateTo: null,
         status: null,
-        paymentMethod: null,
+        status: '',
+        paymentMethod: '',
         search: null,
         source: '' // NEW: Source filter
       },

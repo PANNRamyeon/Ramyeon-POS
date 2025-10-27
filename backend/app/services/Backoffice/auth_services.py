@@ -84,6 +84,12 @@ class AuthService:
                 print(f"👤 Username: {user.get('username', 'N/A')}")
                 print(f"🎭 Role: {user.get('role', 'N/A')}")
                 print(f"📊 Status: {user.get('status', 'N/A')}")
+                print(f"🗑️ isDeleted: {user.get('isDeleted', False)}")
+            
+            # 🛑 Check if user is marked as deleted
+            if user.get("isDeleted", False):
+                print(f"❌ Account is marked as deleted. Access denied for {email}")
+                raise Exception("This account has been deleted and cannot be accessed.")
             
             # Password verification
             print(f"🔐 Starting password verification...")
@@ -96,15 +102,11 @@ class AuthService:
             
             # Status check
             user_status = user.get("status", "active")
-            user_deleted = user.get("isDeleted", "false")
             print(f"📊 Checking user status: {user_status}")
             if user_status != "active":
                 print(f"❌ User status not active: {user_status}")
                 raise Exception("Account is not active")
-            if user_deleted != "false":
-                print(f"❌ User deleted: {user_status}")
-                raise Exception("Account is deleted")
-
+            
             # Role check - Allow admin, cashier, and employee
             user_role = user.get("role", "").lower()
             print(f"🎭 Checking user role: '{user_role}'")
@@ -252,6 +254,7 @@ class AuthService:
             print(f"💥 Full traceback:")
             traceback.print_exc()
             raise e
+
     
     def logout(self, token: str, closing_cash: float = 0):
         """

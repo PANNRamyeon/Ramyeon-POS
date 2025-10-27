@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
-from .services.auth_services import AuthService
+from .services.Backoffice.auth_services import AuthService
 import json
 
 class JWTAuthenticationMiddleware(MiddlewareMixin):
