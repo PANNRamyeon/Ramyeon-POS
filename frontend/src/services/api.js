@@ -160,29 +160,36 @@ class ApiService {
   async logout(closingCash = 0) {
     try {
       console.log('📤 Logging out with closing cash:', closingCash);
-      
-      // Get active shift ID from localStorage
+
       const activeShiftId = localStorage.getItem('activeShiftId');
-      
-      // If there's an active shift, close it first
       if (activeShiftId) {
         console.log('   Closing active shift:', activeShiftId);
         await this.closeShift(activeShiftId, closingCash);
       }
-      
-      // Then call logout endpoint
+
       const response = await api.post('/auth/logout/', {
         closing_cash: closingCash
       });
-      
+
       console.log('✅ Logout successful');
+
+      // 🧹 Clear tokens and shift data
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('activeShiftId');
+      sessionStorage.removeItem('authToken');
+
+      // 🧭 Redirect to login page
+      window.location.href = '/login';
+
       return this.handleResponse(response);
-      
+
     } catch (error) {
       console.error('❌ Logout failed:', error);
       this.handleError(error);
     }
   }
+
 
   async refreshToken(refreshToken) {
     try {

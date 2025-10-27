@@ -96,11 +96,15 @@ class AuthService:
             
             # Status check
             user_status = user.get("status", "active")
+            user_deleted = user.get("isDeleted", "false")
             print(f"📊 Checking user status: {user_status}")
             if user_status != "active":
                 print(f"❌ User status not active: {user_status}")
                 raise Exception("Account is not active")
-            
+            if user_deleted != "false":
+                print(f"❌ User deleted: {user_status}")
+                raise Exception("Account is deleted")
+
             # Role check - Allow admin, cashier, and employee
             user_role = user.get("role", "").lower()
             print(f"🎭 Checking user role: '{user_role}'")
