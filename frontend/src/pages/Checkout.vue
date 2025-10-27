@@ -156,8 +156,10 @@
               >
                 <div class="fs-5">🎁</div>
                 <div class="d-flex flex-column align-items-start flex-fill">
-                  <span class="fs-7 fw-semibold">Use Points</span>
-                  <span class="fs-8" style="opacity: 0.8;">Up to {{ maxRedeemablePoints }} pts</span>
+                 <span class="fs-8" style="opacity: 0.8;">
+                    Up to {{ maxRedeemablePoints }} pts (₱{{ formatPrice(maxRedeemablePoints / 4) }})
+                  </span>
+
                 </div>
               </button>
 
@@ -661,12 +663,26 @@ export default {
     // Points calculations
     maxRedeemablePoints() {
       if (!this.selectedCustomer) return 0
-      // Business rule: Cap at ₱20 per transaction regardless of subtotal
-      const maxDiscountAmount = 20
-      const maxPointsFromCart = Math.floor(maxDiscountAmount * 4) // 80 points
+
+      // 4 points = ₱1
+      const pointsPerPeso = 4
+
+      // Calculate subtotal after promotion discounts
+      const subtotalAfterPromo = Math.max(0, this.cartSubtotal - this.promoDiscount)
+
+      // Dynamic cap: max 20% of subtotalAfterPromo
+      const maxDiscountAmount = subtotalAfterPromo * 0.20
+
+      // Convert peso value to equivalent points
+      const maxPointsFromSubtotal = Math.floor(maxDiscountAmount * pointsPerPeso)
+
+      // Limit by customer’s actual points
       const customerPoints = this.selectedCustomer.loyalty_points || 0
-      return Math.min(maxPointsFromCart, customerPoints)
+
+      // Final allowed redemption
+      return Math.min(maxPointsFromSubtotal, customerPoints)
     },
+
     
     canRedeemPoints() {
       if (!this.pointsToRedeem || !this.selectedCustomer) return false
