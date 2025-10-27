@@ -1,6 +1,5 @@
-import threading, time, json, os
+import threading, time, json, os, requests
 from datetime import datetime
-from app.database import db_manager
 from app.offline.data_queue import OfflineFileQueue
 from app.offline.connectivity import Connectivity
 
@@ -14,7 +13,6 @@ class SyncEngine:
 
     def __init__(self, net: Connectivity, interval_minutes=30):
         self.net = net
-        self.cloud = db_manager.get_database()
         self.interval = max(5, interval_minutes)  # minutes
         self._stop = False
         self._thread = None
@@ -35,16 +33,13 @@ class SyncEngine:
     def pull_catalog(self):
         """Optional: refresh products & categories from cloud."""
         try:
-            self.cloud.products.find_one()
-            self.cloud.category.find_one()
+            # You might want to implement this if needed
+            pass
         except Exception as e:
             print(f"⚠️ Failed to pull catalog: {e}")
 
     def push_sales(self):
         """Sync offline Data.json sales to API endpoint."""
-        import requests
-        from app.offline.data_queue import OfflineFileQueue
-
         offline_sales = OfflineFileQueue.get_all_sales()
         if not offline_sales:
             return
@@ -95,8 +90,6 @@ class SyncEngine:
         if synced_sales:
             print(f"🧹 {len(synced_sales)} sale(s) synced. Clearing from Data.json...")
             OfflineFileQueue.clear_sales()
-
-
 
     def on_online(self):
         """Triggered when connection returns."""

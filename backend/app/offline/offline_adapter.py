@@ -1,10 +1,9 @@
 from datetime import datetime, timezone
-from app.offline.connectivity import Connectivity
-from app.offline.data_queue import OfflineFileQueue
-from app.offline.offline_id_generator import OfflineIDGenerator
-from app.database import db_manager
+from .connectivity import Connectivity
+from .data_queue import OfflineFileQueue
+from .offline_id_generator import OfflineIDGenerator
 
-class POSSaleAdapter:
+class OfflineAdapter:
     """
     Adapter that handles POS sales creation logic for both
     online (MongoDB Atlas) and offline (local Data.json) modes.
@@ -12,7 +11,6 @@ class POSSaleAdapter:
 
     def __init__(self, connectivity: Connectivity):
         self.net = connectivity
-        self.cloud = db_manager.get_database()
 
     def create_cash_sale(self, sale_data: dict, cashier_id: str):
         """Handles online/offline sale logic for POS."""
@@ -35,10 +33,7 @@ class POSSaleAdapter:
 
         if not self.net.is_online():
             # 🔹 OFFLINE MODE: Save to Data.json
-            from app.offline.data_queue import OfflineFileQueue
-            from app.offline.offline_id_generator  import OfflineIDGenerator
-
-            generator = OfflineIDGenerator()  # ID generation based on file
+            generator = OfflineIDGenerator()
             sale_data["_id"] = generator.generate_sale_id()
 
             OfflineFileQueue.add_sale(sale_data)

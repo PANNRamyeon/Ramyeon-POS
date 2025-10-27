@@ -208,8 +208,8 @@ class UserService:
             if status:
                 query['status'] = status
                 
-            # Only get users with string IDs (USER-#### format)
-            query['_id'] = {'$regex': '^USER-'}
+            # REMOVE THIS STRICT FILTER - it's too restrictive
+            # query['_id'] = {'$regex': '^USER-'}
             
             # Add search functionality
             if search:

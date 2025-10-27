@@ -14,6 +14,12 @@
         <!-- Right Side - Login Form -->
         <div class="form-section">
           <div class="form-container">
+            <!-- Connection Status Indicator -->
+            <div class="connection-status" :class="{ offline: !isOnline }">
+              <span class="status-dot"></span>
+              {{ isOnline ? 'Online' : 'Offline Mode' }}
+            </div>
+            
             <h1 class="sign-in-title">Sign In</h1>
             
             <form @submit.prevent="handleLogin" class="login-form">
@@ -45,11 +51,10 @@
                 />
               </div>
 
-              <!-- Opening Cash Field - ALWAYS SHOW -->
+              <!-- Opening Cash Field -->
               <div class="form-group">
                 <label for="openingCash" class="form-label">
                   Opening Cash:
-                  <span class="optional-text"></span>
                 </label>
                 <input 
                   id="openingCash"
@@ -90,49 +95,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Logout Confirmation Modal -->
-    <div v-if="showLogoutModal" class="modal-overlay" @click="closeLogoutModal">
-      <div class="modal-content" @click.stop>
-        <h3>End Shift & Logout</h3>
-        <p class="text-muted mb-3">Please enter the closing cash amount for your shift.</p>
-        
-        <div class="form-group">
-          <label for="closingCash" class="form-label">Closing Cash:</label>
-          <input 
-            id="closingCash"
-            v-model.number="closingCash" 
-            type="number" 
-            step="0.01"
-            min="0"
-            class="form-input" 
-            placeholder="Enter closing cash amount"
-            required
-          />
-        </div>
-        
-        <div v-if="logoutError" class="error-message mb-3">
-          {{ logoutError }}
-        </div>
-        
-        <div class="modal-actions">
-          <button 
-            @click="confirmLogout" 
-            class="btn-confirm"
-            :disabled="logoutLoading"
-          >
-            {{ logoutLoading ? 'Ending Shift...' : 'End Shift & Logout' }}
-          </button>
-          <button 
-            @click="closeLogoutModal" 
-            class="btn-cancel"
-            :disabled="logoutLoading"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -151,43 +113,75 @@ export default {
       loading: false,
       error: null,
       successMessage: null,
-      showLogoutModal: false,
-      closingCash: 0,
-      logoutLoading: false,
-      logoutError: null
+      isOnline: true // Start with true, let the browser update it
     }
   },
   methods: {
+    updateOnlineStatus() {
+      // Directly use navigator.onLine without any API checks
+      this.isOnline = navigator.onLine;
+      console.log('🌐 Connection status updated:', {
+        browserOnline: navigator.onLine,
+        vueOnline: this.isOnline
+      });
+    },
+
     async handleLogin() {
-      this.error = null
-      this.successMessage = null
-      this.loading = true
+      this.error = null;
+      this.successMessage = null;
+      this.loading = true;
 
       try {
-        // Validate form
         if (!this.loginForm.email || !this.loginForm.password) {
-          throw new Error('Please fill in all fields')
+          throw new Error('Please fill in all fields');
         }
 
-        // ✅ Convert to number and add debug logging
         const openingCash = parseFloat(this.loginForm.openingCash) || 0;
-        console.log('💰 Frontend: Opening Cash (before send):', openingCash);
-        console.log('💰 Frontend: Type:', typeof openingCash);
+        console.log('💰 Frontend: Opening Cash:', openingCash);
 
-        // Send login request WITH opening_cash
-        const response = await apiService.login(
-          this.loginForm.email, 
-          this.loginForm.password,
-          openingCash  // ✅ Use the converted value
-        )
-      
-        await this.handleLoginSuccess(response)
+        // Always try online login first if browser says we're online
+        if (this.isOnline) {
+          console.log('🌐 ONLINE: Attempting online login');
+          try {
+            const response = await apiService.login(
+              this.loginForm.email, 
+              this.loginForm.password,
+              openingCash
+            );
+            await this.handleLoginSuccess(response);
+          } catch (onlineError) {
+            console.log('🌐 Online login failed, trying offline:', onlineError.message);
+            // If online fails, try offline as fallback
+            const response = await apiService.offlineLogin(
+              this.loginForm.email, 
+              this.loginForm.password,
+              openingCash
+            );
+            await this.handleLoginSuccess(response);
+          }
+        } else {
+          console.log('🔌 OFFLINE: Attempting offline login');
+          const response = await apiService.offlineLogin(
+            this.loginForm.email, 
+            this.loginForm.password,
+            openingCash
+          );
+          await this.handleLoginSuccess(response);
+        }
 
       } catch (error) {
-        console.error('Login error:', error)
-        this.error = error.message || 'An error occurred during login'
+        console.error('Login error:', error);
+        this.error = error.message || 'An error occurred during login';
+        
+        // Provide helpful offline error message
+        if (!this.isOnline) {
+          const cachedEmployees = apiService.getCachedEmployees();
+          if (!cachedEmployees || cachedEmployees.length === 0) {
+            this.error = 'No cached employee data available. Please login online first to cache employee data.';
+          }
+        }
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
@@ -195,53 +189,37 @@ export default {
       try {
         console.log('✅ Processing login success...', response);
         
-        // ✅ Save auth token (check multiple possible fields)
-        const token = response.token || response.access_token;
-        if (token) {
-          localStorage.setItem('authToken', token);
-          console.log('🔑 Auth token saved');
-        } else {
-          console.warn('⚠️ No token found in response');
-        }
-        
-        // ✅ Save user data
-        if (response.user) {
+        if (response.offline) {
+          // Offline login success
+          console.log('🔌 OFFLINE: Login successful');
+          localStorage.setItem('offlineMode', 'true');
+          localStorage.setItem('authToken', response.token);
           localStorage.setItem('userData', JSON.stringify(response.user));
-          console.log('👤 User data saved:', response.user);
+          localStorage.setItem('activeShiftId', response.shift._id);
         } else {
-          console.warn('⚠️ No user data in response');
+          // Online login success
+          console.log('🌐 ONLINE: Login successful');
+          const token = response.token || response.access_token;
+          if (token) {
+            localStorage.setItem('authToken', token);
+            localStorage.setItem('offlineMode', 'false');
+          }
+          
+          if (response.user) {
+            localStorage.setItem('userData', JSON.stringify(response.user));
+          }
+          
+          let shiftId = response.shift_id || 
+                       response.shift?.shift_id || 
+                       response.shift?._id;
+          
+          if (shiftId) {
+            localStorage.setItem('activeShiftId', shiftId);
+          }
         }
         
-        // ✅ Save shift ID (check both top-level and nested)
-        let shiftId = null;
-        
-        // Try top-level first
-        if (response.shift_id) {
-          shiftId = response.shift_id;
-          console.log('⏰ Found shift_id at top level:', shiftId);
-        } 
-        // Fallback to nested shift.shift_id
-        else if (response.shift && response.shift.shift_id) {
-          shiftId = response.shift.shift_id;
-          console.log('⏰ Found shift_id in nested shift object:', shiftId);
-        }
-        // Another fallback for shift._id
-        else if (response.shift && response.shift._id) {
-          shiftId = response.shift._id;
-          console.log('⏰ Found _id in nested shift object:', shiftId);
-        }
-        
-        if (shiftId) {
-          localStorage.setItem('activeShiftId', shiftId);
-          console.log('✅ Shift ID saved to localStorage:', shiftId);
-        } else {
-          console.warn('⚠️ No shift ID in login response - user may be admin or shift creation failed');
-        }
-        
-        // ✅ Show success message
         this.successMessage = 'Login successful! Redirecting...';
         
-        // ✅ Redirect to POS
         setTimeout(() => {
           this.$router.push('/dashboard');
         }, 500);
@@ -249,142 +227,37 @@ export default {
       } catch (error) {
         console.error('❌ Login success handler error:', error);
         this.error = 'Login succeeded but session setup failed. Please try again.';
-        throw error;
-      }
-    },
-
-    navigateToDashboard(userRole) {
-      let route = '/dashboard'
-
-      if (userRole === 'admin') {
-        route = '/dashboard'
-      } else if (userRole === 'cashier' || userRole === 'employee') {
-        route = '/dashboard'
-      }
-
-      this.$router.push(route)
-        .then(() => {
-          console.log(`Successfully navigated to ${route}`)
-        })
-        .catch((error) => {
-          console.error('Navigation error:', error)
-          this.$router.push('/dashboard')
-        })
-    },
-
-    async handleLogout() {
-      const userRole = localStorage.getItem('userRole')?.toLowerCase()
-      const activeShiftId = localStorage.getItem('activeShiftId')
-
-      // If user has an active shift, show modal to enter closing cash
-      if ((userRole === 'cashier' || userRole === 'employee') && activeShiftId) {
-        this.showLogoutModal = true
-        // Pre-fill with opening cash as default
-        const openingCash = localStorage.getItem('openingCash')
-        this.closingCash = openingCash ? parseFloat(openingCash) : 0
-        return
-      }
-
-      // Otherwise, proceed with normal logout
-      await this.performLogout()
-    },
-
-    async confirmLogout() {
-      this.logoutError = null
-      this.logoutLoading = true
-
-      try {
-        // Validate closing cash
-        if (this.closingCash < 0) {
-          throw new Error('Closing cash cannot be negative')
-        }
-
-        // ✅ OPTIMISTIC UPDATE: Close modal and redirect immediately
-        this.showLogoutModal = false
-        
-        // Send logout request but don't wait for response to proceed
-        const logoutPromise = apiService.logout(this.closingCash)
-        
-        // Clear local storage and redirect immediately
-        this.performLogout()
-        
-        // Optional: Wait for API call in background (but don't block user)
-        logoutPromise.catch(error => {
-          console.error('Background logout API error:', error)
-          // You could show a toast notification here if needed
-        })
-        
-      } catch (error) {
-        console.error('Error during logout:', error)
-        this.logoutError = error.message || 'Failed to end shift. Please try again.'
-        this.logoutLoading = false
-      }
-    },
-
-    async performLogout() {
-      // ✅ IMMEDIATE cleanup - don't wait for API response
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('userData')
-      localStorage.removeItem('userRole')
-      localStorage.removeItem('loginTime')
-      localStorage.removeItem('activeShiftId')
-      localStorage.removeItem('shiftStartTime')
-      localStorage.removeItem('openingCash')
-      
-      // Reset form data
-      this.loginForm = { 
-        email: '', 
-        password: '',
-        openingCash: 0
-      }
-      this.error = null
-      this.successMessage = null
-      this.closingCash = 0
-      this.logoutError = null
-      
-      // ✅ Immediate navigation
-      this.$router.push('/login')
-      
-      console.log('User logged out successfully')
-    },
-
-    closeLogoutModal() {
-      if (!this.logoutLoading) {
-        this.showLogoutModal = false
-        this.closingCash = 0
-        this.logoutError = null
       }
     },
 
     handleForgotPassword() {
-      alert('Please contact your administrator to reset your password.')
-    },
-
-    isAuthenticated() {
-      const token = localStorage.getItem('authToken')
-      return !!token
-    },
-
-    getUserData() {
-      const userData = localStorage.getItem('userData')
-      return userData ? JSON.parse(userData) : null
-    },
-
-    getAuthToken() {
-      return localStorage.getItem('authToken')
+      alert('Please contact your administrator to reset your password.');
     }
   },
 
   mounted() {
-    // Check if user is already authenticated
-    if (this.isAuthenticated()) {
-      const userData = this.getUserData()
-      const userRole = userData?.role?.toLowerCase()
-      
-      this.$router.push('/dashboard')
-    }
+    // Initialize with current browser status
+    this.isOnline = navigator.onLine;
+    console.log('🔍 Initial connection status:', {
+      browser: navigator.onLine,
+      component: this.isOnline
+    });
+
+    // Set up connection monitoring
+    window.addEventListener('online', this.updateOnlineStatus);
+    window.addEventListener('offline', this.updateOnlineStatus);
     
-    console.log('Backend-integrated login component with shift management mounted')
+    // Check if user is already authenticated
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      this.$router.push('/dashboard');
+    }
+  },
+
+  beforeUnmount() {
+    // Clean up event listeners
+    window.removeEventListener('online', this.updateOnlineStatus);
+    window.removeEventListener('offline', this.updateOnlineStatus);
   }
 }
 </script>
@@ -724,4 +597,36 @@ export default {
     max-width: none;
   }
 }
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  margin-bottom: 1rem;
+  background: #f0f9ff;
+  border: 1px solid #e0f2fe;
+  color: #0369a1;
+}
+
+.connection-status.offline {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.connection-status.offline .status-dot {
+  background: #dc2626;
+}
+
 </style>

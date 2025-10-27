@@ -1,4 +1,3 @@
-
 # connectivity.py
 import threading, time, requests
 from typing import Callable

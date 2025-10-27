@@ -1,4 +1,5 @@
 import os, json, re
+from app.offline.data_queue import LOCK  # IMPORT THE LOCK
 
 DATA_FILE = os.path.join("backend", "offline", "Data.json")
 
@@ -15,21 +16,22 @@ class OfflineIDGenerator:
                 json.dump([], f)
 
     def generate_sale_id(self):
-        """Scan Data.json and generate next SALE-###### ID."""
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                try:
-                    sales = json.load(f)
-                except json.JSONDecodeError:
-                    sales = []
+        """Scan Data.json and generate next SALE-###### ID with thread safety."""
+        with LOCK:  # ADDED LOCK FOR THREAD SAFETY
+            try:
+                with open(DATA_FILE, "r", encoding="utf-8") as f:
+                    try:
+                        sales = json.load(f)
+                    except json.JSONDecodeError:
+                        sales = []
 
-            ids = [
-                int(re.search(r"SALE-(\d+)", s.get("_id", "")).group(1))
-                for s in sales if re.search(r"SALE-(\d+)", s.get("_id", ""))
-            ]
+                ids = [
+                    int(re.search(r"SALE-(\d+)", s.get("_id", "")).group(1))
+                    for s in sales if re.search(r"SALE-(\d+)", s.get("_id", ""))
+                ]
 
-            next_number = max(ids) + 1 if ids else 1
-            return f"SALE-{next_number:06d}"
+                next_number = max(ids) + 1 if ids else 1
+                return f"SALE-{next_number:06d}"
 
-        except Exception:
-            return "SALE-000001"
+            except Exception:
+                return "SALE-000001"

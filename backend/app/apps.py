@@ -18,11 +18,11 @@ class AppMainConfig(AppConfig):
             syncer = SyncEngine(connectivity, interval_minutes=30)
             syncer.start()
 
-            # Optional: store references for other parts of your app
-            from django.conf import settings
-            settings.CONNECTIVITY = connectivity
-            settings.SYNC_ENGINE = syncer
-
             print("[Startup] Offline sync engine and connectivity listener initialized.")
+            
+            # Store as instance variables instead of modifying settings
+            self.connectivity = connectivity
+            self.sync_engine = syncer
+            
         except Exception as e:
             print(f"[Startup Warning] Failed to start offline sync engine: {e}")

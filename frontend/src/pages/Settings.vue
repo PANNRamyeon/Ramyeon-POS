@@ -172,12 +172,15 @@
         <div class="sync-content">
           <p>Manually trigger synchronization of offline sales data to the server.</p>
           <button
-            class="btn btn-primary"
+            class="btn btn-primary sync-btn"
             @click="handleManualSync"
             :disabled="isSyncing"
           >
-            <span v-if="!isSyncing">Sync Offline Data</span>
-            <span v-else>Syncing...</span>
+            <div class="sync-button-content">
+              <span v-if="!isSyncing">Sync Offline Data</span>
+              <div v-else class="mini-loader"></div>
+              <span v-if="isSyncing" class="syncing-text">Syncing...</span>
+            </div>
           </button>
         </div>
       </div>
@@ -246,7 +249,7 @@ export default {
 
         const result = await apiSettings.syncOfflineData();
 
-        this.successMessage = result.message;
+        this.successMessage = result.message || 'Offline data synced successfully.';
         setTimeout(() => { this.successMessage = ''; }, 5000);
       } catch (error) {
         this.errorMessage = error.message || 'Failed to sync offline data';
@@ -858,6 +861,7 @@ export default {
     width: 100%;
   }
 }
+
 .sync-content {
   display: flex;
   flex-direction: column;
@@ -868,5 +872,42 @@ export default {
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
+
+.sync-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 180px;
+  height: 40px;
+  position: relative;
+}
+
+.sync-button-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.mini-loader {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--neutral-light);
+  border-top: 2px solid var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.syncing-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 
 </style>
