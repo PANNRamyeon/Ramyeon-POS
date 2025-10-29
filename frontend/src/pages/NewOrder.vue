@@ -22,6 +22,7 @@
               <span v-if="!isRefreshingStock">Refresh</span>
               <span v-else>Refreshing...</span>
             </button>
+            
           </div>
           
           <!-- Categories -->
@@ -67,6 +68,31 @@
             <ChevronRight v-if="index < breadcrumbs.length - 1" :size="16" />
           </button>
         </div>
+
+        <!-- Manual Barcode Input (Always Available) -->
+        <div class="manual-barcode-input-section surface-secondary border-bottom-theme transition-theme">
+          <div class="barcode-input-container">
+            <label class="barcode-label">Manual Barcode Entry:</label>
+            <div class="barcode-input-group">
+              <input 
+                type="text" 
+                v-model="manualBarcodeInput"
+                placeholder="Enter barcode manually or scan with barcode scanner..."
+                class="barcode-input input-complete focus-ring-theme"
+                @keyup.enter="processManualBarcode"
+                ref="barcodeInput"
+              />
+              <button 
+                class="process-barcode-btn btn-primary btn-complete"
+                @click="processManualBarcode"
+                :disabled="!manualBarcodeInput.trim() || barcodeScanner.isProcessing"
+              >
+                Add Product
+              </button>
+            </div>
+          </div>
+        </div>
+        
 
         <!-- Loading State -->
         <div v-if="loading || productsLoading" class="loading-state text-secondary">
@@ -464,6 +490,7 @@ import { api } from '@/services/api.js'
 import { useLocalStorage } from '@/composables/data/useLocalStorage.js'
 import { useCache } from '@/composables/data/useCache.js'
 import { useStockCache } from '@/composables/data/useStockCache.js'
+import { useBarcode } from '@/composables/useBarcode.js'
 import { RefreshCw } from 'lucide-vue-next'
 
 export default {
@@ -472,7 +499,8 @@ export default {
   setup() {
     const cartStore = useCartStore()
     const stockCache = useStockCache()
-    return { cartStore, stockCache }
+    const barcodeScanner = useBarcode()
+    return { cartStore, stockCache, barcodeScanner }
   },
   
   data() {
@@ -554,6 +582,9 @@ export default {
       stockRefreshInterval: null,
       stockRefreshIntervalMs: 5 * 60 * 1000, // 5 minutes
       isRefreshingStock: false,
+      
+      // Barcode scanning
+      manualBarcodeInput: '',
     }
   },
 
@@ -605,6 +636,15 @@ export default {
     // Fetch promotions since cart is always visible
     this.fetchAvailablePromotions()
     
+    // Start barcode scanner automatically
+    this.startBarcodeScanner()
+    
+    // Set up global function for direct cart addition
+    window.addToCartDirectly = (product) => {
+      console.log('🔍 Global addToCartDirectly called with:', product)
+      this.addToCart(product)
+    }
+    
     // If returning from checkout, perform targeted refresh when possible, fallback to full refresh
     if (shouldRefreshStock === 'true') {
       // Invalidate in-memory product caches to force fresh fetch
@@ -634,6 +674,9 @@ export default {
       clearInterval(this.stockRefreshInterval)
       this.stockRefreshInterval = null
     }
+    
+    // Stop barcode scanner
+    this.barcodeScanner.stopScanning()
   },
 
   watch: {
@@ -641,6 +684,33 @@ export default {
     'cartStore.items': {
       handler() {
         this.fetchAvailablePromotions()
+      },
+      deep: true
+    },
+    
+    // Watch barcode scanner results
+    'barcodeScanner.scanSuccess': {
+      handler(newVal, oldVal) {
+        console.log('🔍 Barcode scanSuccess changed:', { newVal, oldVal })
+        console.log('🔍 scanResult:', this.barcodeScanner.scanResult)
+        if (newVal && this.barcodeScanner.scanResult?.product) {
+          console.log('🔍 Triggering watchBarcodeResults')
+          this.watchBarcodeResults()
+        } else {
+          console.log('🔍 Not triggering watchBarcodeResults:', { 
+            scanSuccess: newVal, 
+            hasProduct: !!(this.barcodeScanner.scanResult?.product) 
+          })
+        }
+      }
+    },
+    
+    // Watch cart items for debugging
+    'cartStore.items': {
+      handler(newItems, oldItems) {
+        console.log('🛒 Cart items changed:', newItems.length, 'items')
+        console.log('🛒 Cart items:', newItems)
+        this.watchCartItems()
       },
       deep: true
     }
@@ -1799,16 +1869,41 @@ export default {
     
     addToCart(product) {
       try {
-        if (!product.id || !product.name || !product.price) {
+        // Handle different product data formats
+        const productId = product._id || product.id
+        const productName = product.product_name || product.name
+        const productPrice = product.selling_price || product.price
+        const productStock = product.total_stock || product.stock
+        
+        if (!productId || !productName || !productPrice) {
+          // console.error('❌ Invalid product data:', product)
           throw new Error('Invalid product data')
         }
         
-        if (product.stock <= 0) {
-          alert(`${product.name} is out of stock!`)
+        if (productStock <= 0) {
+          // console.warn('⚠️ Product out of stock:', productName)
+          alert(`${productName} is out of stock!`)
           return
         }
         
-        this.cartStore.addItem(product)
+        // Create cart item with proper format
+        const cartItem = {
+          id: productId,
+          name: productName,
+          price: productPrice,
+          stock: productStock,
+          image: product.image || this.getFallbackProductImage(productName),
+          category: product.category_id || product.category,
+          sku: product.SKU || product.sku || '',
+          barcode: product.barcode || '',
+          isTaxable: product.is_taxable !== false
+        }
+        
+        console.log('🛒 Adding to cart:', cartItem)
+        console.log('🛒 Cart store items before:', this.cartStore.items.length)
+        this.cartStore.addItem(cartItem)
+        console.log('🛒 Cart store items after:', this.cartStore.items.length)
+        console.log('✅ Product added to cart successfully')
         
       } catch (error) {
         console.error('❌ Add to cart failed:', error)
@@ -2033,6 +2128,112 @@ export default {
     },
     
     // ================================================================
+    // BARCODE SCANNING
+    // ================================================================
+    
+    startBarcodeScanner() {
+      console.log('🔍 Starting barcode scanner (always active)')
+      this.barcodeScanner.startScanning()
+      
+      // Configure scanner to auto-add to cart
+      this.barcodeScanner.configure({
+        autoAddToCart: true,
+        showNotifications: true
+      })
+      
+      console.log('✅ Barcode scanner is now always listening')
+    },
+    
+    async processManualBarcode() {
+      if (!this.manualBarcodeInput.trim()) return
+      
+      try {
+        console.log('📦 Processing manual barcode:', this.manualBarcodeInput)
+        
+        // Process the barcode
+        const product = await this.barcodeScanner.processBarcode(this.manualBarcodeInput.trim())
+        
+        if (product) {
+          console.log('🛒 Adding product to cart:', product)
+          // Add to cart
+          this.addToCart(product)
+          
+          // Clear input but keep scanner active
+          this.manualBarcodeInput = ''
+          
+          // Focus back on input for next scan
+          this.$nextTick(() => {
+            if (this.$refs.barcodeInput) {
+              this.$refs.barcodeInput.focus()
+            }
+          })
+        } else {
+          console.warn('❌ No product found for barcode:', this.manualBarcodeInput)
+        }
+        
+      } catch (error) {
+        console.error('❌ Manual barcode processing failed:', error)
+      }
+    },
+    
+    // Watch for barcode scanner results and auto-add to cart
+    watchBarcodeResults() {
+      console.log('🔍 watchBarcodeResults called')
+      console.log('🔍 scanSuccess:', this.barcodeScanner.scanSuccess)
+      console.log('🔍 scanResult:', this.barcodeScanner.scanResult)
+      
+      // This will be called when barcode scanner finds a product
+      if (this.barcodeScanner.scanSuccess && this.barcodeScanner.scanResult?.product) {
+        const product = this.barcodeScanner.scanResult.product
+        
+        console.log('🛒 Auto-adding product to cart:', product)
+        // Add to cart
+        this.addToCart(product)
+        
+        // Clear scanner results after a delay but keep scanner active
+        setTimeout(() => {
+          this.barcodeScanner.clearResults()
+        }, 1000)
+      } else {
+        console.log('🔍 Not adding to cart - conditions not met:', {
+          scanSuccess: this.barcodeScanner.scanSuccess,
+          hasProduct: !!(this.barcodeScanner.scanResult?.product)
+        })
+      }
+    },
+    
+    // Manual test function to trigger cart addition
+    testCartAddition() {
+      console.log('🧪 Testing manual cart addition')
+      const testProduct = {
+        _id: "PROD-00276",
+        id: "PROD-00276",
+        name: "7 UP bottle",
+        product_name: "7 UP bottle",
+        price: 25,
+        selling_price: 25,
+        stock: 160,
+        total_stock: 160,
+        barcode: "748485100401",
+        sku: "7-UP-BOTT",
+        SKU: "7-UP-BOTT",
+        category: "CTGY-001",
+        category_id: "CTGY-001",
+        is_taxable: true,
+        isTaxable: true
+      }
+      
+      console.log('🧪 Adding test product to cart:', testProduct)
+      this.addToCart(testProduct)
+    },
+    
+    // Watch cart items for debugging
+    watchCartItems() {
+      console.log('🛒 Cart items changed:', this.cartStore.items.length)
+      console.log('🛒 Cart items:', this.cartStore.items)
+    },
+
+    // ================================================================
     // UTILITIES
     // ================================================================
     
@@ -2044,6 +2245,110 @@ export default {
 </script>
 
 <style scoped>
-@import '@/assets/styles/NewOrder.css'
+@import '@/assets/styles/NewOrder.css';
+
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.scanning {
+  animation: scan 1s linear infinite;
+}
+
+@keyframes scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Manual Barcode Input Section */
+.manual-barcode-input-section {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid;
+}
+
+.barcode-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.barcode-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.barcode-input-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Manual Barcode Input */
+.manual-barcode-input {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.barcode-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid var(--neutral);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+.barcode-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(115, 146, 226, 0.1);
+}
+
+.process-barcode-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.process-barcode-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.process-barcode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .barcode-input-group {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .barcode-input {
+    width: 100%;
+  }
+  
+  .process-barcode-btn {
+    width: 100%;
+  }
+  
+}
 
 </style>

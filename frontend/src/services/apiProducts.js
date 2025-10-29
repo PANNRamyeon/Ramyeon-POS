@@ -72,15 +72,23 @@ class ProductAPIService {
             id: productId,
             _id: productId,
             name: product.name || product.product_name,
+            product_name: product.product_name || product.name, // Keep both for compatibility
             price: product.price || product.selling_price || 0,
+            selling_price: product.selling_price || product.price || 0, // Keep both for compatibility
             stock: stockValue,
             total_stock: stockValue, // Use the same value for both fields
             batch_stock: product.batch_stock,
             batches_count: product.batches_count || 0,
             image: product.image || product.image_url || this.generatePlaceholderImage(product.name || product.product_name),
             sku: product.sku || product.SKU || '',
+            SKU: product.SKU || product.sku || '', // Keep both for compatibility
+            barcode: product.barcode || '', // ✅ CRITICAL: Add barcode field
             category: categoryId,  // ✅ This will now match promotion format
+            category_id: categoryId, // Keep both for compatibility
             subcategory: product.subcategory || product.subcategory_name,
+            subcategory_name: product.subcategory_name || product.subcategory, // Keep both for compatibility
+            is_taxable: product.is_taxable !== false, // ✅ Add tax info
+            isTaxable: product.is_taxable !== false, // Keep both for compatibility
             // ✅ ADD: Keep original data for debugging
             originalData: product
         }

@@ -2,52 +2,54 @@
 <div class="settings-container">
   <div class="contents-section">
     <h1>Profile Settings</h1>
-    
-    <!-- Show error messages -->
+
+    <!-- Error and Success Alerts -->
     <div v-if="errorMessage" class="alert alert-error">
       <span>{{ errorMessage }}</span>
       <button class="close-btn" @click="errorMessage = ''">×</button>
     </div>
-    
-    <!-- Success message -->
+
     <div v-if="successMessage" class="alert alert-success">
       <span>{{ successMessage }}</span>
       <button class="close-btn" @click="successMessage = ''">×</button>
     </div>
-    
+
+    <!-- Loading -->
     <div v-if="loading" class="loading">
       <div class="spinner"></div>
       <p>Loading user data...</p>
     </div>
-    
+
+    <!-- Error State -->
     <div v-else-if="error" class="error-state">
       <p class="text-error">{{ error }}</p>
       <button @click="loadUserData()" class="btn btn-secondary">Retry</button>
     </div>
-    
+
+    <!-- Content -->
     <div v-else class="settings-content">
-      <!-- Profile Information Section -->
+      <!-- Profile Info -->
       <div class="settings-section">
         <div class="section-header">
           <h2>Profile Information</h2>
         </div>
-        
+
         <div class="profile-info">
           <div class="info-row">
             <label>Full Name</label>
             <span class="info-value">{{ user.full_name || 'Not set' }}</span>
           </div>
-          
+
           <div class="info-row">
             <label>Username</label>
             <span class="info-value">{{ user.username }}</span>
           </div>
-          
+
           <div class="info-row">
             <label>Email</label>
             <span class="info-value">{{ user.email }}</span>
           </div>
-          
+
           <div class="info-row">
             <label>Role</label>
             <span class="info-value">
@@ -56,7 +58,7 @@
               </span>
             </span>
           </div>
-          
+
           <div class="info-row">
             <label>Status</label>
             <span class="info-value">
@@ -67,8 +69,8 @@
           </div>
         </div>
       </div>
-      
-      <!-- Change Password Section -->
+
+      <!-- Change Password -->
       <div class="settings-section">
         <div class="section-header">
           <h2>Change Password</h2>
@@ -76,74 +78,68 @@
             {{ isEditingPassword ? 'Cancel' : 'Change Password' }}
           </button>
         </div>
-        
+
         <form v-if="isEditingPassword" class="password-form" @submit.prevent="handlePasswordUpdate">
           <div class="form-group">
             <label>Current Password</label>
-            <input 
-              class="form-control" 
-              type="password" 
-              placeholder="Enter current password" 
-              v-model="passwordForm.currentPassword" 
+            <input
+              class="form-control"
+              type="password"
+              placeholder="Enter current password"
+              v-model="passwordForm.currentPassword"
               @input="clearErrors"
             />
           </div>
-          
+
           <div class="form-group">
             <label>New Password</label>
-            <input 
-              class="form-control" 
-              type="password" 
-              placeholder="Enter new password" 
-              v-model="passwordForm.newPassword" 
+            <input
+              class="form-control"
+              type="password"
+              placeholder="Enter new password"
+              v-model="passwordForm.newPassword"
               @input="clearErrors"
             />
             <small class="form-text">Password must be at least 6 characters</small>
           </div>
-          
+
           <div class="form-group">
             <label>Confirm New Password</label>
-            <input 
-              class="form-control" 
-              type="password" 
-              placeholder="Confirm new password" 
-              v-model="passwordForm.confirmPassword" 
+            <input
+              class="form-control"
+              type="password"
+              placeholder="Confirm new password"
+              v-model="passwordForm.confirmPassword"
               @input="validatePasswordMatch"
               :class="{ 'is-invalid': passwordMismatch && passwordForm.confirmPassword }"
             />
-            
-            <!-- Show password match indicator -->
+
             <div v-if="passwordForm.confirmPassword" class="password-feedback">
-              <span v-if="passwordMismatch" class="text-danger">
-                <X :size="14" /> Passwords do not match
-              </span>
-              <span v-else class="text-success">
-                <Check :size="14" /> Passwords match
-              </span>
+              <span v-if="passwordMismatch" class="text-danger">Passwords do not match</span>
+              <span v-else class="text-success">Passwords match</span>
             </div>
           </div>
-          
-          <div class="action-buttons">
-            <button type="button" class="btn btn-secondary" @click="cancelPasswordChange">
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-primary" :disabled="!isPasswordFormValid">
-              Update Password
+
+          <div class="action-buttons mt-3">
+            <button type="button" class="btn btn-secondary" @click="cancelPasswordChange">Cancel</button>
+            <button type="submit" class="btn btn-primary" :disabled="!isPasswordFormValid || isLoading">
+              <span v-if="isLoading">Updating...</span>
+              <span v-else>Update Password</span>
             </button>
           </div>
         </form>
-        
+
         <div v-else class="password-placeholder">
           <p>Click "Change Password" to update your password</p>
         </div>
       </div>
-      
-      <!-- Theme Section -->
+
+      <!-- Appearance -->
       <div class="settings-section">
         <div class="section-header">
           <h2>Appearance</h2>
         </div>
-        
+
         <div class="theme-content">
           <div class="theme-option">
             <div class="theme-info">
@@ -198,11 +194,7 @@ export default {
   name: 'Settings',
   setup() {
     const { currentTheme, toggleTheme } = useTheme()
-
-    return {
-      currentTheme,
-      toggleTheme
-    }
+    return { currentTheme, toggleTheme }
   },
   data() {
     return {
@@ -213,6 +205,7 @@ export default {
       errorMessage: '',
       successMessage: '',
       passwordMismatch: false,
+      isLoading: false,
       user: {
         id: '',
         email: '',
@@ -229,15 +222,17 @@ export default {
     }
   },
   computed: {
-    isPasswordFormValid() {
-      return this.passwordForm.currentPassword &&
-             this.passwordForm.newPassword &&
-             this.passwordForm.confirmPassword &&
-             !this.passwordMismatch &&
-             this.passwordForm.newPassword.length >= 6;
-    },
     isDarkMode() {
-      return this.currentTheme === 'dark';
+      return this.currentTheme === 'dark'
+    },
+    isPasswordFormValid() {
+      return (
+        this.passwordForm.currentPassword &&
+        this.passwordForm.newPassword &&
+        this.passwordForm.confirmPassword &&
+        !this.passwordMismatch &&
+        this.passwordForm.newPassword.length >= 6
+      )
     }
   },
   methods: {
@@ -259,100 +254,43 @@ export default {
     },
 
     toggleEditPassword() {
-      this.isEditingPassword = !this.isEditingPassword;
-      if (!this.isEditingPassword) {
-        this.resetPasswordForm();
-      }
+      this.isEditingPassword = !this.isEditingPassword
+      if (!this.isEditingPassword) this.resetPasswordForm()
     },
-    
     cancelPasswordChange() {
-      this.isEditingPassword = false;
-      this.resetPasswordForm();
+      this.isEditingPassword = false
+      this.resetPasswordForm()
     },
-    
     resetPasswordForm() {
-      this.passwordForm = {
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      };
-      this.passwordMismatch = false;
-      this.clearErrors();
+      this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' }
+      this.passwordMismatch = false
+      this.errorMessage = ''
     },
-
-    async loadUserData() {
-      try {
-        this.loading = true
-        this.error = null
-        
-        this.user = await apiSettings.getCurrentUser();
-        
-      } catch (error) {
-        this.error = error.message
-        
-        if (error.message.includes('Authentication failed')) {
-          this.$router.push('/login')
-        }
-        
-      } finally {
-        this.loading = false
-      }
-    },
-    
-    clearErrors() {
-      this.errorMessage = '';
-    },
-    
     validatePasswordMatch() {
-      if (this.passwordForm.confirmPassword) {
-        this.passwordMismatch = this.passwordForm.newPassword !== this.passwordForm.confirmPassword;
-      }
+      this.passwordMismatch =
+        this.passwordForm.confirmPassword &&
+        this.passwordForm.newPassword !== this.passwordForm.confirmPassword
     },
-    
     validatePasswordForm() {
-      this.errorMessage = '';
-      
-      if (!this.passwordForm.currentPassword) {
-        this.errorMessage = 'Current password is required'
-        return false
-      }
-      
-      if (!this.passwordForm.newPassword) {
-        this.errorMessage = 'New password is required'
-        return false
-      }
-      
-      if (!this.passwordForm.confirmPassword) {
-        this.errorMessage = 'Please confirm your new password'
-        return false
-      }
-      
-      if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
-        this.errorMessage = 'New passwords do not match'
-        return false
-      }
-      
-      if (this.passwordForm.newPassword.length < 6) {
-        this.errorMessage = 'New password must be at least 6 characters'
-        return false
-      }
-      
-      if (this.passwordForm.newPassword === this.passwordForm.currentPassword) {
-        this.errorMessage = 'New password must be different from current password'
-        return false
-      }
-      
+      this.errorMessage = ''
+      const { currentPassword, newPassword, confirmPassword } = this.passwordForm
+
+      if (!currentPassword) return (this.errorMessage = 'Current password is required')
+      if (!newPassword) return (this.errorMessage = 'New password is required')
+      if (!confirmPassword) return (this.errorMessage = 'Please confirm your new password')
+      if (newPassword !== confirmPassword) return (this.errorMessage = 'New passwords do not match')
+      if (newPassword.length < 6) return (this.errorMessage = 'New password must be at least 6 characters')
+      if (newPassword === currentPassword) return (this.errorMessage = 'New password must be different')
       return true
     },
-    
     async handlePasswordUpdate() {
+      this.isLoading = true
+      this.errorMessage = ''
+      this.successMessage = ''
       try {
-        // Clear any existing messages first
-        this.errorMessage = '';
-        this.successMessage = '';
-        
-        if (!this.validatePasswordForm()) {
-          return false
+        if (this.validatePasswordForm() !== true) {
+          this.isLoading = false
+          return
         }
 
         const updateData = {
@@ -363,66 +301,61 @@ export default {
           status: this.user.status,
           current_password: this.passwordForm.currentPassword,
           new_password: this.passwordForm.newPassword
-        };
-        
-        const result = await apiSettings.updateUser(this.user.id, updateData);
-        
-        // Reset form BEFORE showing message
-        this.resetPasswordForm();
-        this.isEditingPassword = false;
-        
-        // Show success message
-        this.successMessage = result.message || 'Password updated successfully';
-        
-        // Clear success message after 5 seconds
-        setTimeout(() => {
-          this.successMessage = '';
-        }, 5000);
-        
-        return true;
-        
-      } catch (error) {
-        console.error('Password update error:', error);
-        this.errorMessage = error.message || 'Failed to update password';
-        return false;
+        }
+
+        const result = await apiSettings.updateUser(this.user.id, updateData)
+        this.successMessage = result.message || 'Password updated successfully'
+        this.resetPasswordForm()
+        this.isEditingPassword = false
+
+        setTimeout(() => (this.successMessage = ''), 5000)
+      } catch (err) {
+        console.error('Password update error:', err)
+        this.errorMessage = err.message || 'Failed to update password'
+      } finally {
+        this.isLoading = false
       }
     },
-    
+    async loadUserData() {
+      try {
+        this.loading = true
+        this.error = null
+        this.user = await apiSettings.getCurrentUser()
+      } catch (err) {
+        this.error = err.message
+        if (err.message.includes('Authentication failed')) this.$router.push('/login')
+      } finally {
+        this.loading = false
+      }
+    },
     formatRole(role) {
-      if (!role) return 'N/A';
-      return role.charAt(0).toUpperCase() + role.slice(1);
+      return role ? role.charAt(0).toUpperCase() + role.slice(1) : 'N/A'
     },
-    
     formatStatus(status) {
-      if (!status) return 'N/A';
-      return status.charAt(0).toUpperCase() + status.slice(1);
+      return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'N/A'
     },
-    
     getRoleBadgeClass(role) {
-      const roleClasses = {
-        'admin': 'badge-admin',
-        'manager': 'badge-manager',
-        'cashier': 'badge-cashier',
-        'staff': 'badge-staff'
-      };
-      return roleClasses[role?.toLowerCase()] || 'badge-default';
+      return {
+        admin: 'badge-admin',
+        manager: 'badge-manager',
+        cashier: 'badge-cashier',
+        staff: 'badge-staff'
+      }[role?.toLowerCase()] || 'badge-default'
     },
-    
     getStatusBadgeClass(status) {
-      const statusClasses = {
-        'active': 'badge-active',
-        'inactive': 'badge-inactive',
-        'suspended': 'badge-suspended'
-      };
-      return statusClasses[status?.toLowerCase()] || 'badge-default';
+      return {
+        active: 'badge-active',
+        inactive: 'badge-inactive',
+        suspended: 'badge-suspended'
+      }[status?.toLowerCase()] || 'badge-default'
     }
   },
-
   async mounted() {
-    await this.loadUserData();
+    await this.loadUserData()
   }
 }
 </script>
+
 
 <style scoped>
 @import '@/assets/styles/theme_utilities.css';
