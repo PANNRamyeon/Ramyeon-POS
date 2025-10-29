@@ -11,6 +11,16 @@ const api = axios.create({
   }
 });
 
+// Helper to detect local backend
+function isLocalBackend(url) {
+  try {
+    const u = new URL(url || api.defaults.baseURL);
+    return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
+
 // Offline Queue Management
 const OfflineQueue = {
   getQueue() {
@@ -156,8 +166,8 @@ api.interceptors.request.use(
       };
     }
     
-    // Mark if offline
-    if (!navigator.onLine) {
+    // Mark if offline (but allow localhost loopback)
+    if (!navigator.onLine && !isLocalBackend(api.defaults.baseURL)) {
       config._offline = true;
     }
     
@@ -183,8 +193,8 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // Handle offline scenario
-    if (!error.response && !navigator.onLine) {
+    // Handle offline scenario (but don't block localhost loopback)
+    if (!error.response && !navigator.onLine && !isLocalBackend(api.defaults.baseURL)) {
       console.log('🔌 OFFLINE: No connection available');
       
       // If it's a GET request, try to return cached data
@@ -255,8 +265,8 @@ api.interceptors.response.use(
     if (!error.response) {
       console.error('Network error:', error.message);
       
-      // Check if it's an offline scenario
-      if (!navigator.onLine) {
+      // Check if it's an offline scenario; if backend is localhost, let it proceed
+      if (!navigator.onLine && !isLocalBackend(api.defaults.baseURL)) {
         return Promise.reject({
           message: 'No internet connection. Request will be synced when online.',
           offline: true,
@@ -599,6 +609,15 @@ class ApiService {
   onConnectionChange(callback) {
     window.addEventListener('online', () => callback(true));
     window.addEventListener('offline', () => callback(false));
+  }
+
+  async warmLocalDatabase() {
+    try {
+      const resp = await api.post('/offline/warmup/', { collections: ['products','batches','category','users','customers','promotions'] });
+      console.log('🌡️ Local DB warmed from cloud:', resp.data);
+    } catch (e) {
+      console.warn('⚠️ Warmup failed:', e?.response?.data || e.message);
+    }
   }
 
   // ================================================================
@@ -1268,14 +1287,43 @@ class ApiService {
         console.log('🌐 Connection restored - starting sync and preloading data');
         this.processOfflineQueue();
         this.preloadOfflineData();
+        // Warm local DB so if we go offline later, data is fresh
+        this.warmLocalDatabase();
+        try { sessionStorage.removeItem('offlineSwitchPrompted'); } catch {}
       } else {
         console.log('🔌 Connection lost - entering offline mode');
+        // Prompt user to switch to offline mode
+        try {
+          const alreadyPrompted = sessionStorage.getItem('offlineSwitchPrompted') === 'true';
+          if (!alreadyPrompted) {
+            const ok = window.confirm('No internet detected. Switch to Offline Mode?');
+            sessionStorage.setItem('offlineSwitchPrompted', 'true');
+            if (ok) {
+              localStorage.setItem('offlineMode', 'true');
+            }
+          }
+        } catch {}
       }
     });
     
     // Preload data on startup if online
     if (this.isOnline()) {
-      setTimeout(() => this.preloadOfflineData(), 2000);
+      setTimeout(() => {
+        this.preloadOfflineData();
+        this.warmLocalDatabase();
+      }, 2000);
+    } else {
+      // If we start already offline, prompt immediately
+      try {
+        const alreadyPrompted = sessionStorage.getItem('offlineSwitchPrompted') === 'true';
+        if (!alreadyPrompted) {
+          const ok = window.confirm('No internet detected. Switch to Offline Mode?');
+          sessionStorage.setItem('offlineSwitchPrompted', 'true');
+          if (ok) {
+            localStorage.setItem('offlineMode', 'true');
+          }
+        }
+      } catch {}
     }
     
     // Clear expired cache on startup

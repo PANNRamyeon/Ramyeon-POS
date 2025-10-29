@@ -714,6 +714,10 @@ export default {
   },
   
   async mounted() {
+    // When switching to offline, give the backend a moment to fail over to local DB
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
     await this.loadCheckoutData()
     await this.validateStock()
   },
@@ -1014,7 +1018,7 @@ export default {
           if (!product) {
             errors.push(`Product "${item.productName}" not found`)
           } else {
-            const availableStock = product.batch_stock || product.stock || 0
+            const availableStock = (product.total_stock ?? product.batch_stock ?? 0)
             
             if (availableStock < item.quantity) {
               errors.push(

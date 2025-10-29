@@ -134,6 +134,12 @@ class BatchService:
             print(f"✅ FIFO deduction complete")
             print(f"   Used {len(batch_deductions)} batches")
             print(f"{'='*60}\n")
+            # Recompute product total_stock from non-depleted batches
+            try:
+                total = self._recompute_product_total_stock(product_id)
+                print(f"   ↳ total_stock recomputed: {total}")
+            except Exception as rec_err:
+                logger.warning(f"Failed to recompute total_stock for {product_id}: {rec_err}")
             
             return batch_deductions
             
@@ -260,6 +266,13 @@ class BatchService:
             print(f"{'='*60}")
             print(f"✅ Stock restoration complete")
             print(f"{'='*60}\n")
+            # Recompute product totals for all affected products
+            try:
+                affected = list({b['product_id'] for b in batches_used if b.get('product_id')})
+                for pid in affected:
+                    self._recompute_product_total_stock(pid)
+            except Exception as rec_err:
+                logger.warning(f"Failed to recompute total_stock after restore: {rec_err}")
             
         except Exception as e:
             logger.error(f"❌ Stock restoration failed: {str(e)}")
@@ -314,3 +327,20 @@ class BatchService:
         except Exception as e:
             logger.error(f"❌ Get near-expiry batches failed: {str(e)}")
             return []
+
+    # ================================================================
+    # INTERNAL: Recompute product.total_stock from batches
+    # ================================================================
+    def _recompute_product_total_stock(self, product_id) -> int:
+        """Sum quantity_remaining of non-depleted batches and write to products.total_stock."""
+        batches = list(self.batches_collection.find({
+            'product_id': product_id,
+            'status': { '$ne': 'depleted' },
+            'quantity_remaining': { '$gt': 0 }
+        }))
+        total = sum(b.get('quantity_remaining', 0) for b in batches)
+        self.products_collection.update_one(
+            {'_id': product_id},
+            {'$set': {'total_stock': total, 'updated_at': datetime.utcnow()}}
+        )
+        return total

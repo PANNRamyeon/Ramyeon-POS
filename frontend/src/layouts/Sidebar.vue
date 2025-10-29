@@ -120,6 +120,10 @@
       async fetchPendingOrderCount() {
         try {
           console.log('📦 Fetching pending order count...')
+          if (!navigator.onLine) {
+            this.pendingOrderCount = 0
+            return
+          }
           
           // ✅ Fetch orders with pending/confirmed/processing status
           const response = await api.get('/online/orders/', {
@@ -184,6 +188,11 @@
 
       async fetchPendingCount() {
         try {
+          if (!navigator.onLine) {
+            this.pendingCount = 0
+            this.updateAppBadge(0)
+            return
+          }
           const data = await onlineOrdersAPI.getAllOrders({ status: 'pending' })
           console.log('[Sidebar] Pending orders raw response:', data)
           let count = 0

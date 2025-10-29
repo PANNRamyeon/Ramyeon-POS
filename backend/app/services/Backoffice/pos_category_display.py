@@ -1,5 +1,6 @@
 from datetime import datetime
 from ...database import db_manager
+from decouple import config
 import logging
 from ..POS.batch_service import BatchService
 
@@ -9,12 +10,17 @@ class POSCategoryService:
     """Lightweight service optimized specifically for POS operations"""
     
     def __init__(self):
-        self.db = db_manager.get_database()
+        # Prefer local DB for POS read paths if available
+        self._read_local = config('READ_PRODUCTS_FROM_LOCAL', default=True, cast=bool)
+        ldb = db_manager.get_local_database_optional() if self._read_local else None
+        self.db = ldb if ldb is not None else db_manager.get_database()
         self.category_collection = self.db.category
         self.product_collection = self.db.products
         self.batches_collection = self.db.batches
         self.batch_service = BatchService() 
         self._ensure_pos_indexes()
+        # When online, prefer cloud as source of truth for totals
+        self._cloud_sot = config('CLOUD_SOT_FOR_TOTAL_STOCK', default=True, cast=bool)
 
     def _ensure_pos_indexes(self):
         """Create indexes specifically optimized for POS operations"""
@@ -145,9 +151,8 @@ class POSCategoryService:
                     'selling_price': product.get('selling_price', 0),
                     'price': product.get('selling_price', 0),
                     
-                    # ✅ Use batch stock (this should be 500)
-                    'stock': batch_stock,
-                    'stock_quantity': batch_stock,
+                    # ✅ Use batch stock; expose total_stock explicitly
+                    'total_stock': batch_stock,
                     'batch_stock': batch_stock,
                     
                     'batches_count': batch_details['batches_count'],
@@ -163,6 +168,21 @@ class POSCategoryService:
             
             print(f"✅ Returning {len(pos_products)} products")
             
+            # Overlay totals from cloud if available and configured as SoT
+            try:
+                if self._cloud_sot and not db_manager.is_current_local():
+                    cdb = db_manager.get_cloud_database_optional()
+                    if cdb is not None:
+                        ids = [p['id'] for p in pos_products]
+                        rows = list(cdb.products.find({'_id': {'$in': ids}}, {'_id':1,'total_stock':1,'updated_at':1}))
+                        cloud_map = {r['_id']: r for r in rows}
+                        for p in pos_products:
+                            r = cloud_map.get(p['id'])
+                            if r and r.get('total_stock') is not None:
+                                p['total_stock'] = r['total_stock']
+            except Exception as _:
+                pass
+
             return pos_products
             
         except Exception as e:
@@ -446,9 +466,8 @@ class POSCategoryService:
                     'price': product.get('price', 0),
                     'selling_price': product.get('price', 0),
                     
-                    # ✅ Use batch stock
-                    'stock': batch_info['total_stock'],
-                    'stock_quantity': batch_info['total_stock'],
+                    # ✅ Use batch stock; expose as total_stock consistently
+                    'total_stock': batch_info['total_stock'],
                     'batch_stock': batch_info['total_stock'],
                     'batches_count': batch_info['batches_count'],
                     'oldest_expiry': batch_info.get('oldest_batch', {}).get('expiry_date'),

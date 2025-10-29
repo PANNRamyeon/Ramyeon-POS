@@ -608,14 +608,18 @@ class CartService:
             # ✅ Batch fetch all products (uses cache when possible)
             products_map = self._get_products_batch(product_ids)
             
-            # Validate each item
+            # Validate each item (use total_stock if available)
             for item in cart['items']:
                 product = products_map.get(item['product_id'])
                 
                 if not product:
                     raise ValueError(f"Product {item['product_id']} not found")
                 
-                available_stock = product.get('stock', 0)
+                available_stock = (
+                    product.get('total_stock', None)
+                    if product.get('total_stock', None) is not None
+                    else product.get('batch_stock', 0)
+                )
                 
                 if available_stock < item['quantity']:
                     raise ValueError(

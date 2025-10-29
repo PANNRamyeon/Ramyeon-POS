@@ -1,5 +1,7 @@
 import { api } from './api.js'
 
+const isOnline = () => typeof navigator !== 'undefined' && navigator.onLine;
+
 export default {
   // ================================================================
   // ORDER RETRIEVAL
@@ -10,6 +12,9 @@ export default {
    */
   async getAllOrders(filters = {}) {
     try {
+      if (!isOnline()) {
+        return { results: [], count: 0 };
+      }
       const params = new URLSearchParams()
       
       if (filters.status) params.append('status', filters.status)

@@ -2,6 +2,7 @@ import re
 from bson import ObjectId
 from datetime import datetime
 from ...database import db_manager
+from decouple import config
 from ...models import Product
 from notifications.services import notification_service
 from .category_service import CategoryService
@@ -18,6 +19,8 @@ class ProductService:
         self.supplier_collection = self.db.suppliers
         self.branch_collection = self.db.branches
         self.category_service = CategoryService()
+        # Optional: prefer local DB for product/category reads
+        self._read_local = config('READ_PRODUCTS_FROM_LOCAL', default=True, cast=bool)
         
     def validate_foreign_keys(self, product_data):
         """Validate that foreign key references exist - using string IDs"""
@@ -366,6 +369,11 @@ class ProductService:
     def get_all_products(self, filters=None, include_deleted=False):
         """Get all products with optional filters - STRING ID VERSION"""
         try:
+            read_coll = self.product_collection
+            if self._read_local:
+                ldb = db_manager.get_local_database_optional()
+                if ldb is not None:
+                    read_coll = ldb.products
             query = {}
             
             # By default, exclude deleted products unless specifically requested
@@ -397,7 +405,16 @@ class ProductService:
                         {'_id': search_regex}  # Can search by string ID directly
                     ]
             
-            products = list(self.product_collection.find(query).sort('product_name', 1))
+            projection = {
+                '_id': 1,
+                'product_name': 1,
+                'SKU': 1,
+                'category_id': 1,
+                'selling_price': 1,
+                'total_stock': 1,
+                'image': 1
+            }
+            products = list(read_coll.find(query, projection).sort([('total_stock', -1), ('product_name', 1)]))
             return products  # Return directly, no ObjectId conversion needed
         
         except Exception as e:
@@ -895,10 +912,25 @@ class ProductService:
     def get_products_by_category(self, category_id):
         """Get products by category (excluding deleted) - STRING ID VERSION"""
         try:
-            products = list(self.product_collection.find({
-                'category_id': category_id,  # Direct string comparison
+            read_coll = self.product_collection
+            if self._read_local:
+                ldb = db_manager.get_local_database_optional()
+                if ldb is not None:
+                    read_coll = ldb.products
+            query = {
+                'category_id': category_id,
                 'isDeleted': {'$ne': True}
-            }))
+            }
+            projection = {
+                '_id': 1,
+                'product_name': 1,
+                'SKU': 1,
+                'category_id': 1,
+                'selling_price': 1,
+                'total_stock': 1,
+                'image': 1
+            }
+            products = list(read_coll.find(query, projection).sort([('total_stock', -1), ('product_name', 1)]))
             return products  # Return directly, no conversion needed
         
         except Exception as e:

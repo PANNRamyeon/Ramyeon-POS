@@ -1109,21 +1109,7 @@ class OnlineTransactionService:
                 # Add item to order
                 order_record['items'].append(item)
                 
-                # Update product total stock (cached)
-                product = self.products_collection.find_one({'_id': product_id})
-                new_total_stock = product.get('stock', 0) - quantity_needed
-                
-                self.products_collection.update_one(
-                    {'_id': product_id},
-                    {
-                        '$set': {
-                            'stock': new_total_stock,
-                            'updated_at': transaction_date
-                        }
-                    }
-                )
-                
-                print(f"   ✅ Stock updated: {product.get('stock')} → {new_total_stock}\n")
+                # Do not update product.stock; BatchService handles total_stock recomputation
             
             # Step 9: Insert order record
             self.online_transactions.insert_one(order_record)

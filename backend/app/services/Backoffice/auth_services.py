@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decouple import config
 from jose import JWTError, jwt
 import bcrypt
 from ...database import db_manager
@@ -126,9 +127,10 @@ class AuthService:
                     
                     # Check if already has active shift
                     existing_shift = shift_service.get_active_shift(user_id)
+                    force_new_shift = config('NEW_SHIFT_ON_LOGIN', default=True, cast=bool)
                     
-                    if existing_shift:
-                        print(f"⚠️ User already has active shift: {existing_shift['_id']}")
+                    if existing_shift and not force_new_shift:
+                        print(f"⚠️ User already has active shift: {existing_shift['_id']} (resuming)")
                         shift_data = {
                             'shift_id': existing_shift['_id'],
                             'opening_cash': existing_shift.get('opening_cash', 0),
@@ -136,16 +138,21 @@ class AuthService:
                             'message': 'Resumed existing active shift'
                         }
                     else:
+                        # If an active shift exists and policy requires a new one, end it first
+                        if existing_shift and force_new_shift:
+                            try:
+                                print(f"🔒 Ending existing shift on login: {existing_shift['_id']}")
+                                shift_service.end_shift(existing_shift['_id'], closing_cash=0.0)
+                            except Exception as end_err:
+                                print(f"⚠️ Failed to end existing shift on login: {end_err}")
                         # Start new shift
-                        print(f"✅ No existing shift found - creating new shift")
+                        print(f"✅ Starting new shift on login")
                         print(f"   User ID: {user_id}")
                         print(f"   Opening Cash: {opening_cash}")
-                        
                         shift_result = shift_service.start_shift(
                             cashier_id=user_id,
                             opening_cash=float(opening_cash) if opening_cash else 0.0
                         )
-                        
                         shift_data = {
                             'shift_id': shift_result.get('_id'),
                             'opening_cash': shift_result.get('opening_cash', 0),

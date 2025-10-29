@@ -532,10 +532,8 @@ class ProductsByCategoryView(APIView):
     
     def get(self, request, category_id):
         try:
-            from ...services.POS.batch_service import BatchService  # ✅ Import batch service
-            
+            from ...database import db_manager
             product_service = ProductService()
-            batch_service = BatchService()  # ✅ Initialize batch service
             
             print(f"\n{'='*60}")
             print(f"📊 ProductsByCategoryView: Getting products for category {category_id}")
@@ -554,30 +552,51 @@ class ProductsByCategoryView(APIView):
                     'count': 0
                 }, status=status.HTTP_200_OK)
             
-            # ✅ Calculate batch stock for each product
+            # ✅ Calculate batch stock for all products in ONE local DB query
+            ids = [p.get('_id') for p in products if p.get('_id')]
+            batches_map = {}
+            try:
+                ldb = db_manager.get_local_database_optional()
+                read_db = ldb if ldb is not None else db_manager.get_database()
+                pipeline = [
+                    {'$match': {
+                        'product_id': {'$in': ids},
+                        'status': {'$ne': 'depleted'},
+                        'quantity_remaining': {'$gt': 0}
+                    }},
+                    {'$group': {
+                        '_id': '$product_id',
+                        'total_stock': {'$sum': '$quantity_remaining'},
+                        'batches_count': {'$sum': 1}
+                    }}
+                ]
+                agg = list(read_db.batches.aggregate(pipeline))
+                for row in agg:
+                    batches_map[row['_id']] = {
+                        'total_stock': row.get('total_stock', 0),
+                        'batches_count': row.get('batches_count', 0)
+                    }
+            except Exception as e:
+                print(f"⚠️ Batch aggregation failed, falling back to zeros: {e}")
+
             for product in products:
-                product_id = product.get('_id')
-                cached_stock = product.get('stock', 0)
-                
-                print(f"Processing {product_id}:")
-                print(f"   Product name: {product.get('product_name')}")
-                print(f"   Cached stock: {cached_stock}")
-                
-                # Get batch availability
-                batch_info = batch_service.check_batch_availability(product_id, 0)
-                
-                # Update stock fields with batch stock
-                product['stock'] = batch_info['total_stock']
-                product['stock_quantity'] = batch_info['total_stock']
-                product['batch_stock'] = batch_info['total_stock']
-                product['batches_count'] = batch_info['batches_count']
-                
-                if batch_info.get('oldest_batch'):
-                    product['oldest_expiry'] = batch_info['oldest_batch'].get('expiry_date')
-                
-                print(f"   Batch stock: {batch_info['total_stock']}")
-                print(f"   Batches count: {batch_info['batches_count']}")
-                print()
+                info = batches_map.get(product.get('_id'), {'total_stock': 0, 'batches_count': 0})
+                product['batch_stock'] = info['total_stock']
+                product['total_stock'] = info['total_stock']
+                product['batches_count'] = info['batches_count']
+
+            # Overlay cloud SoT totals if available (fast direct read of products.total_stock)
+            try:
+                cdb = db_manager.get_cloud_database_optional()
+                if cdb is not None:
+                    rows = list(cdb.products.find({'_id': {'$in': ids}}, {'_id':1,'total_stock':1,'updated_at':1}))
+                    cmap = {r['_id']: r for r in rows}
+                    for product in products:
+                        r = cmap.get(product.get('_id'))
+                        if r and r.get('total_stock') is not None:
+                            product['total_stock'] = r['total_stock']
+            except Exception:
+                pass
             
             print(f"{'='*60}")
             print(f"✅ Returning {len(products)} products with batch stock")

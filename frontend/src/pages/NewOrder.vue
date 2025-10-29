@@ -123,7 +123,7 @@
             <div class="product-info">
               <h3 class="product-name">{{ product.name }}</h3>
               <p v-if="!product.isSubcategory" class="product-description">
-                Stock: {{ product.stock || 0 }}
+                Stock: {{ product.total_stock ?? 0 }}
               </p>
               <div v-if="!product.isSubcategory" class="product-price text-accent">
                 ₱{{ formatPrice(product.price) }}
@@ -544,9 +544,9 @@ export default {
         { name: 'Utensils' }
       ],
 
-      // Caching utilities
-      cacheTTLms: 24 * 60 * 60 * 1000, // 24 hours for localStorage
-      memCacheTTLms: 30 * 60 * 1000, // 30 minutes for in-memory cache
+      // Caching utilities (memory-only, short TTL)
+      cacheTTLms: 0, // disable localStorage cache for products
+      memCacheTTLms: 0, // disable in-memory caching for product lists
       storage: null,
       memCache: null,
       
@@ -577,33 +577,16 @@ export default {
       }
     } catch (_) {}
     
-    // initialize caches
+    // initialize caches (memory-only)
     const ls = useLocalStorage()
     this.storage = ls.withPrefix('newOrder')
     this.memCache = useCache({ maxEntries: 300 })
     
-    // Load custom categories and products from localStorage
+    // Load custom categories and products from localStorage (custom-only)
     this.loadCustomCategories()
     this.loadCustomCategoryProducts()
     this.loadIdCounters()
-    
-    // Hydrate from localStorage immediately to avoid spinner on revisit
-    try {
-      const cachedCategories = this.storage.getItem('categories', null)
-      if (Array.isArray(cachedCategories) && cachedCategories.length > 0) {
-        this.backendCategories = cachedCategories
-        const lastActive = this.storage.getItem('lastActiveCategory', null)
-        const fallbackCat = cachedCategories[0]?.id
-        const catId = cachedCategories.find(c => c.id === lastActive) ? lastActive : fallbackCat
-        if (catId) {
-          this.activeCategory = catId
-          const cachedProducts = this.storage.getItem(`products:${catId}:__all__`, null)
-          if (Array.isArray(cachedProducts)) {
-            this.products = cachedProducts
-          }
-        }
-      }
-    } catch (_) {}
+    // No heavy localStorage hydration for products/categories; rely on server (local DB)
     await this.initializeSession()
     await this.loadCategories()
     
@@ -624,11 +607,20 @@ export default {
     
     // If returning from checkout, perform targeted refresh when possible, fallback to full refresh
     if (shouldRefreshStock === 'true') {
+      // Invalidate in-memory product caches to force fresh fetch
+      try { this.memCache?.clear && this.memCache.clear() } catch (_) {}
       try {
         if (targetedProductIds.length > 0) {
           await this.refreshSpecificStockLevels(targetedProductIds)
+          // Force full reload of active category from backend to ensure correct order
+          if (this.activeCategory) {
+            await this.loadProducts(this.activeCategory, this.currentSubcategory?.name)
+          }
         } else {
           await this.refreshStockLevels()
+          if (this.activeCategory) {
+            await this.loadProducts(this.activeCategory, this.currentSubcategory?.name)
+          }
         }
       } finally {
         try { sessionStorage.removeItem('refreshProductIds') } catch (_) {}
@@ -765,13 +757,11 @@ export default {
         )
       }
       
-      // Sort products: in-stock first, sold-out last
+      // Sort by total_stock descending (undefined treated as -1)
       return products.sort((a, b) => {
-        const aInStock = a.total_stock !== null && a.total_stock > 0
-        const bInStock = b.total_stock !== null && b.total_stock > 0
-        
-        if (aInStock === bInStock) return 0
-        return aInStock ? -1 : 1
+        const sa = Number(a.total_stock ?? -1)
+        const sb = Number(b.total_stock ?? -1)
+        return sb - sa
       })
     },
 
@@ -879,12 +869,10 @@ export default {
         this.isRefreshingStock = true
         console.log('🔄 Manual stock refresh triggered')
         
-        // Clear cache for current category to force fresh data
+        // Clear memory cache for current category to force fresh data
         if (this.activeCategory) {
           const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
-          this.storage?.removeItem(cacheKey)
           this.memCache?.delete(cacheKey)
-          console.log('🗑️ Cleared cache for:', cacheKey)
         }
         
         await this.refreshStockLevels()
@@ -962,53 +950,19 @@ export default {
             }
           })
           
-          // Update all cache entries with fresh stock
-          const allKeys = []
-          try {
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i)
-              if (key && key.startsWith('newOrder_products:')) {
-                allKeys.push(key)
-              }
+        // Update in-memory product list if present
+        if (Array.isArray(this.products) && this.products.length > 0) {
+          let changed = false
+          const updated = this.products.map(p => {
+            const newStock = stockUpdates[p.id]
+            if (newStock !== null && newStock !== (p.total_stock || p.stock)) {
+              changed = true
+              return { ...p, stock: newStock, total_stock: newStock }
             }
-          } catch (error) {
-            console.error('  ❌ Error reading localStorage keys:', error)
-          }
-          
-          let updatedCount = 0
-          allKeys.forEach(fullKey => {
-            try {
-              const key = fullKey.replace('newOrder_', '')
-              const cached = this.storage?.getItem(key, null)
-              
-              if (!Array.isArray(cached)) return
-              
-              let wasUpdated = false
-              const updated = cached.map(product => {
-                const newStock = stockUpdates[product.id]
-                
-                if (newStock !== null && newStock !== (product.total_stock || product.stock)) {
-                  wasUpdated = true
-                  return {
-                    ...product,
-                    stock: newStock,
-                    total_stock: newStock
-                  }
-                }
-                
-                return product
-              })
-              
-              if (wasUpdated) {
-                this.storage?.setItem(key, updated, this.cacheTTLms)
-                this.memCache?.set(key, updated, this.memCacheTTLms)
-                updatedCount++
-              }
-              
-            } catch (error) {
-              console.error('  ❌ Error updating cache key', fullKey, ':', error)
-            }
+            return p
           })
+          if (changed) this.products = updated
+        }
           
           
           
@@ -1020,18 +974,10 @@ export default {
         // Update custom category products with fresh stock data
         this.updateCustomCategoryProductsStock(stockUpdates)
         
-        // Reload current view to show updated stock
+        // Update in-memory cache for the current category so subsequent loads are instant
         if (this.activeCategory) {
           const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
-          const refreshedProducts = this.storage?.getItem(cacheKey, null)
-          if (Array.isArray(refreshedProducts)) {
-            console.log('🔄 Reloading products after stock update:', refreshedProducts.length, 'products')
-            // Log first few products to see their stock values
-            refreshedProducts.slice(0, 3).forEach(p => {
-              console.log(`  - ${p.name}: stock=${p.stock}, total_stock=${p.total_stock}`)
-            })
-            this.products = refreshedProducts
-          }
+          this.memCache?.set(cacheKey, this.products, this.memCacheTTLms)
         }
         
       } catch (error) {
@@ -1148,19 +1094,7 @@ export default {
           console.error('  ❌ Error updating custom category items:', error)
         }
         
-        // If current view is activeCategory, try to re-hydrate from cache to ensure consistency
-        if (this.activeCategory) {
-          const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
-          const refreshedProducts = this.storage?.getItem(cacheKey, null)
-          if (Array.isArray(refreshedProducts)) {
-            // Merge in-memory updates with cache to avoid flicker
-            const merged = refreshedProducts.map(prod => {
-              const newStock = stockUpdates[prod.id]
-              return newStock !== undefined ? { ...prod, stock: newStock } : prod
-            })
-            this.products = merged
-          }
-        }
+        // Nothing else to do; NewOrder reads from server/local DB on navigation
       } catch (error) {
         console.error('❌ Targeted stock refresh failed:', error)
       }
@@ -1275,11 +1209,6 @@ export default {
       } else {
         this.viewMode = 'products'
         if (!category.isCustom) {
-          // Show cached products immediately if any
-          const cachedProducts = this.storage?.getItem(`products:${categoryId}:__all__`, null)
-          if (Array.isArray(cachedProducts)) {
-            this.products = cachedProducts
-          }
           await this.loadProducts(categoryId)
         }
       }
@@ -1294,15 +1223,7 @@ export default {
           return
         }
         
-        // Try immediate cached read (no spinner, no network)
-        const cacheKey = `products:${categoryId}:${subcategoryName || '__all__'}`
-        const lsHit = this.storage?.getItem(cacheKey, null)
-        if (Array.isArray(lsHit)) {
-          this.products = lsHit
-          return
-        }
-        
-        // No cache: show loader and fetch
+        // Show loader and fetch (memory cache may satisfy)
         this.productsLoading = true
         const products = await this.getProductsCached(categoryId, subcategoryName)
         this.products = products
@@ -1318,37 +1239,20 @@ export default {
 
     // Cached fetchers
     getCategoriesCached() {
-      // in-memory first
+      // in-memory only
       const k = 'categories'
       const memHit = this.memCache?.get(k, null)
       if (memHit) return memHit
-      // localStorage next
-      const lsHit = this.storage?.getItem(k, null)
-      if (lsHit) {
-        this.memCache?.set(k, lsHit, this.memCacheTTLms)
-        return lsHit
-      }
       return null
     },
     setCategoriesCache(categories) {
       const k = 'categories'
       this.memCache?.set(k, categories, this.memCacheTTLms)
-      this.storage?.setItem(k, categories, this.cacheTTLms)
     },
     async getProductsCached(categoryId, subcategoryName = null) {
-      const key = `products:${categoryId}:${subcategoryName || '__all__'}`
-      const memHit = this.memCache?.get(key, null)
-      if (memHit) return memHit
-      const lsHit = this.storage?.getItem(key, null)
-      if (lsHit) {
-        this.memCache?.set(key, lsHit, this.memCacheTTLms)
-        return lsHit
-      }
+      // Always fetch fresh from backend (local DB) for correctness
       const fresh = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
-      const normalized = Array.isArray(fresh) ? fresh : []
-      this.memCache?.set(key, normalized, this.memCacheTTLms)
-      this.storage?.setItem(key, normalized, this.cacheTTLms)
-      return normalized
+      return Array.isArray(fresh) ? fresh : []
     },
 
     generateSubcategoryImage(subcategoryName) {
@@ -1557,6 +1461,11 @@ export default {
     // ================================================================
     
     async fetchAvailablePromotions() {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        this.availablePromotions = []
+        this.filteredPromoSuggestions = []
+        return
+      }
       if (this.cartItems.length === 0) {
         this.availablePromotions = []
         this.filteredPromoSuggestions = []

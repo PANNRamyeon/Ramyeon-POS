@@ -2,6 +2,7 @@ import threading, time, json, os, requests
 from datetime import datetime
 from app.offline.data_queue import OfflineFileQueue
 from app.offline.connectivity import Connectivity
+from app.offline.local_sync import warm_catalog_to_local
 
 ARCHIVE_DIR = os.getenv("OFFLINE_ARCHIVE_DIR", "backend/archive")
 
@@ -33,8 +34,8 @@ class SyncEngine:
     def pull_catalog(self):
         """Optional: refresh products & categories from cloud."""
         try:
-            # You might want to implement this if needed
-            pass
+            summary = warm_catalog_to_local()
+            print(f"[Catalog] Local warmed from cloud: {summary}")
         except Exception as e:
             print(f"⚠️ Failed to pull catalog: {e}")
 

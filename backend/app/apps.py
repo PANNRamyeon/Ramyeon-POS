@@ -9,6 +9,7 @@ class AppMainConfig(AppConfig):
         try:
             from .offline.connectivity import Connectivity
             from .offline.sync_engine import SyncEngine
+            from .offline.local_sync import push_pending_sales
 
             # Start connectivity listener
             connectivity = Connectivity(interval_sec=3)
@@ -23,6 +24,15 @@ class AppMainConfig(AppConfig):
             # Store as instance variables instead of modifying settings
             self.connectivity = connectivity
             self.sync_engine = syncer
+            
+            # Also push local pending sales immediately when we detect online
+            def _on_online_push():
+                try:
+                    summary = push_pending_sales()
+                    print(f"[Sync] Local pending pushed: {summary}")
+                except Exception as e:
+                    print(f"[Sync Warning] Failed to push local pending: {e}")
+            connectivity.on_online(_on_online_push)
             
         except Exception as e:
             print(f"[Startup Warning] Failed to start offline sync engine: {e}")

@@ -32,6 +32,8 @@ class ShiftService:
             'opening_cash': opening_cash,
             'start_time': datetime.utcnow(),
             'status': 'open',  # ✅ CHANGED: 'active' → 'open' for consistency
+            # Sequence for per-shift ordering of sales
+            'next_seq': 0,
             'total_sales': 0,
             'total_transactions': 0,
             'cash_sales': 0,  # ✅ ADD: Track cash sales separately
@@ -42,6 +44,15 @@ class ShiftService:
         self.shift_collection.insert_one(shift_record)
         
         logger.info(f"✅ Shift started: {shift_id} by {cashier_id}")
+        
+        # Best-effort mirror to local DB so offline has the same next_seq baseline
+        try:
+            local_db = db_manager.get_local_database_optional()
+            if local_db is not None:
+                local_db.shifts.replace_one({'_id': shift_id}, shift_record, upsert=True)
+        except Exception:
+            # Mirroring is best-effort; don't block shift start
+            pass
         
         return shift_record
     

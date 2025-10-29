@@ -1,5 +1,7 @@
 import { api } from './api.js';
 
+const isOnline = () => typeof navigator !== 'undefined' && navigator.onLine;
+
 class DashboardAPIService {
   // Helper method to handle responses
   handleResponse(response) {
@@ -21,6 +23,9 @@ class DashboardAPIService {
 
   async getDailyTopProducts(date = null, limit = 10) {
     try {
+      if (!isOnline()) {
+        return { products: [], count: 0 };
+      }
       const params = { limit };
       if (date) {
         params.date = date;
@@ -39,6 +44,9 @@ class DashboardAPIService {
 
   async getTotalOrdersRevenue(startDate = null, endDate = null) {
     try {
+      if (!isOnline()) {
+        return { total_orders: 0, total_revenue: 0 };
+      }
       const params = {};
       if (startDate) {
         params.start_date = startDate;
@@ -60,6 +68,9 @@ class DashboardAPIService {
 
   async getCategoryStatistics(period = 'week') {
     try {
+      if (!isOnline()) {
+        return { categories: [] };
+      }
       const response = await api.get('/pos/category-statistics/', {
         params: { period }
       });
@@ -75,6 +86,9 @@ class DashboardAPIService {
 
   async getDashboardData() {
     try {
+      if (!isOnline()) {
+        return { success: true, data: {} };
+      }
       const response = await api.get('/pos/dashboard/');
       return this.handleResponse(response);
     } catch (error) {
@@ -88,6 +102,9 @@ class DashboardAPIService {
 
   async getCustomRangeAnalytics(startDate, endDate) {
     try {
+      if (!isOnline()) {
+        return { success: true, data: {} };
+      }
       const response = await api.get('/pos/custom-range/', {
         params: {
           start_date: startDate,
@@ -106,6 +123,9 @@ class DashboardAPIService {
 
   async getRealTimeSalesData() {
     try {
+      if (!isOnline()) {
+        return { series: [] };
+      }
       const response = await api.get('/pos/real-time-sales/');
       return this.handleResponse(response);
     } catch (error) {

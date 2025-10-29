@@ -158,6 +158,7 @@ from .kpi_views.POS.pos_sales_views import (
     POSSalesReceiptView,
     ManualOfflineSyncView
 )
+from .kpi_views.POS.offline_views import OfflineWarmupView, OfflinePushPendingView
 
 from .kpi_views.POS.cart_views import (
     CartCreateView,
@@ -436,6 +437,12 @@ urlpatterns = [
     path('pos/shifts/<str:shift_id>/close/', ShiftCloseView.as_view(), name='shift-close'),
     path('pos/shifts/<str:shift_id>/', ShiftDetailView.as_view(), name='shift-detail'),
     path('pos/shifts/', ShiftListView.as_view(), name='shift-list'),
+
+    # ================================================================
+    # OFFLINE/LOCAL SYNC ENDPOINTS
+    # ================================================================
+    path('offline/warmup/', OfflineWarmupView.as_view()),
+    path('offline/push-pending/', OfflinePushPendingView.as_view()),
 
     # ============================================
     # SALES LOG ENDPOINTS

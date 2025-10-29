@@ -1,8 +1,11 @@
 from datetime import datetime, timedelta
+import uuid
+from pymongo import ReturnDocument
 from ...database import db_manager
 from ..Backoffice.product_service import ProductService
 from notifications.services import notification_service
 from .batch_service import BatchService
+from decouple import config
 import logging
 logger = logging.getLogger(__name__)
 
@@ -368,12 +371,79 @@ class POSSalesService:
                 print(f"   Base for points: ₱{subtotal_after_all_discounts:.2f}")
                 print(f"   Points to earn: {loyalty_points_earned} points (20%)")
             
-            # ✅ Step 5: Build sale record with loyalty tracking
+            # ✅ Step 5: Determine shift and sequencing
+            # Attach to provided shift or infer currently open shift for the cashier
+            shift_id = sale_data.get('shift_id')
+            if not shift_id:
+                try:
+                    # 1) Look in current DB (local if offline, cloud if online)
+                    active_shift = self.shifts_collection.find_one({
+                        'cashier_id': cashier_id,
+                        'status': {'$in': ['open', 'active']}
+                    })
+                    # 2) If not found and we are local, try cloud and mirror it
+                    if not active_shift and db_manager.is_current_local():
+                        cdb = db_manager.get_cloud_database_optional()
+                        if cdb is not None:
+                            cloud_shift = cdb.shifts.find_one({
+                                'cashier_id': cashier_id,
+                                'status': {'$in': ['open', 'active']}
+                            })
+                            if cloud_shift:
+                                # Mirror cloud shift locally (including next_seq)
+                                self.shifts_collection.replace_one({'_id': cloud_shift['_id']}, cloud_shift, upsert=True)
+                                active_shift = cloud_shift
+                    if active_shift:
+                        shift_id = active_shift.get('_id')
+                    else:
+                        # As a safeguard, start a new shift with opening_cash=0
+                        try:
+                            from .shift_service import ShiftService  # local import to avoid cycles
+                            shift_service = ShiftService()
+                            new_shift = shift_service.start_shift(cashier_id=cashier_id, opening_cash=0.0)
+                            shift_id = new_shift.get('_id')
+                        except Exception:
+                            raise ValueError('No active shift found for cashier and no shift_id was provided')
+                except Exception as e:
+                    raise ValueError(f"Unable to determine shift for sale: {e}")
+            shift_seq = None
+            try:
+                if shift_id:
+                    # If operating on cloud DB: increment cloud shift next_seq to get authoritative seq
+                    if not db_manager.is_current_local():
+                        seq_doc = self.shifts_collection.find_one_and_update(
+                            {'_id': shift_id},
+                            {'$inc': {'next_seq': 1}},
+                            return_document=ReturnDocument.AFTER,
+                        )
+                        if seq_doc and 'next_seq' in seq_doc:
+                            shift_seq = int(seq_doc['next_seq'])
+                            # Mirror to local best-effort
+                            try:
+                                ldb = db_manager.get_local_database_optional()
+                                if ldb is not None:
+                                    ldb.shifts.update_one({'_id': shift_id}, {'$set': {'next_seq': shift_seq}}, upsert=True)
+                            except Exception:
+                                pass
+                    else:
+                        # Local mode: increment local next_seq
+                        seq_doc = self.shifts_collection.find_one_and_update(
+                            {'_id': shift_id},
+                            {'$inc': {'next_seq': 1}},
+                            return_document=ReturnDocument.AFTER,
+                        )
+                        if seq_doc and 'next_seq' in seq_doc:
+                            shift_seq = int(seq_doc['next_seq'])
+            except Exception as e:
+                logger.warning(f"Failed to compute shift sequence for {shift_id}: {e}")
+
+            # ✅ Step 6: Build sale record with loyalty and sequencing
             sale_record = {
                 '_id': sale_id,
                 'transaction_date': transaction_date,
                 'cashier_id': cashier_id,
-                'shift_id': sale_data.get('shift_id'),
+                'shift_id': shift_id,
+                'shift_seq': shift_seq,
                 'customer_id': customer_id,
                 'items': [],  # Will be populated with batch info
                 'subtotal': subtotal,
@@ -407,12 +477,17 @@ class POSSalesService:
                 'created_at': transaction_date,
                 'updated_at': transaction_date,
                 'is_voided': False,
-                'points_awarded': False  # Will be set to True after awarding
+                'points_awarded': False,  # Will be set to True after awarding
+                # Sync metadata
+                'sync_state': 'applied' if not db_manager.is_current_local() else 'pending',
+                'event_id': str(uuid.uuid4()),
+                'updated_at_local': transaction_date
             }
             
             # ✅ Step 6: Process each item with FIFO batch deduction
             print("\n📦 Processing items with FIFO batch deduction...\n")
             
+            affected_product_ids = []
             for item in sale_data.get('items', []):
                 product_id = item.get('product_id')
                 quantity_needed = item.get('quantity', 0)
@@ -466,20 +541,8 @@ class POSSalesService:
                 
                 sale_record['items'].append(sale_item)
                 
-                # ✅ Update product total stock (cached)
-                new_total_stock = product.get('stock', 0) - quantity_needed
-                
-                self.products_collection.update_one(
-                    {'_id': product_id},
-                    {
-                        '$set': {
-                            'stock': new_total_stock,
-                            'updated_at': transaction_date
-                        }
-                    }
-                )
-                
-                print(f"      Stock updated: {product.get('stock')} → {new_total_stock}")
+                # No direct product.stock update; batch_service recomputes total_stock
+                affected_product_ids.append(product_id)
             
             # ✅ Step 7: Insert sale record
             self.sales_collection.insert_one(sale_record)
@@ -509,6 +572,26 @@ class POSSalesService:
             
             # Get updated sale record
             sale_record = self.sales_collection.find_one({'_id': sale_id})
+
+            # ✅ Step 9: Mirror to local when operating online (always on)
+            if not db_manager.is_current_local():
+                try:
+                    ldb = db_manager.get_local_database_optional()
+                    if ldb is not None:
+                        ldb.sales.replace_one({'_id': sale_id}, sale_record, upsert=True)
+                        if shift_id and shift_seq is not None:
+                            ldb.shifts.update_one({'_id': shift_id}, {'$set': {'next_seq': shift_seq}}, upsert=True)
+                        # Mirror affected product total_stock from cloud to local for fast reads
+                        if affected_product_ids:
+                            docs = list(self.products_collection.find({'_id': {'$in': affected_product_ids}}, {'_id':1,'total_stock':1,'updated_at':1}))
+                            for d in docs:
+                                ldb.products.update_one(
+                                    {'_id': d['_id']},
+                                    {'$set': {'total_stock': d.get('total_stock', 0), 'updated_at': d.get('updated_at', transaction_date)}},
+                                    upsert=True
+                                )
+                except Exception as mirror_err:
+                    logger.warning(f"Local mirror failed for sale {sale_id}: {mirror_err}")
             
             return {
                 'success': True,

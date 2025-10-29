@@ -45,14 +45,7 @@ class ProductAPIService {
     return products.map(product => {
         const productId = product._id || product.id || product.product_id
         
-        // Debug: Log what fields are available in the raw product
-        console.log(`🔍 Transforming product ${product.name || product.product_name}:`, {
-          id: productId,
-          total_stock: product.total_stock,
-          batch_stock: product.batch_stock,
-          stock: product.stock,
-          availableFields: Object.keys(product)
-        });
+        // Remove heavy debug logs in production for performance
         
         // ✅ Use total_stock if available, otherwise fallback to batch_stock
         let stockValue;
@@ -73,10 +66,7 @@ class ProductAPIService {
             categoryId = `CTGY-${String(categoryId).padStart(3, '0')}`
         }
         
-        console.log(`📦 Product: ${product.name}`)
-        console.log(`   ID: ${productId}`)
-        console.log(`   Category: ${categoryId}`)
-        console.log(`   Stock: ${stockValue}`)
+        //
         
         const transformed = {
             id: productId,
@@ -95,11 +85,7 @@ class ProductAPIService {
             originalData: product
         }
         
-        console.log(`🔍 Transformed product ${transformed.name}:`, {
-          id: transformed.id,
-          total_stock: transformed.total_stock,
-          stock: transformed.stock
-        });
+        //
         
         return transformed;
     });
@@ -133,18 +119,54 @@ class ProductAPIService {
         // Join product IDs with comma
         const idsParam = productIds.join(',');
         
+        // Helper: try to read from local caches (used when offline or API times out)
+        const readFromLocalCache = () => {
+          try {
+            const wanted = new Set(productIds);
+            const aggregated = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (!key || !key.startsWith('newOrder_products:')) continue;
+              const raw = localStorage.getItem(key);
+              if (!raw) continue;
+              try {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr) && arr.length > 0) {
+                  arr.forEach(p => {
+                    const pid = p?.id || p?._id || p?.product_id;
+                    if (pid && wanted.has(pid)) aggregated.push(p);
+                  });
+                }
+              } catch {}
+            }
+            if (aggregated.length > 0) {
+              console.log('📦 Using local cache for products batch:', aggregated.length);
+              return this.transformProductData(aggregated);
+            }
+          } catch (e) {
+            console.warn('⚠️ Local cache fallback failed:', e);
+          }
+          return [];
+        };
+
+        // If offline, immediately use cache fallback
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          const cached = readFromLocalCache();
+          if (cached.length > 0) return cached;
+        }
+
         // Call backend batch endpoint
         const response = await api.get(`/pos/products/batch/?ids=${idsParam}`);
         const data = this.handleResponse(response);
         
         // Extract products from response
-        const products = data.data || data.products || data;
+        let products = data.data || data.products || data;
         
-        // Debug: Log raw API response
-        console.log('🔍 Raw API response for products batch:', products);
-        if (Array.isArray(products) && products.length > 0) {
-          console.log('🔍 First product from API:', products[0]);
-          console.log('🔍 total_stock field:', products[0].total_stock);
+        //
+        if (!Array.isArray(products) || products.length === 0) {
+          // As a safety net, fallback to local cache
+          products = readFromLocalCache();
+          return products;
         }
         
         // Transform products to match frontend format
@@ -152,6 +174,26 @@ class ProductAPIService {
         
     } catch (error) {
         console.error('❌ Get products batch failed:', error);
+        // On timeout or network error, try cache fallback before throwing
+        const cached = (typeof navigator !== 'undefined' && !navigator.onLine) ? [] : [];
+        try {
+          const result = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith('newOrder_products:')) continue;
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            try {
+              const arr = JSON.parse(raw);
+              if (Array.isArray(arr)) {
+                result.push(...arr.filter(p => productIds.includes(p?.id || p?._id)));
+              }
+            } catch {}
+          }
+          if (result.length > 0) {
+            return this.transformProductData(result);
+          }
+        } catch {}
         this.handleError(error);
     }
   }
