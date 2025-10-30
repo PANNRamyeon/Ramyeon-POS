@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from ...database import db_manager
+import logging
 
+logger = logging.getLogger(__name__)
 
 class OnlineTransactionService:
     """Service class handling all online order operations."""
@@ -109,6 +111,7 @@ class OnlineTransactionService:
             'loyalty_points_earned': self._compute_points_earned(subtotal_after_discount),
             'created_at': now_utc,
             'updated_at': now_utc,
+            'last_status_change': now_utc,  # Track when status was last changed
         }
 
         self.online_transactions.insert_one(order_record)
@@ -130,6 +133,7 @@ class OnlineTransactionService:
                 'order_status': new_status,
                 'status': new_status,
                 'updated_at': now,
+                'last_status_change': now,  # Update status change timestamp
                 'updated_by': updated_by,
                 'notes': notes
             },
@@ -154,6 +158,7 @@ class OnlineTransactionService:
         if payment_status == 'paid' and order.get('order_status') == 'pending':
             update_data['order_status'] = 'confirmed'
             update_data['status'] = 'confirmed'
+            update_data['last_status_change'] = now  # Update status change timestamp
 
         self.online_transactions.update_one({'_id': order_id}, {'$set': update_data})
         return self.online_transactions.find_one({'_id': order_id})
@@ -178,7 +183,8 @@ class OnlineTransactionService:
                 'status': 'on_the_way',
                 'prepared_by': prepared_by,
                 'delivery_notes': delivery_notes,
-                'updated_at': now
+                'updated_at': now,
+                'last_status_change': now,  # Update status change timestamp
             },
              '$push': {'status_history': {'status': 'on_the_way', 'timestamp': now}}}
         )
@@ -201,7 +207,8 @@ class OnlineTransactionService:
                 'status': 'completed',
                 'completed_by': completed_by,
                 'delivery_person': delivery_person,
-                'updated_at': now
+                'updated_at': now,
+                'last_status_change': now,  # Update status change timestamp
             },
              '$push': {'status_history': {'status': 'completed', 'timestamp': now}}}
         )
@@ -224,11 +231,106 @@ class OnlineTransactionService:
                 'status': 'cancelled',
                 'cancelled_by': cancelled_by,
                 'cancellation_reason': reason,
-                'updated_at': now
+                'updated_at': now,
+                'last_status_change': now,  # Update status change timestamp
             },
              '$push': {'status_history': {'status': 'cancelled', 'timestamp': now}}}
         )
         return self.online_transactions.find_one({'_id': order_id})
+
+    # ================================================================
+    # AUTOMATIC CANCELLATION FOR STALE PENDING ORDERS
+    # ================================================================
+
+    def auto_cancel_stale_pending_orders(self, timeout_minutes=30):
+        """
+        Automatically cancel orders that have been in 'pending' status 
+        for more than the specified timeout period.
+        
+        Args:
+            timeout_minutes: Number of minutes after which pending orders should be auto-cancelled
+            
+        Returns:
+            dict: Results of the auto-cancellation operation
+        """
+        cutoff_time = datetime.utcnow() - timedelta(minutes=timeout_minutes)
+        
+        # Find orders that are still pending and haven't had status change for more than timeout
+        stale_orders = self.online_transactions.find({
+            'order_status': 'pending',
+            'last_status_change': {'$lt': cutoff_time}
+        })
+        
+        cancelled_orders = []
+        failed_cancellations = []
+        
+        for order in stale_orders:
+            try:
+                order_id = order['_id']
+                logger.info(f"Auto-cancelling stale pending order: {order_id}")
+                
+                # Use the existing cancel method but with system as the canceller
+                cancelled_order = self.cancel_online_order(
+                    order_id=order_id,
+                    reason=f"Automatically cancelled by system - order stuck in pending status for more than {timeout_minutes} minutes",
+                    cancelled_by="system"
+                )
+                
+                cancelled_orders.append({
+                    'order_id': order_id,
+                    'customer_id': order.get('customer_id'),
+                    'total_amount': order.get('total_amount'),
+                    'cancelled_at': datetime.utcnow()
+                })
+                
+                logger.info(f"Successfully auto-cancelled order: {order_id}")
+                
+            except Exception as e:
+                error_msg = f"Failed to auto-cancel order {order.get('_id', 'unknown')}: {str(e)}"
+                logger.error(error_msg)
+                failed_cancellations.append({
+                    'order_id': order.get('_id'),
+                    'error': str(e)
+                })
+        
+        return {
+            'success': True,
+            'cancelled_count': len(cancelled_orders),
+            'failed_count': len(failed_cancellations),
+            'cancelled_orders': cancelled_orders,
+            'failed_cancellations': failed_cancellations,
+            'timestamp': datetime.utcnow()
+        }
+
+    def get_stale_pending_orders(self, timeout_minutes=30):
+        """
+        Get list of orders that are stuck in pending status beyond the timeout period.
+        Useful for monitoring and manual review.
+        """
+        cutoff_time = datetime.utcnow() - timedelta(minutes=timeout_minutes)
+        
+        stale_orders = list(self.online_transactions.find({
+            'order_status': 'pending',
+            'last_status_change': {'$lt': cutoff_time}
+        }).sort('last_status_change', 1))  # Sort by oldest first
+        
+        return {
+            'count': len(stale_orders),
+            'timeout_minutes': timeout_minutes,
+            'cutoff_time': cutoff_time,
+            'stale_orders': [
+                {
+                    'order_id': order['_id'],
+                    'customer_id': order.get('customer_id'),
+                    'customer_name': order.get('customer_name'),
+                    'total_amount': order.get('total_amount'),
+                    'last_status_change': order.get('last_status_change'),
+                    'created_at': order.get('created_at'),
+                    'minutes_stale': int((datetime.utcnow() - order.get('last_status_change')).total_seconds() / 60)
+                }
+                for order in stale_orders
+            ]
+        }
 
     # ================================================================
     # VALIDATION & REPORTING
