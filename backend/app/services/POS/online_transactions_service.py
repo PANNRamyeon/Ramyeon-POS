@@ -1,10 +1,7 @@
 from datetime import datetime, timedelta
 from ...database import db_manager
 import logging
-<<<<<<< Updated upstream
-=======
-from notifications.services import NotificationService
->>>>>>> Stashed changes
+from notifications.services import NotificationService  # Fixed import path
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +12,14 @@ class OnlineTransactionService:
         self.db = db_manager.get_database()
         self.customers = self.db.customers
         self.online_transactions = self.db.online_transactions
-        self.products = self.db.products  # assuming product stock is managed here
+        self.products = self.db.products
+        self.products_collection = self.db.products  # Added for consistency
+        self.customers_collection = self.db.customers  # Added for consistency
+        self.notification_service = NotificationService()  # Fixed: instance variable
+        
+        # Import and initialize batch service
+        from .batch_service import BatchService
+        self.batch_service = BatchService()
 
     # ================================================================
     # HELPER METHODS
@@ -24,6 +28,9 @@ class OnlineTransactionService:
     def _generate_order_id(self) -> str:
         count = self.online_transactions.count_documents({}) + 1
         return f"ONLINE-{count:06d}"
+
+    def generate_online_order_id(self) -> str:  # Added missing method
+        return self._generate_order_id()
 
     def _compute_items(self, items):
         computed = []
@@ -59,68 +66,607 @@ class OnlineTransactionService:
         # Earn rate: 20% of order value
         return int(round(subtotal_after_discount * 0.20))
 
+    def calculate_points_discount(self, points_to_redeem):  # Added missing method
+        """Convert points to discount amount (4 points = ₱1)"""
+        return points_to_redeem / 4.0
+
+    def calculate_loyalty_points_earned(self, subtotal_after_discount):  # Added missing method
+        """Calculate loyalty points earned (20% of subtotal after discount)"""
+        return int(round(subtotal_after_discount * 0.20))
+
+    def calculate_service_fee(self, subtotal_after_discount, delivery_fee, payment_method):  # Added missing method
+        """Calculate service fee based on order details"""
+        # Basic service fee logic - adjust as needed
+        base_fee = 15.0
+        if payment_method == 'cod':
+            base_fee += 5.0  # Additional fee for COD
+        
+        return {
+            'service_fee': base_fee,
+            'breakdown': {
+                'base_fee': 15.0,
+                'cod_surcharge': 5.0 if payment_method == 'cod' else 0
+            }
+        }
+
     # ================================================================
     # ORDER CREATION
     # ================================================================
+    
+    def validate_order_stock(self, items):
+        """
+        Validate stock availability for all items before order creation
+        
+        Args:
+            items: list of {'product_id': str, 'quantity': int}
+        
+        Returns:
+            dict: {
+                'valid': bool,
+                'errors': list,
+                'stock_details': dict
+            }
+        """
+        try:
+            errors = []
+            stock_details = {}
+            
+            for item in items:
+                product_id = item['product_id']
+                quantity = item['quantity']
+                
+                # Get product details
+                product = self.products_collection.find_one({'_id': product_id})
+                
+                if not product:
+                    errors.append(f"Product {product_id} not found")
+                    continue
+                
+                # Check batch availability
+                batch_check = self.batch_service.check_batch_availability(
+                    product_id, 
+                    quantity
+                )
+                
+                stock_details[product_id] = {
+                    'product_name': product.get('product_name', 'Unknown'),
+                    'requested': quantity,
+                    'available': batch_check['total_stock'],
+                    'sufficient': batch_check['available']
+                }
+                
+                if not batch_check['available']:
+                    errors.append(
+                        f"Insufficient stock for {product.get('product_name')}. "
+                        f"Available: {batch_check['total_stock']}, Requested: {quantity}"
+                    )
+            
+            return {
+                'valid': len(errors) == 0,
+                'errors': errors,
+                'stock_details': stock_details
+            }
+            
+        except Exception as e:
+            logger.error(f"Stock validation error: {str(e)}")
+            return {
+                'valid': False,
+                'errors': [f"Stock validation failed: {str(e)}"],
+                'stock_details': {}
+            }
+    
+    # ================================================================
+    # LOYALTY POINTS MANAGEMENT
+    # ================================================================
+    
+    def validate_points_redemption(self, customer_id, points_to_redeem, subtotal):
+        """
+        Validate loyalty points redemption
+        
+        Args:
+            customer_id: Customer ID
+            points_to_redeem: Points customer wants to use
+            subtotal: Order subtotal
+        
+        Returns:
+            dict: {'valid': bool, 'error': str}
+        """
+        try:
+            if points_to_redeem == 0:
+                return {'valid': True, 'error': None}
+            
+            # Minimum redemption: 40 points (₱10)
+            if points_to_redeem < 40:
+                return {
+                    'valid': False,
+                    'error': 'Minimum redemption is 40 points (₱10)'
+                }
+            
+            # Get customer
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                return {'valid': False, 'error': 'Customer not found'}
+            
+            # Check if customer has enough points
+            available_points = customer.get('loyalty_points', 0)
+            
+            if available_points < points_to_redeem:
+                return {
+                    'valid': False,
+                    'error': f'Insufficient points. Available: {available_points}, Requested: {points_to_redeem}'
+                }
+            
+            # Check max discount: min(₱20, 20% of subtotal)
+            points_discount = self.calculate_points_discount(points_to_redeem)
+            max_discount = min(20, subtotal * 0.20)
+            
+            if points_discount > max_discount:
+                max_points = int(max_discount * 4)  # Convert back to points
+                return {
+                    'valid': False,
+                    'error': f'Points discount exceeds cap. Maximum: {max_points} points (₱{max_discount:.2f})'
+                }
+            
+            return {'valid': True, 'error': None}
+            
+        except Exception as e:
+            logger.error(f"Points validation error: {str(e)}")
+            return {'valid': False, 'error': str(e)}
+    
+    def deduct_customer_points(self, customer_id, points_to_deduct, order_id):
+        """
+        Deduct loyalty points from customer balance
+        
+        Args:
+            customer_id: Customer ID
+            points_to_deduct: Points to deduct
+            order_id: Order ID for transaction history
+        """
+        try:
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                raise ValueError(f"Customer {customer_id} not found")
+            
+            current_balance = customer.get('loyalty_points', 0)
+            new_balance = current_balance - points_to_deduct
+            
+            # Create points transaction
+            points_transaction = {
+                'transaction_id': order_id,
+                'transaction_type': 'redeemed',
+                'points': -points_to_deduct,
+                'balance_before': current_balance,
+                'balance_after': new_balance,
+                'description': f"Redeemed {points_to_deduct} points on order {order_id}",
+                'created_at': datetime.utcnow()
+            }
+            
+            # Update customer
+            self.customers_collection.update_one(
+                {'_id': customer_id},
+                {
+                    '$set': {'loyalty_points': new_balance},
+                    '$push': {'points_transactions': points_transaction}
+                }
+            )
+            
+            logger.info(f"Deducted {points_to_deduct} points from {customer_id}")
+            
+        except Exception as e:
+            logger.error(f"Error deducting points: {str(e)}")
+            raise
+    
+    def award_loyalty_points(self, customer_id, points_to_award, order_id, order_amount):
+        """
+        Award loyalty points to customer when order is completed
+        
+        Args:
+            customer_id: Customer ID
+            points_to_award: Points to award
+            order_id: Order ID
+            order_amount: Order subtotal after discount
+        """
+        try:
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                raise ValueError(f"Customer {customer_id} not found")
+            
+            current_balance = customer.get('loyalty_points', 0)
+            new_balance = current_balance + points_to_award
+            
+            # Points expire in 12 months
+            expires_at = datetime.utcnow() + timedelta(days=365)
+            
+            # Create points transaction
+            points_transaction = {
+                'transaction_id': order_id,
+                'transaction_type': 'earned',
+                'points': points_to_award,
+                'balance_before': current_balance,
+                'balance_after': new_balance,
+                'description': f"Earned from order {order_id} (₱{order_amount:.2f} purchase)",
+                'earned_at': datetime.utcnow(),
+                'expires_at': expires_at,
+                'status': 'active',
+                'created_at': datetime.utcnow()
+            }
+            
+            # Update customer
+            self.customers_collection.update_one(
+                {'_id': customer_id},
+                {
+                    '$set': {
+                        'loyalty_points': new_balance,
+                        'last_purchase': datetime.utcnow()
+                    },
+                    '$push': {'points_transactions': points_transaction}
+                }
+            )
+            
+            logger.info(f"Awarded {points_to_award} points to {customer_id}")
+            
+            # Send notification - FIXED: use self.notification_service
+            self.notification_service.create_notification(
+                title="Loyalty Points Earned!",
+                message=f"You earned {points_to_award} points from your order! New balance: {new_balance} points (₱{new_balance/4:.2f})",
+                priority="low",
+                notification_type="loyalty",
+                metadata={
+                    'customer_id': customer_id,
+                    'order_id': order_id,
+                    'points_earned': points_to_award,
+                    'new_balance': new_balance
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"Error awarding points: {str(e)}")
+            raise
+    
+    def refund_customer_points(self, customer_id, points_to_refund, order_id):
+        """
+        Refund loyalty points when order is cancelled
+        
+        Args:
+            customer_id: Customer ID
+            points_to_refund: Points to refund
+            order_id: Order ID
+        """
+        try:
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                raise ValueError(f"Customer {customer_id} not found")
+            
+            current_balance = customer.get('loyalty_points', 0)
+            new_balance = current_balance + points_to_refund
+            
+            # Create points transaction
+            points_transaction = {
+                'transaction_id': f"{order_id}-CANCEL",
+                'transaction_type': 'refunded',
+                'points': points_to_refund,
+                'balance_before': current_balance,
+                'balance_after': new_balance,
+                'description': f"Refunded {points_to_refund} points from cancelled order {order_id}",
+                'created_at': datetime.utcnow()
+            }
+            
+            # Update customer
+            self.customers_collection.update_one(
+                {'_id': customer_id},
+                {
+                    '$set': {'loyalty_points': new_balance},
+                    '$push': {'points_transactions': points_transaction}
+                }
+            )
+            
+            logger.info(f"Refunded {points_to_refund} points to {customer_id}")
+            
+        except Exception as e:
+            logger.error(f"Error refunding points: {str(e)}")
+            raise
 
-    def create_online_order(self, order_data: dict, customer_id: str):
-        if not customer_id:
-            raise ValueError("customer_id is required")
+    def _send_order_notification(self, notification_type, order_id):  # Added missing method
+        """
+        Send notification for order events
+        
+        Args:
+            notification_type: Type of notification
+            order_id: Order ID
+        """
+        try:
+            order = self.get_order_by_id(order_id)
+            if not order:
+                logger.warning(f"Order {order_id} not found for notification")
+                return
 
-        items_in = order_data.get('items', [])
-        delivery_address = order_data.get('delivery_address', {})
-        payment_method = order_data.get('payment_method', 'cod')
-        delivery_type = order_data.get('delivery_type', 'delivery')
-        points_to_redeem = int(order_data.get('points_to_redeem', 0) or 0)
-        notes = order_data.get('notes', '')
+            notification_config = {
+                'new_order_created': {
+                    'title': 'New Online Order Created',
+                    'message': f'New online order {order_id} has been created.',
+                    'priority': 'medium',
+                    'type': 'online_order'
+                }
+            }
 
-        # Lookup customer (allow guest orders)
-        customer = self.customers.find_one({'_id': customer_id}) if customer_id else None
+            config = notification_config.get(notification_type)
+            if not config:
+                logger.warning(f"Unknown notification type: {notification_type}")
+                return
 
-        # Compute order values
-        items, subtotal = self._compute_items(items_in)
-        points_discount, pts_used = self._compute_points_discount(points_to_redeem, subtotal)
-        subtotal_after_discount = round(subtotal - points_discount, 2)
-        delivery_fee, service_fee = self._compute_fees(delivery_type)
-        total_amount = round(subtotal_after_discount + delivery_fee + service_fee, 2)
+            self.notification_service.create_notification(
+                title=config['title'],
+                message=config['message'],
+                priority=config['priority'],
+                notification_type=config['type'],
+                metadata={
+                    'order_id': order_id,
+                    'customer_id': order.get('customer_id'),
+                    'total_amount': order.get('total_amount'),
+                    'order_status': order.get('order_status')
+                }
+            )
 
-        order_id = self._generate_order_id()
-        now_utc = datetime.utcnow()
-        now_local = now_utc + timedelta(hours=8)  # Asia/Manila
+        except Exception as e:
+            logger.error(f"Failed to send order notification: {str(e)}")
 
-        order_record = {
-            '_id': order_id,
-            'customer_id': customer_id or 'GUEST',
-            'customer_name': customer.get('full_name') if customer else 'Guest',
-            'customer_email': customer.get('email') if customer else None,
-            'transaction_date': now_utc,
-            'transaction_date_local': now_local,
-            'timezone': 'Asia/Manila',
-            'delivery_address': delivery_address,
-            'delivery_type': delivery_type,
-            'items': items,
-            'subtotal': subtotal,
-            'points_redeemed': pts_used,
-            'points_discount': points_discount,
-            'subtotal_after_discount': subtotal_after_discount,
-            'delivery_fee': delivery_fee,
-            'service_fee': service_fee,
-            'total_amount': total_amount,
-            'payment_method': payment_method,
-            'payment_status': 'pending',
-            'order_status': 'pending',
-            'status': 'pending',
-            'notes': notes,
-            'status_history': [{'status': 'pending', 'timestamp': now_utc}],
-            'loyalty_points_earned': self._compute_points_earned(subtotal_after_discount),
-            'created_at': now_utc,
-            'updated_at': now_utc,
-            'last_status_change': now_utc,  # Track when status was last changed
-        }
-
-        self.online_transactions.insert_one(order_record)
-        return {'success': True, 'data': {'order_id': order_id, 'order': order_record}}
-
+    # ================================================================
+    # CORE ORDER OPERATIONS
+    # ================================================================
+    
+    def create_online_order(self, order_data, customer_id):
+        """
+        Create a new online order with FIFO batch deduction and usage_history tracking
+        
+        Args:
+            order_data: Dictionary containing order information
+            customer_id: Customer ID (CUST-##### format)
+        
+        Returns:
+            Dictionary with success status and created order data
+        """
+        try:
+            # Generate order ID
+            order_id = self.generate_online_order_id()
+            transaction_date = datetime.utcnow()
+            
+            print(f"\n{'='*60}")
+            print(f"🛒 Creating Online Order: {order_id}")
+            print(f"   Customer: {customer_id}")
+            print(f"   Items: {len(order_data.get('items', []))}")
+            print(f"{'='*60}\n")
+            
+            # Get customer details
+            customer = self.customers_collection.find_one({'_id': customer_id})
+            
+            if not customer:
+                raise ValueError(f"Customer {customer_id} not found")
+            
+            # Step 1: Validate stock availability
+            print("Step 1: Validating stock...")
+            stock_validation = self.validate_order_stock(order_data.get('items', []))
+            
+            if not stock_validation['valid']:
+                raise ValueError(f"Stock validation failed: {', '.join(stock_validation['errors'])}")
+            
+            print("✅ Stock validation passed\n")
+            
+            # Step 2: Calculate initial subtotal
+            print("Step 2: Calculating pricing...")
+            subtotal = 0
+            items_with_prices = []
+            
+            for item in order_data.get('items', []):
+                product = self.products_collection.find_one({'_id': item['product_id']})
+                
+                if not product:
+                    raise ValueError(f"Product {item['product_id']} not found")
+                
+                unit_price = product.get('selling_price', 0)
+                quantity = item['quantity']
+                item_subtotal = unit_price * quantity
+                
+                items_with_prices.append({
+                    'product_id': item['product_id'],
+                    'product_name': product.get('product_name'),
+                    'sku': product.get('SKU'),
+                    'quantity': quantity,
+                    'unit_price': unit_price,
+                    'subtotal': item_subtotal,
+                    'is_taxable': product.get('is_taxable', True)
+                })
+                
+                subtotal += item_subtotal
+            
+            print(f"   Subtotal: ₱{subtotal:.2f}")
+            
+            # Step 3: Apply points discount (if any)
+            points_to_redeem = order_data.get('points_to_redeem', 0)
+            points_discount = 0
+            
+            if points_to_redeem > 0:
+                print(f"Step 3: Applying points discount ({points_to_redeem} points)...")
+                
+                # Validate points redemption
+                points_validation = self.validate_points_redemption(
+                    customer_id, 
+                    points_to_redeem, 
+                    subtotal
+                )
+                
+                if not points_validation['valid']:
+                    raise ValueError(points_validation['error'])
+                
+                points_discount = self.calculate_points_discount(points_to_redeem)
+                
+                # Deduct points from customer
+                self.deduct_customer_points(customer_id, points_to_redeem, order_id)
+                
+                print(f"   Points discount: ₱{points_discount:.2f}")
+            
+            subtotal_after_discount = subtotal - points_discount
+            print(f"   Subtotal after discount: ₱{subtotal_after_discount:.2f}")
+            
+            # Step 4: Calculate fees
+            delivery_fee = 50.00
+            payment_method = order_data.get('payment_method', 'cod')
+            service_fee_data = self.calculate_service_fee(
+                subtotal_after_discount,
+                delivery_fee,
+                payment_method
+            )
+            service_fee = service_fee_data['service_fee']
+            
+            print(f"   Delivery fee: ₱{delivery_fee:.2f}")
+            print(f"   Service fee: ₱{service_fee:.2f}")
+            
+            # Step 5: Calculate total
+            total_amount = subtotal_after_discount + delivery_fee + service_fee
+            print(f"   TOTAL: ₱{total_amount:.2f}\n")
+            
+            # Step 6: Calculate loyalty points to be earned
+            loyalty_points_earned = self.calculate_loyalty_points_earned(subtotal_after_discount)
+            print(f"Step 4: Loyalty points to earn: {loyalty_points_earned} points\n")
+            
+            # Step 7: Build order record
+            print("Step 5: Processing order items with FIFO...\n")
+            
+            order_record = {
+                '_id': order_id,
+                'customer_id': customer_id,
+                'customer_name': customer.get('full_name'),
+                'customer_email': customer.get('email'),
+                'customer_phone': customer.get('phone'),
+                'transaction_date': transaction_date,
+                'delivery_address': order_data.get('delivery_address', {}),
+                'items': [],  # Will be populated with batch tracking
+                'subtotal': round(subtotal, 2),
+                'points_redeemed': points_to_redeem,
+                'points_discount': round(points_discount, 2),
+                'subtotal_after_discount': round(subtotal_after_discount, 2),
+                'delivery_fee': delivery_fee,
+                'service_fee': service_fee,
+                'service_fee_breakdown': service_fee_data['breakdown'],
+                'total_amount': round(total_amount, 2),
+                'payment_method': payment_method,
+                'payment_status': 'pending',
+                'payment_reference': None,
+                'payment_confirmed_by': None,
+                'payment_confirmed_at': None,
+                'paymongo_payment_id': None,
+                'order_status': 'pending',
+                'status_history': [
+                    {
+                        'status': 'pending',
+                        'timestamp': transaction_date,
+                        'updated_by': 'system',
+                        'notes': 'Order created'
+                    }
+                ],
+                'loyalty_points_earned': loyalty_points_earned,
+                'loyalty_points_used': points_to_redeem,
+                'points_awarded': False,
+                'is_cancelled': False,
+                'cancellation_reason': None,
+                'cancelled_by': None,
+                'cancelled_at': None,
+                'stock_restored': False,
+                'points_refunded': False,
+                'prepared_by': None,
+                'ready_at': None,
+                'delivered_at': None,
+                'delivery_person': None,
+                'source': 'online',
+                'created_at': transaction_date,
+                'updated_at': transaction_date,
+                'notes': order_data.get('notes', '')
+            }
+            
+            # Step 8: Process each item with FIFO batch deduction
+            for item in items_with_prices:
+                product_id = item['product_id']
+                quantity_needed = item['quantity']
+                
+                print(f"📦 Processing: {item['product_name']} ({product_id}) x{quantity_needed}")
+                
+                # ✅ PREPARE TRANSACTION INFO FOR USAGE_HISTORY
+                transaction_info = {
+                    'transaction_id': order_id,
+                    'adjusted_by': customer_id,
+                    'source': 'online_order'
+                }
+                
+                # ✅ Deduct from batches using FIFO with transaction tracking
+                batch_deductions = self.batch_service.deduct_stock_fifo(
+                    product_id,
+                    quantity_needed,
+                    transaction_date,
+                    transaction_info=transaction_info  # ✅ Pass transaction info
+                )
+                
+                # Add batches_used to item
+                item['batches_used'] = batch_deductions
+                
+                # Add item to order
+                order_record['items'].append(item)
+                
+                # Do not update product.stock; BatchService handles total_stock recomputation
+            
+            # Step 9: Insert order record
+            self.online_transactions.insert_one(order_record)
+            
+            # Step 10: Auto-confirm COD orders
+            if payment_method == 'cod':
+                print("Step 6: Auto-confirming COD order...")
+                self.update_order_status(order_id, 'confirmed', 'system')
+            
+            print(f"{'='*60}")
+            print(f"✅ Online order created successfully: {order_id}")
+            print(f"{'='*60}\n")
+            
+            # Step 11: Send notifications
+            self._send_order_notification('new_order_created', order_id)
+            
+            return {
+                'success': True,
+                'message': 'Order created successfully',
+                'data': {
+                    'order': order_record,
+                    'order_id': order_id,
+                    'auto_confirmed': payment_method == 'cod'
+                }
+            }
+            
+        except ValueError as e:
+            print(f"❌ Validation error: {str(e)}")
+            
+            # Rollback: Refund points if they were deducted
+            if 'points_to_redeem' in locals() and points_to_redeem > 0:
+                try:
+                    self.refund_customer_points(customer_id, points_to_redeem, f"{order_id}-ROLLBACK")
+                except:
+                    pass
+            
+            raise
+            
+        except Exception as e:
+            print(f"❌ Unexpected error creating online order: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+            # Rollback: Refund points if they were deducted
+            if 'points_to_redeem' in locals() and points_to_redeem > 0:
+                try:
+                    self.refund_customer_points(customer_id, points_to_redeem, f"{order_id}-ROLLBACK")
+                except:
+                    pass
+            
+            raise Exception(f"Error creating online order: {str(e)}")
+    
     # ================================================================
     # ORDER STATUS & PAYMENT UPDATES
     # ================================================================
@@ -339,16 +885,6 @@ class OnlineTransactionService:
     # ================================================================
     # VALIDATION & REPORTING
     # ================================================================
-
-    def validate_order_stock(self, items):
-        unavailable = []
-        for item in items:
-            product_id = item.get('product_id')
-            qty = int(item.get('quantity', 1))
-            product = self.products.find_one({'_id': product_id})
-            if not product or product.get('stock', 0) < qty:
-                unavailable.append({'product_id': product_id, 'available': product.get('stock', 0) if product else 0})
-        return {'unavailable': unavailable, 'valid': len(unavailable) == 0}
 
     def get_order_summary(self, start_date, end_date):
         cursor = self.online_transactions.find({
