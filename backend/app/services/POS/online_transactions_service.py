@@ -1,6 +1,10 @@
 from datetime import datetime, timedelta
 from ...database import db_manager
 import logging
+<<<<<<< Updated upstream
+=======
+from notifications.services import NotificationService
+>>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
