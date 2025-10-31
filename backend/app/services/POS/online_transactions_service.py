@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from ...database import db_manager
 import logging
+from ....notifications.services import NotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ class OnlineTransactionService:
         self.customers = self.db.customers
         self.online_transactions = self.db.online_transactions
         self.products = self.db.products  # assuming product stock is managed here
-
+        notification_service = NotificationService()
     # ================================================================
     # HELPER METHODS
     # ================================================================
@@ -275,7 +276,7 @@ class OnlineTransactionService:
             logger.info(f"Awarded {points_to_award} points to {customer_id}")
             
             # Send notification
-            notification_service.create_notification(
+            self.notification_service.create_notification(
                 title="Loyalty Points Earned!",
                 message=f"You earned {points_to_award} points from your order! New balance: {new_balance} points (₱{new_balance/4:.2f})",
                 priority="low",
