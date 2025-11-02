@@ -516,3 +516,45 @@ class SystemStatusView(APIView):
                 "status": "error",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# ================ SYNC VIEWS ================
+
+class SyncStatusView(APIView):
+    """Get sync status and trigger manual sync"""
+    
+    def get(self, request):
+        """Get current sync status"""
+        try:
+            from ...services.sync_service import sync_service
+            
+            sync_status = sync_service.get_sync_status()
+            
+            return Response(sync_status, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error in SyncStatusView: {e}")
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def post(self, request):
+        """Trigger manual sync"""
+        try:
+            from ...services.sync_service import sync_service
+            
+            # Run background sync
+            sync_service.sync_background()
+            
+            # Get updated status
+            sync_status = sync_service.get_sync_status()
+            
+            return Response({
+                "message": "Sync triggered successfully",
+                "status": sync_status
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Error triggering sync: {e}")
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

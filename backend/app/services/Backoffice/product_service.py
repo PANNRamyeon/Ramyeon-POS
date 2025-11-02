@@ -512,7 +512,6 @@ class ProductService:
                                     '$push': {'stock_history': stock_history_entry}
                                 }
                             )
-                            logger.info(f"✅ Synced stock update to cloud for {product_id}")
                             self.update_sync_status(product_id, sync_status='synced', source='cloud')
                     except Exception as e:
                         logger.error(f"❌ Failed to sync stock update to cloud: {e}")

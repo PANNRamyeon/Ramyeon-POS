@@ -174,9 +174,6 @@ class BatchService:
                 }
             )
             
-            if update_result.modified_count > 0:
-                logger.info(f"✅ Synced product {product_id} total_stock to {total_remaining} (from {len(batches)} batches)")
-            
             # Also sync to cloud if online
             try:
                 from ..sync_service import sync_service
@@ -194,7 +191,6 @@ class BatchService:
                                 }
                             }
                         )
-                        logger.info(f"✅ Synced product {product_id} total_stock to cloud: {total_remaining}")
                         sync_service.add_sync_log_to_document('products', product_id, 'synced', 'cloud', {'action': 'batch_sync'})
             except Exception as e:
                 logger.warning(f"Could not sync to cloud: {e}")

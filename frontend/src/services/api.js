@@ -399,6 +399,25 @@ class ApiService {
     }
   }
 
+  // SYNC METHODS
+  async getSyncStatus() {
+    try {
+      const response = await api.get('/sync/status/');
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  async triggerSync() {
+    try {
+      const response = await api.post('/sync/status/');
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
   // SHIFT METHODS
   async startShift(cashierId, openingCash) {
     try {

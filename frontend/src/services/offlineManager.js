@@ -20,10 +20,8 @@ class OfflineManager {
       const stored = localStorage.getItem(this.storageKey)
       if (stored) {
         this.queue = JSON.parse(stored)
-        console.log(`📦 Loaded ${this.queue.length} queued requests from storage`)
       }
     } catch (error) {
-      console.error('❌ Failed to load offline queue:', error)
       this.queue = []
     }
   }
@@ -35,7 +33,7 @@ class OfflineManager {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.queue))
     } catch (error) {
-      console.error('❌ Failed to save offline queue:', error)
+      // Silent fail
     }
   }
   
@@ -45,8 +43,6 @@ class OfflineManager {
    * @returns {Promise}
    */
   async queueRequest(requestConfig) {
-    console.log('📴 Queuing request for offline sync:', requestConfig.url)
-    
     const queueItem = {
       id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       config: requestConfig,
@@ -59,7 +55,6 @@ class OfflineManager {
     
     // Limit queue size
     if (this.queue.length > this.maxQueueSize) {
-      console.warn('⚠️ Queue full, removing oldest items')
       this.queue = this.queue.slice(-this.maxQueueSize)
     }
     
@@ -87,16 +82,12 @@ class OfflineManager {
    */
   async syncQueuedRequests() {
     if (!navigator.onLine) {
-      console.log('📴 Still offline, skipping sync')
       return { synced: 0, failed: 0, total: this.queue.length }
     }
     
     if (this.queue.length === 0) {
-      console.log('✅ No queued requests to sync')
       return { synced: 0, failed: 0, total: 0 }
     }
-    
-    console.log(`🔄 Syncing ${this.queue.length} queued requests...`)
     
     const results = {
       synced: 0,
@@ -114,12 +105,9 @@ class OfflineManager {
         // Retry the original request
         await api(item.config)
         
-        console.log(`✅ Synced queued request: ${item.config.url}`)
         results.synced++
         
       } catch (error) {
-        console.error(`❌ Failed to sync queued request:`, error)
-        
         // Increment retry count
         item.retries++
         
@@ -127,7 +115,6 @@ class OfflineManager {
         if (item.retries < 3) {
           remainingQueue.push(item)
         } else {
-          console.warn(`⚠️ Max retries reached for: ${item.config.url}`)
           results.failed++
         }
       }
@@ -136,8 +123,6 @@ class OfflineManager {
     // Update queue
     this.queue = remainingQueue
     this.saveQueue()
-    
-    console.log(`✅ Sync complete: ${results.synced} synced, ${results.failed} failed`)
     
     return results
   }
@@ -148,7 +133,6 @@ class OfflineManager {
   clearQueue() {
     this.queue = []
     localStorage.removeItem(this.storageKey)
-    console.log('🧹 Offline queue cleared')
   }
   
   /**

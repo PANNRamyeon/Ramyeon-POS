@@ -27,20 +27,16 @@ class DatabaseManager:
             if self._initialized:
                 return
                 
-            logger.info("🔌 Initializing dual-mode database connections...")
-            
             # Connect to local (required)
             local_success = self.connect_to_local()
             if not local_success:
-                raise Exception("❌ Failed to connect to local MongoDB - this is required for offline mode")
+                raise Exception("Failed to connect to local MongoDB - this is required for offline mode")
             
             # Try to connect to cloud (optional)
             cloud_success = self.connect_to_cloud()
             if cloud_success:
-                logger.info("✅ Dual-mode initialized: Local + Cloud")
                 self.is_online = True
             else:
-                logger.warning("⚠️ Starting in offline mode: Local only")
                 self.is_online = False
                 
             self._initialized = True
@@ -63,7 +59,6 @@ class DatabaseManager:
             self.cloud_client.admin.command('ping')
             self.cloud_db = self.cloud_client[database_name]
             
-            logger.info("✅ Connected to MongoDB Atlas (Cloud)")
             return True
         except Exception as e:
             logger.error(f"❌ Failed to connect to MongoDB Atlas: {e}")
@@ -147,15 +142,17 @@ class DatabaseManager:
                 # Ping to verify connection
                 self.cloud_client.admin.command('ping', maxTimeMS=3000)
                 
-                if not self.is_online:
-                    logger.info("🌐 Back online! Cloud connection restored")
-                    
+                # Restore cloud_db if it was None
+                if self.cloud_db is None:
+                    database_name = config('MONGODB_DATABASE', default='pos_system')
+                    self.cloud_db = self.cloud_client[database_name]
+                
                 self.is_online = True
                 return True
         except Exception as e:
             if self.is_online:
-                logger.warning(f"📴 Gone offline: {e}")
-                
+                pass  # Silent transition to offline
+            
             self.is_online = False
             self.cloud_db = None
             return False

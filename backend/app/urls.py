@@ -14,7 +14,8 @@ from .kpi_views.Backoffice.session_views import (
     SessionExportView,  
     ForceLogoutView,
     BulkSessionControlView, 
-    SystemStatusView
+    SystemStatusView,
+    SyncStatusView
 )
 
 from .kpi_views.Backoffice.user_views import (
@@ -232,6 +233,7 @@ urlpatterns = [
     path('', SystemStatusView.as_view(), name='system-status'),  # Root endpoint
     path('health/', HealthCheckView.as_view(), name='health-check'),
     path('docs/', APIDocumentationView.as_view(), name='api-documentation'),
+    path('sync/status/', SyncStatusView.as_view(), name='sync-status'),  # GET/POST sync status
     
     # ========== AUTHENTICATION ==========
     path('auth/login/', LoginView.as_view(), name='login'),

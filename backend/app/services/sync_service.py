@@ -1,5 +1,5 @@
 # app/services/sync_service.py
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..database import db_manager
 from ..models import SalesLog, Product, Customer
 import logging
@@ -22,11 +22,10 @@ class SyncService:
         
     def get_databases(self):
         """Get both local and cloud database connections"""
-        if self.local_db is None:
-            self.local_db = db_manager.get_local_database()
-        if self.cloud_db is None:
-            self.cloud_db = db_manager.get_cloud_database()
-        return self.local_db, self.cloud_db
+        # Always fetch fresh references to avoid caching issues
+        local_db = db_manager.get_local_database()
+        cloud_db = db_manager.get_cloud_database()
+        return local_db, cloud_db
     
     def sync_transaction_immediate(self, collection_name, document):
         """
@@ -40,7 +39,6 @@ class SyncService:
             bool: True if synced successfully, False if queued
         """
         if not db_manager.is_online:
-            logger.info(f"📴 Offline: Queuing {collection_name} transaction")
             self.add_to_sync_queue(collection_name, document)
             return False
         
@@ -57,7 +55,6 @@ class SyncService:
             # Add sync log
             self.add_sync_log_to_document(collection_name, document.get('_id'), 'synced', 'cloud')
             
-            logger.info(f"✅ Synced {collection_name} transaction to cloud: {document.get('_id')}")
             return True
             
         except Exception as e:
@@ -70,12 +67,12 @@ class SyncService:
         Background sync process (called every 30 seconds when online).
         
         Operations:
-        1. Pull products from cloud → local (stock mirroring)
-        2. Process sync queue (push queued items to cloud)
-        3. Bidirectional sync for customers, categories, promotions
+        1. Sync recent batches bidirectionally (incremental, last 5 min)
+        2. Sync recent products from local → cloud (incremental, last 5 min)
+        3. Process sync queue (push queued items to cloud)
+        4. Bidirectional sync for customers, categories, promotions
         """
         if not db_manager.is_online:
-            logger.debug("📴 Skipping background sync - offline")
             return
         
         try:
@@ -83,51 +80,192 @@ class SyncService:
             if cloud_db is None:
                 return
             
-            logger.info("🔄 Starting background sync...")
+            # 1. Sync batches bidirectionally (admin creates in cloud, POS creates in local)
+            self.mirror_batches_from_local()
             
-            # 1. Mirror products from cloud to local
-            self.mirror_products_from_cloud()
+            # 2. Mirror products from local to cloud (local is primary in offline mode)
+            self.mirror_products_from_local()
             
-            # 2. Process sync queue
+            # 3. Process sync queue
             self.process_sync_queue()
             
-            # 3. Bidirectional sync for other entities
+            # 4. Bidirectional sync for other entities
             self.sync_bidirectional(['customers', 'categories', 'promotions'])
-            
-            logger.info("✅ Background sync completed")
             
         except Exception as e:
             logger.error(f"❌ Background sync error: {e}")
     
-    def mirror_products_from_cloud(self):
+    def mirror_products_from_local(self):
         """
-        Pull all products from cloud to local (for stock mirroring).
-        Products are completely replaced in local DB to ensure accuracy.
+        Push all products from local to cloud (for stock updates).
+        Uses incremental sync: only syncs products modified in the last 5 minutes.
         """
         try:
             local_db, cloud_db = self.get_databases()
             if cloud_db is None:
                 return
             
-            logger.info("🔄 Mirroring products from cloud to local...")
+            # Get products modified in last 5 minutes (for incremental sync)
+            five_min_ago = datetime.utcnow() - timedelta(minutes=5)
+            recent_products = local_db.products.find({
+                'updated_at': {'$gte': five_min_ago}
+            })
             
-            # Get all products from cloud
-            cloud_products = cloud_db.products.find({})
             mirrored_count = 0
-            
-            for product in cloud_products:
-                # Replace local product with cloud version (upsert)
-                result = local_db.products.replace_one(
+            for product in recent_products:
+                # Replace cloud product with local version (upsert)
+                result = cloud_db.products.replace_one(
                     {'_id': product['_id']},
                     product,
                     upsert=True
                 )
                 mirrored_count += 1
             
-            logger.info(f"✅ Mirrored {mirrored_count} products from cloud to local")
+        except Exception as e:
+            logger.error(f"❌ Product sync error: {e}")
+    
+    def mirror_batches_from_local(self):
+        """
+        Bidirectional sync for batches (admin creates in cloud, POS creates in local).
+        Uses incremental sync: only syncs batches modified in the last 5 minutes.
+        Conflict resolution: MERGE to prevent data loss.
+        """
+        try:
+            local_db, cloud_db = self.get_databases()
+            if cloud_db is None:
+                return
+            
+            # Get batches modified in last 5 minutes (for incremental sync)
+            five_min_ago = datetime.utcnow() - timedelta(minutes=5)
+            
+            # Push local batches to cloud (merge if conflict)
+            recent_local_batches = local_db.batches.find({
+                'updated_at': {'$gte': five_min_ago}
+            })
+            
+            for batch in recent_local_batches:
+                batch_id = batch['_id']
+                cloud_batch = cloud_db.batches.find_one({'_id': batch_id})
+                
+                if cloud_batch:
+                    # Merge batches to prevent data loss
+                    merged_batch = self._merge_batches(batch, cloud_batch)
+                    cloud_db.batches.replace_one({'_id': batch_id}, merged_batch)
+                else:
+                    # Batch doesn't exist in cloud, insert it
+                    cloud_db.batches.insert_one(batch)
+            
+            # Pull cloud batches to local (merge if conflict)
+            recent_cloud_batches = cloud_db.batches.find({
+                'updated_at': {'$gte': five_min_ago}
+            })
+            
+            for batch in recent_cloud_batches:
+                batch_id = batch['_id']
+                local_batch = local_db.batches.find_one({'_id': batch_id})
+                
+                if local_batch:
+                    # Merge batches to prevent data loss
+                    merged_batch = self._merge_batches(local_batch, batch)
+                    local_db.batches.replace_one({'_id': batch_id}, merged_batch)
+                else:
+                    # Batch doesn't exist in local, insert it
+                    local_db.batches.insert_one(batch)
             
         except Exception as e:
-            logger.error(f"❌ Product mirroring error: {e}")
+            logger.error(f"❌ Batch sync error: {e}")
+    
+    def _merge_batches(self, batch1, batch2):
+        """
+        Merge two batch documents to prevent data loss.
+        
+        Strategy:
+        - Merge usage_history from both batches
+        - Recalculate quantity_remaining from merged history
+        - Keep latest updated_at and status
+        - Merge other fields intelligently
+        
+        Args:
+            batch1: First batch document
+            batch2: Second batch document
+            
+        Returns:
+            Merged batch document
+        """
+        # Merge usage_history arrays from both batches
+        usage_history1 = batch1.get('usage_history', [])
+        usage_history2 = batch2.get('usage_history', [])
+        merged_history = usage_history1 + usage_history2
+        
+        # Remove duplicates by timestamp and quantity_used
+        # (in case same transaction appears in both)
+        seen = set()
+        unique_history = []
+        for entry in merged_history:
+            # Create unique key from timestamp, quantity, and adjustment_type
+            key = (
+                entry.get('timestamp'),
+                entry.get('quantity_used'),
+                entry.get('adjustment_type')
+            )
+            if key not in seen:
+                seen.add(key)
+                unique_history.append(entry)
+        
+        # Sort by timestamp to maintain chronological order
+        unique_history.sort(key=lambda x: x.get('timestamp', datetime(1970, 1, 1)))
+        
+        # Recalculate quantity_remaining from merged history
+        # Start with quantity_received and apply all usage_history entries
+        quantity_received = batch1.get('quantity_received', batch2.get('quantity_received', 0))
+        recalculated_remaining = quantity_received
+        
+        for entry in unique_history:
+            quantity_used = entry.get('quantity_used', 0)
+            # If quantity_used is negative, it's a restoration
+            recalculated_remaining -= quantity_used
+        
+        # Ensure non-negative
+        recalculated_remaining = max(0, recalculated_remaining)
+        
+        # Determine latest timestamp
+        time1 = batch1.get('updated_at', datetime(1970, 1, 1))
+        time2 = batch2.get('updated_at', datetime(1970, 1, 1))
+        latest_time = time2 if time2 > time1 else time1
+        
+        # Status priority: expired > depleted > active
+        # If either batch is expired, keep it expired
+        status1 = batch1.get('status', 'active')
+        status2 = batch2.get('status', 'active')
+        
+        if status1 == 'expired' or status2 == 'expired':
+            merged_status = 'expired'
+        elif recalculated_remaining == 0:
+            merged_status = 'depleted'
+        else:
+            merged_status = 'active'
+        
+        # Create merged batch document
+        merged_batch = {
+            '_id': batch1['_id'],
+            'product_id': batch1.get('product_id', batch2.get('product_id')),
+            'batch_number': batch1.get('batch_number', batch2.get('batch_number')),
+            'quantity_received': quantity_received,
+            'quantity_remaining': recalculated_remaining,
+            'cost_price': batch1.get('cost_price', batch2.get('cost_price', 0)),
+            'expiry_date': batch1.get('expiry_date', batch2.get('expiry_date')),
+            'expected_delivery_date': batch1.get('expected_delivery_date', batch2.get('expected_delivery_date')),
+            'date_received': batch1.get('date_received', batch2.get('date_received')),
+            'supplier_id': batch1.get('supplier_id', batch2.get('supplier_id')),
+            'status': merged_status,
+            'created_at': batch1.get('created_at', batch2.get('created_at')),
+            'updated_at': latest_time,
+            'notes': batch1.get('notes', batch2.get('notes', '')),
+            'usage_history': unique_history,
+            'sync_logs': batch1.get('sync_logs', batch2.get('sync_logs', []))
+        }
+        
+        return merged_batch
     
     def process_sync_queue(self):
         """Process queued items from local to cloud"""
@@ -145,8 +283,16 @@ class SyncService:
                     collection_name = item['collection']
                     document = item['document']
                     
-                    # Try to sync
-                    cloud_db[collection_name].insert_one(document)
+                    # Check if document already exists in cloud (could be synced already)
+                    doc_id = document.get('_id')
+                    existing_doc = cloud_db[collection_name].find_one({'_id': doc_id})
+                    
+                    if existing_doc:
+                        # Document exists, update it
+                        cloud_db[collection_name].replace_one({'_id': doc_id}, document)
+                    else:
+                        # Document doesn't exist, insert it
+                        cloud_db[collection_name].insert_one(document)
                     
                     # Mark as synced
                     local_db.sync_queue.update_one(
@@ -160,7 +306,6 @@ class SyncService:
                     )
                     
                     processed_count += 1
-                    logger.debug(f"✅ Synced queued {collection_name}: {document.get('_id')}")
                     
                 except Exception as e:
                     logger.error(f"❌ Failed to sync queued item: {e}")
@@ -176,9 +321,6 @@ class SyncService:
                         }
                     )
             
-            if processed_count > 0:
-                logger.info(f"✅ Processed {processed_count} queued items")
-                
         except Exception as e:
             logger.error(f"❌ Sync queue processing error: {e}")
     
@@ -227,9 +369,6 @@ class SyncService:
                     cloud_db[collection_name].insert_one(item)
                     synced_count += 1
             
-            if synced_count > 0:
-                logger.debug(f"✅ Bidirectional sync {collection_name}: {synced_count} items")
-                
         except Exception as e:
             logger.error(f"❌ Bidirectional sync error for {collection_name}: {e}")
     
@@ -247,7 +386,6 @@ class SyncService:
             }
             
             local_db.sync_queue.insert_one(queue_item)
-            logger.debug(f"📝 Added to sync queue: {collection_name} - {document.get('_id')}")
             
         except Exception as e:
             logger.error(f"❌ Failed to add to sync queue: {e}")
@@ -273,7 +411,6 @@ class SyncService:
             )
             
             if result.modified_count > 0:
-                logger.debug(f"✅ Added sync log to {collection_name}: {doc_id}")
                 return True
             return False
             

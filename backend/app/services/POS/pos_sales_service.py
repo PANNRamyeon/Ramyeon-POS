@@ -514,14 +514,12 @@ class POSSalesService:
             # ✅ Step 7b: Immediate sync to cloud if online
             if sync_service:
                 try:
-                    synced = sync_service.sync_transaction_immediate('sales', sale_record)
-                    if synced:
-                        logger.info(f"✅ Synced sale to cloud immediately: {sale_id}")
-                    else:
-                        logger.info(f"📝 Sale queued for later sync: {sale_id}")
+                    sync_service.sync_transaction_immediate('sales', sale_record)
                 except Exception as e:
                     logger.error(f"❌ Failed to sync sale to cloud: {e}")
                     # Already queued by sync_service
+            else:
+                logger.warning(f"⚠️ Sync service not available, sale {sale_id} will not sync")
             
             # ✅ Step 8: Award loyalty points to customer
             if customer_id and loyalty_points_earned > 0:
