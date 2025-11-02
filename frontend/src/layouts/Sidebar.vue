@@ -7,6 +7,9 @@
         </div>
       </div>
 
+      <!-- Sync Status Indicator -->
+      <SyncStatusIndicator />
+
       <!-- Navigation Menu -->
       <nav class="nav-menu">
         <!-- New Order -->
@@ -68,6 +71,16 @@
           <span class="nav-label">Settings</span>
         </div>
 
+        <!-- Shift -->
+        <div class="nav-item transition-theme" @click="handleNavigation('shift')" :class="{ active: currentPage === 'shift' }">
+          <div class="nav-icon-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
+              <path d="M280-280h80v-200h-80v200Zm160 0h80v-400h-80v400Zm160 0h80v-120h-80v120ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm0-560v560-560Z"/>
+            </svg>
+          </div>
+          <span class="nav-label">Shift</span>
+        </div>
+
         <!-- Logout -->
         <div class="nav-item transition-theme" @click="handleLogout">
           <div class="nav-icon-placeholder">
@@ -84,9 +97,13 @@
   <script>
   import onlineOrdersAPI from '@/services/apiOnlineOrder.js'
   import { api } from '@/services/api.js'
+  import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 
   export default {
     name: 'Sidebar',
+    components: {
+      SyncStatusIndicator
+    },
     data() {
       return {
         currentPage: 'dashboard',
@@ -119,18 +136,14 @@
     methods: {
       async fetchPendingOrderCount() {
         try {
-          console.log('📦 Fetching pending order count...')
-          
-          // ✅ Fetch orders with pending/confirmed/processing status
+          // Fetch orders with pending/confirmed/processing status
           const response = await api.get('/online/orders/', {
             params: {
               limit: 1000 // Get all orders (or use pagination)
             }
           })
           
-          console.log('📦 Orders response:', response.data)
-          
-          // ✅ Extract orders from response
+          // Extract orders from response
           let orders = []
           if (response.data.success && response.data.data?.orders) {
             orders = response.data.data.orders
@@ -140,9 +153,7 @@
             orders = response.data
           }
           
-          console.log('📦 Total orders found:', orders.length)
-          
-          // ✅ Count orders that are not completed or cancelled
+          // Count orders that are not completed or cancelled
           const pendingStatuses = ['pending', 'confirmed', 'processing', 'on_the_way']
           const pendingOrders = orders.filter(order => 
             pendingStatuses.includes(order.order_status?.toLowerCase())
@@ -150,26 +161,16 @@
           
           this.pendingOrderCount = pendingOrders.length
           
-          console.log('✅ Pending order count:', this.pendingOrderCount)
-          console.log('   Breakdown:', {
-            pending: orders.filter(o => o.order_status === 'pending').length,
-            confirmed: orders.filter(o => o.order_status === 'confirmed').length,
-            processing: orders.filter(o => o.order_status === 'processing').length,
-            on_the_way: orders.filter(o => o.order_status === 'on_the_way').length
-          })
-          
         } catch (error) {
-          console.error('❌ Failed to fetch pending orders:', error)
           // Don't show error to user, just silently fail
           this.pendingOrderCount = 0
         }
       },
       
       handleNavigation(page) {
-        console.log(`Sidebar navigating to: ${page}`)
         this.currentPage = page
         
-        // ✅ Refresh count when navigating to online-order page
+        // Refresh count when navigating to online-order page
         if (page === 'online-order') {
           this.fetchPendingOrderCount()
         }
@@ -178,14 +179,12 @@
       },
 
       handleLogout() {
-        console.log('Sidebar logout clicked')
         this.$emit('logout')
       },
 
       async fetchPendingCount() {
         try {
           const data = await onlineOrdersAPI.getAllOrders({ status: 'pending' })
-          console.log('[Sidebar] Pending orders raw response:', data)
           let count = 0
           let branch = 'none'
           if (Array.isArray(data)) {
@@ -201,11 +200,10 @@
             count = data.orders.length
             branch = 'orders[]'
           }
-          console.log('[Sidebar] Parsed pending count:', count, 'via branch:', branch)
           this.pendingCount = count
           this.updateAppBadge(count)
         } catch (e) {
-          console.error('[Sidebar] Failed to fetch pending orders count:', e)
+          // Failed to fetch pending orders count
         }
       },
 

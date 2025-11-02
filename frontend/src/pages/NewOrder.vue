@@ -479,6 +479,46 @@
         </div>
       </div>
     </div>
+
+    <!-- Shift Required Modal -->
+    <Teleport to="body">
+      <div 
+        v-if="showShiftRequiredModal"
+        class="modal-overlay"
+        @click.self="showShiftRequiredModal = false"
+      >
+        <div class="shift-modal">
+          <div class="shift-modal-header">
+            <div class="shift-modal-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <h3 class="shift-modal-title">Shift Required</h3>
+            <p class="shift-modal-message">
+              You need to start a shift before placing a sale. Would you like to go to the Shift page now?
+            </p>
+          </div>
+          
+          <div class="shift-modal-footer">
+            <button 
+              class="shift-modal-btn shift-modal-btn-cancel" 
+              @click="showShiftRequiredModal = false"
+            >
+              Cancel
+            </button>
+            <button 
+              class="shift-modal-btn shift-modal-btn-primary" 
+              @click="goToShiftPage"
+            >
+              Go to Shift
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -486,7 +526,7 @@
 import { useCartStore } from '@/stores/cartStores'
 import categoriesAPI from '@/services/apiCategory.js'
 import productsAPI from '@/services/apiProducts.js'
-import { api } from '@/services/api.js'
+import apiService, { api } from '@/services/api.js'
 import { useLocalStorage } from '@/composables/data/useLocalStorage.js'
 import { useCache } from '@/composables/data/useCache.js'
 import { useStockCache } from '@/composables/data/useStockCache.js'
@@ -526,6 +566,7 @@ export default {
       // Modal states
       showCategoryModal: false,
       showProductSelectorModal: false,
+      showShiftRequiredModal: false,
       
       // Navigation state
       viewMode: 'products',
@@ -638,15 +679,6 @@ export default {
     await this.initializeSession()
     await this.loadCategories()
     
-    // ✅ ADD: Debug log to verify category IDs
-    console.log('\n📋 ========================================')
-    console.log('   LOADED CATEGORIES')
-    console.log('📋 ========================================')
-    this.categories.forEach(cat => {
-      console.log(`   ${cat.name}: ${cat.id}`)
-    })
-    console.log('📋 ========================================\n')
-    
     // Set up periodic stock refresh (skip immediate auto-refresh if returning from checkout)
     this.startStockRefresh(shouldRefreshStock !== 'true')
     
@@ -658,7 +690,6 @@ export default {
     
     // Set up global function for direct cart addition
     window.addToCartDirectly = (product) => {
-      console.log('🔍 Global addToCartDirectly called with:', product)
       this.addToCart(product)
     }
     
@@ -699,25 +730,15 @@ export default {
     // Watch barcode scanner results
     'barcodeScanner.scanSuccess': {
       handler(newVal, oldVal) {
-        console.log('🔍 Barcode scanSuccess changed:', { newVal, oldVal })
-        console.log('🔍 scanResult:', this.barcodeScanner.scanResult)
         if (newVal && this.barcodeScanner.scanResult?.product) {
-          console.log('🔍 Triggering watchBarcodeResults')
           this.watchBarcodeResults()
-        } else {
-          console.log('🔍 Not triggering watchBarcodeResults:', { 
-            scanSuccess: newVal, 
-            hasProduct: !!(this.barcodeScanner.scanResult?.product) 
-          })
         }
       }
     },
     
-    // Watch cart items for debugging
+    // Watch cart items
     'cartStore.items': {
       handler(newItems, oldItems) {
-        console.log('🛒 Cart items changed:', newItems.length, 'items')
-        console.log('🛒 Cart items:', newItems)
         this.watchCartItems()
       },
       deep: true
@@ -947,28 +968,20 @@ export default {
       
       try {
         this.isRefreshingStock = true
-        console.log('🔄 Manual stock refresh triggered')
         
         // Clear cache for current category to force fresh data
         if (this.activeCategory) {
           const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
           this.storage?.removeItem(cacheKey)
           this.memCache?.delete(cacheKey)
-          console.log('🗑️ Cleared cache for:', cacheKey)
         }
         
-        await this.refreshStockLevels()
-        
-        // Force reload current category products
+        // Force reload current category products with fresh data
         if (this.activeCategory) {
           await this.loadProducts(this.activeCategory, this.currentSubcategory?.name)
         }
         
-        // Show success feedback
-        console.log('✅ Manual stock refresh completed')
-        
       } catch (error) {
-        console.error('❌ Manual stock refresh failed:', error)
         alert('Failed to refresh stock levels. Please try again.')
       } finally {
         this.isRefreshingStock = false
@@ -1019,14 +1032,6 @@ export default {
               ? product.batch_stock
               : null
             
-            console.log(`🔄 Stock update for ${product.name}:`, {
-              id: product.id,
-              total_stock: product.total_stock,
-              batch_stock: product.batch_stock,
-              stock: product.stock,
-              selectedValue: stockValue
-            })
-            
             if (product.id) {
               stockUpdates[product.id] = stockValue
             }
@@ -1042,7 +1047,7 @@ export default {
               }
             }
           } catch (error) {
-            console.error('  ❌ Error reading localStorage keys:', error)
+            // Error reading localStorage keys
           }
           
           let updatedCount = 0
@@ -1076,14 +1081,13 @@ export default {
               }
               
             } catch (error) {
-              console.error('  ❌ Error updating cache key', fullKey, ':', error)
+              // Error updating cache key
             }
           })
           
           
           
         } catch (error) {
-          console.error('  ❌ Failed to fetch products batch:', error)
           return
         }
         
@@ -1095,17 +1099,11 @@ export default {
           const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
           const refreshedProducts = this.storage?.getItem(cacheKey, null)
           if (Array.isArray(refreshedProducts)) {
-            console.log('🔄 Reloading products after stock update:', refreshedProducts.length, 'products')
-            // Log first few products to see their stock values
-            refreshedProducts.slice(0, 3).forEach(p => {
-              console.log(`  - ${p.name}: stock=${p.stock}, total_stock=${p.total_stock}`)
-            })
             this.products = refreshedProducts
           }
         }
         
       } catch (error) {
-        console.error('❌ Stock refresh failed:', error)
         // Don't throw - this is a background operation
       }
     },
@@ -1166,7 +1164,7 @@ export default {
             }
           }
         } catch (error) {
-          console.error('  ❌ Error reading localStorage keys:', error)
+          // Error reading localStorage keys
         }
         
         let updatedCount = 0
@@ -1190,7 +1188,7 @@ export default {
               updatedCount++
             }
           } catch (error) {
-            console.error('  ❌ Error updating cache key', fullKey, ':', error)
+            // Error updating cache key
           }
         })
         
@@ -1215,7 +1213,7 @@ export default {
             }
           })
         } catch (error) {
-          console.error('  ❌ Error updating custom category items:', error)
+          // Error updating custom category items
         }
         
         // If current view is activeCategory, try to re-hydrate from cache to ensure consistency
@@ -1232,7 +1230,7 @@ export default {
           }
         }
       } catch (error) {
-        console.error('❌ Targeted stock refresh failed:', error)
+        // Targeted stock refresh failed
       }
     },
     
@@ -1253,13 +1251,12 @@ export default {
         this.cartStore.initializeSession(cashierId, shiftId)
         
       } catch (error) {
-        console.error('❌ Session initialization failed:', error)
         this.error = error.message
         alert(`Failed to initialize session: ${error.message}\n\nPlease refresh the page or log in again.`)
       }
     },
 
-    // ✅ FIX: Load ALL products when modal opens
+    // FIX: Load ALL products when modal opens
     async openProductSelectorModal() {
       this.showProductSelectorModal = true
       
@@ -1272,7 +1269,7 @@ export default {
       }
     },
 
-    // ✅ FIX: New method to load all products at once
+    // FIX: New method to load all products at once
     async loadAllProductsForSelection() {
       try {
         this.productsLoading = true
@@ -1290,7 +1287,6 @@ export default {
         this.allProducts = allCategoryProducts.flat()
         
       } catch (error) {
-        console.error('Failed to load all products:', error)
         this.error = error.message
       } finally {
         this.productsLoading = false
@@ -1319,7 +1315,6 @@ export default {
         }
         
       } catch (error) {
-        console.error('Failed to load categories:', error)
         this.error = error.message
       } finally {
         this.loading = false
@@ -1378,7 +1373,6 @@ export default {
         this.products = products
         
       } catch (error) {
-        console.error('Failed to load products:', error)
         this.error = error.message
         this.products = []
       } finally {
@@ -1634,19 +1628,8 @@ export default {
       }
       
       try {
-        console.log('🎟️ Fetching available promotions...')
-        console.log('📦 Cart items:', this.cartItems.length)
-        
-        // ✅ Fetch active promotions from backoffice endpoint
+        // Fetch active promotions from backoffice endpoint
         const response = await api.get('/promotions/active/')
-        
-        console.log('📦 Full response:', response)
-        console.log('📦 Response data:', response.data)
-        
-        // ✅ LOG RAW PROMOTION DATA FOR DEBUGGING
-        console.log('\n🔍 ========================================')
-        console.log('   RAW PROMOTION DATA')
-        console.log('🔍 ========================================')
         
         let allPromotions = []
         
@@ -1654,58 +1637,38 @@ export default {
           if (response.data.success === true) {
             allPromotions = response.data.promotions || []
             
-            // ✅ LOG EACH PROMOTION IN DETAIL
+            // Check if discount_config needs parsing
             allPromotions.forEach((promo, index) => {
-              console.log(`\nPromotion ${index + 1}: ${promo.name}`)
-              console.log('   Full object:', promo)
-              console.log('   discount_config:', promo.discount_config)
-              console.log('   discount_config type:', typeof promo.discount_config)
-              
-              // ✅ Check if it's a string that needs parsing
               if (typeof promo.discount_config === 'string') {
-                console.log('   ⚠️ discount_config is a STRING, needs parsing!')
                 try {
                   const parsed = JSON.parse(promo.discount_config)
-                  console.log('   ✅ Parsed discount_config:', parsed)
                 } catch (e) {
-                  console.log('   ❌ Failed to parse:', e)
+                  // Failed to parse
                 }
               }
             })
-            
-          } else {
-            console.warn('⚠️ Success is not true')
           }
         }
         
-        console.log('🔍 ========================================\n')
-        
-        console.log('🔍 ========================================\n')
-        
-        
         if (!Array.isArray(allPromotions)) {
-          console.error('❌ allPromotions is not an array:', typeof allPromotions)
           this.availablePromotions = []
           this.filteredPromoSuggestions = []
           return
         }
         
         if (allPromotions.length === 0) {
-          console.warn('⚠️ No promotions found')
           this.availablePromotions = []
           this.filteredPromoSuggestions = []
           return
         }
         
-        // ✅ FIX: Parse discount_config if it's a string
+        // FIX: Parse discount_config if it's a string
         allPromotions = allPromotions.map(promo => {
           // Check if discount_config is a string that needs parsing
           if (typeof promo.discount_config === 'string') {
             try {
               promo.discount_config = JSON.parse(promo.discount_config)
-              console.log(`✅ Parsed discount_config for: ${promo.name}`, promo.discount_config)
             } catch (e) {
-              console.error(`❌ Failed to parse discount_config for ${promo.name}:`, e)
               // Set default if parsing fails
               promo.discount_config = {
                 target_type: 'all',
@@ -1714,30 +1677,25 @@ export default {
             }
           }
           
-          // ✅ ENSURE: discount_config exists
+          // ENSURE: discount_config exists
           if (!promo.discount_config) {
-            console.warn(`⚠️ Missing discount_config for ${promo.name}, using default`)
             promo.discount_config = {
               target_type: 'all',
               target_ids: []
             }
           }
           
-          // ✅ ENSURE: discount_config has required fields
+          // ENSURE: discount_config has required fields
           if (!promo.discount_config.target_type) {
-            console.warn(`⚠️ Missing target_type for ${promo.name}, defaulting to 'all'`)
             promo.discount_config.target_type = 'all'
           }
           
           if (!promo.discount_config.target_ids) {
-            console.warn(`⚠️ Missing target_ids for ${promo.name}, defaulting to []`)
             promo.discount_config.target_ids = []
           }
           
           return promo
         })
-        
-        console.log('✅ Promotions after parsing:', allPromotions)
         
         // Calculate discount for each promotion
         const applicablePromotions = []
@@ -1754,7 +1712,7 @@ export default {
               })
             }
           } catch (calcError) {
-            console.error(`❌ Error calculating discount for ${promo.name}:`, calcError)
+            // Error calculating discount
           }
         }
         
@@ -1765,90 +1723,40 @@ export default {
         this.filteredPromoSuggestions = applicablePromotions
         
       } catch (error) {
-        console.error('❌ Failed to fetch promotions:', error)
-        console.error('❌ Error details:', error.response?.data)
-        
         this.availablePromotions = []
         this.filteredPromoSuggestions = []
       }
     },
     
     calculatePromotionDiscount(promotion) {
-      console.log('\n🎁 ========================================')
-      console.log(`   Calculating discount for: ${promotion.name}`)
-      console.log('🎁 ========================================')
-      
-      // ✅ SAFETY CHECK: Handle missing discount_config
       if (!promotion.discount_config) {
-        console.warn(`⚠️ Promotion "${promotion.name}" missing discount_config!`)
         return 0
       }
       
       const targetType = promotion.discount_config.target_type
       const targetIds = promotion.discount_config.target_ids || []
       
-      console.log(`   🎯 Type: ${promotion.type}`)
-      console.log(`   🎯 Value: ${promotion.discount_value}${promotion.type === 'percentage' ? '%' : ' PHP'}`)
-      console.log(`   🎯 Target Type: ${targetType}`)
-      console.log(`   🎯 Target IDs:`, targetIds)
-      console.log(`   📦 Cart Subtotal: ₱${this.cartSubtotal}`)
-      console.log(`   📦 Cart Items: ${this.cartItems.length}`)
-      
       let eligibleAmount = 0
       let eligibleItems = []
       
       if (targetType === 'all') {
         eligibleAmount = this.cartSubtotal
-        console.log(`   💰 All items eligible: ₱${eligibleAmount}`)
       } else if (targetType === 'categories') {
-        console.log('\n   🔍 Checking category matches...')
-        console.log(`   🔍 Available products in memory:`, this.products.length)
-        
-        // Get eligible items from target categories
         eligibleItems = this.cartItems.filter(item => {
           const product = this.products.find(p => p.id === item.productId)
-          
-          if (!product) {
-            console.log(`   ⚠️ Product not found: ${item.productId} (${item.productName})`)
-            return false
-          }
-          
+          if (!product) return false
           const productCategory = product.category
-          const isEligible = targetIds.includes(productCategory)
-          
-          console.log(`      ${isEligible ? '✅' : '❌'} ${product.name}`)
-          console.log(`         Product Category: "${productCategory}"`)
-          console.log(`         Target Categories:`, targetIds)
-          console.log(`         Match: ${isEligible}`)
-          console.log(`         Subtotal: ₱${item.subtotal}`)
-          
-          return isEligible
+          return targetIds.includes(productCategory)
         })
-        
         eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        console.log(`   💰 Category items eligible: ₱${eligibleAmount}`)
       } else if (targetType === 'products') {
-        console.log('\n   🔍 Checking product matches...')
-        
-        // Get eligible items from target products
         eligibleItems = this.cartItems.filter(item => {
-          const isEligible = targetIds.includes(item.productId)
-          
-          console.log(`      ${isEligible ? '✅' : '❌'} ${item.productName}`)
-          console.log(`         Product ID: "${item.productId}"`)
-          console.log(`         Target IDs:`, targetIds)
-          console.log(`         Match: ${isEligible}`)
-          console.log(`         Subtotal: ₱${item.subtotal}`)
-          
-          return isEligible
+          return targetIds.includes(item.productId)
         })
-        
         eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        console.log(`   💰 Product items eligible: ₱${eligibleAmount}`)
       }
       
       if (eligibleAmount === 0) {
-        console.log(`   ❌ No eligible items found`)
         return 0
       }
       
@@ -1856,16 +1764,11 @@ export default {
       
       if (promotion.type === 'percentage') {
         discount = eligibleAmount * (promotion.discount_value / 100)
-        console.log(`\n   💰 Calculation: ₱${eligibleAmount} × ${promotion.discount_value}% = ₱${discount}`)
       } else if (promotion.type === 'fixed') {
         discount = Math.min(promotion.discount_value, eligibleAmount)
-        console.log(`\n   💰 Calculation: min(₱${promotion.discount_value}, ₱${eligibleAmount}) = ₱${discount}`)
       }
       
       const finalDiscount = Math.round(discount * 100) / 100
-      console.log(`\n   ✅ FINAL DISCOUNT: ₱${finalDiscount}`)
-      console.log('🎁 ========================================\n')
-      
       return finalDiscount
     },
     
@@ -1896,7 +1799,6 @@ export default {
         this.appliedPromotion = promotion
         
       } catch (error) {
-        console.error('❌ Failed to apply promotion:', error)
         alert('Failed to apply promotion')
       }
     },
@@ -1944,7 +1846,6 @@ export default {
         }
         
       } catch (error) {
-        console.error('❌ Manual promo failed:', error)
         alert('Failed to apply promo code')
       }
     },
@@ -1990,14 +1891,9 @@ export default {
           isTaxable: product.is_taxable !== false
         }
         
-        console.log('🛒 Adding to cart:', cartItem)
-        console.log('🛒 Cart store items before:', this.cartStore.items.length)
         this.cartStore.addItem(cartItem)
-        console.log('🛒 Cart store items after:', this.cartStore.items.length)
-        console.log('✅ Product added to cart successfully')
         
       } catch (error) {
-        console.error('❌ Add to cart failed:', error)
         alert(`Failed to add item: ${error.message}`)
       }
     },
@@ -2014,10 +1910,22 @@ export default {
       this.cartStore.decreaseQuantity(item.productId)
     },
     
-    checkout() {
+    async checkout() {
       if (this.cartStore.isEmpty) {
         alert('Your cart is empty!')
         return
+      }
+      
+      // Check if user has an active shift
+      const userData = JSON.parse(localStorage.getItem('userData') || '{}')
+      const userRole = userData.role?.toLowerCase()
+      
+      if (userRole === 'cashier' || userRole === 'employee') {
+        const activeShiftId = localStorage.getItem('activeShiftId')
+        if (!activeShiftId) {
+          this.showShiftRequiredModal = true
+          return
+        }
       }
       
       // ✅ FIXED: Store complete promotion info for checkout
@@ -2031,13 +1939,17 @@ export default {
           discount_amount: this.promoDiscount
         }
         
-        console.log('💾 Saving promotion to session:', promotionData)
         sessionStorage.setItem('appliedPromotion', JSON.stringify(promotionData))
       } else {
         sessionStorage.removeItem('appliedPromotion')
       }
       
       this.$router.push('/checkout')
+    },
+
+    goToShiftPage() {
+      this.showShiftRequiredModal = false
+      this.$router.push('/shift')
     },
 
     // Cart methods removed - sidebar is always visible now
@@ -2111,7 +2023,6 @@ export default {
               const newStock = stockUpdates[originalId]
               
               if (newStock !== undefined && newStock !== product.total_stock) {
-                console.log(`🔄 Updating custom category product ${product.name}: ${product.total_stock} → ${newStock}`)
                 product.stock = newStock
                 product.total_stock = newStock
                 updated = true
@@ -2123,11 +2034,10 @@ export default {
         if (updated) {
           // Save updated custom category products
           this.saveCustomCategoryProducts()
-          console.log('✅ Updated custom category products with fresh stock data')
         }
         
       } catch (error) {
-        console.error('❌ Failed to update custom category products stock:', error)
+        // Failed to update custom category products stock
       }
     },
 
@@ -2140,7 +2050,7 @@ export default {
         this.storage?.setItem('customCategories', this.customCategories, this.cacheTTLms)
         this.memCache?.set('customCategories', this.customCategories, this.memCacheTTLms)
       } catch (error) {
-        console.error('❌ Failed to save custom categories:', error)
+        // Failed to save custom categories
       }
     },
     
@@ -2160,7 +2070,7 @@ export default {
           this.memCache?.set('customCategories', lsHit, this.memCacheTTLms)
         }
       } catch (error) {
-        console.error('❌ Failed to load custom categories:', error)
+        // Failed to load custom categories
       }
     },
     
@@ -2169,7 +2079,7 @@ export default {
         this.storage?.setItem('customCategoryProducts', this.customCategoryProducts, this.cacheTTLms)
         this.memCache?.set('customCategoryProducts', this.customCategoryProducts, this.memCacheTTLms)
       } catch (error) {
-        console.error('❌ Failed to save custom category products:', error)
+        // Failed to save custom category products
       }
     },
     
@@ -2189,7 +2099,7 @@ export default {
           this.memCache?.set('customCategoryProducts', lsHit, this.memCacheTTLms)
         }
       } catch (error) {
-        console.error('❌ Failed to load custom category products:', error)
+        // Failed to load custom category products
       }
     },
     
@@ -2198,7 +2108,7 @@ export default {
         this.storage?.setItem('nextCategoryId', this.nextCategoryId, this.cacheTTLms)
         this.storage?.setItem('nextProductId', this.nextProductId, this.cacheTTLms)
       } catch (error) {
-        console.error('❌ Failed to save ID counters:', error)
+        // Failed to save ID counters
       }
     },
     
@@ -2214,7 +2124,7 @@ export default {
           this.nextProductId = savedProductId
         }
       } catch (error) {
-        console.error('❌ Failed to load ID counters:', error)
+        // Failed to load ID counters
       }
     },
     
@@ -2223,7 +2133,6 @@ export default {
     // ================================================================
     
     startBarcodeScanner() {
-      console.log('🔍 Starting barcode scanner (always active)')
       this.barcodeScanner.startScanning()
       
       // Configure scanner to auto-add to cart
@@ -2231,21 +2140,16 @@ export default {
         autoAddToCart: true,
         showNotifications: true
       })
-      
-      console.log('✅ Barcode scanner is now always listening')
     },
     
     async processManualBarcode() {
       if (!this.manualBarcodeInput.trim()) return
       
       try {
-        console.log('📦 Processing manual barcode:', this.manualBarcodeInput)
-        
         // Process the barcode
         const product = await this.barcodeScanner.processBarcode(this.manualBarcodeInput.trim())
         
         if (product) {
-          console.log('🛒 Adding product to cart:', product)
           // Add to cart
           this.addToCart(product)
           
@@ -2258,26 +2162,18 @@ export default {
               this.$refs.barcodeInput.focus()
             }
           })
-        } else {
-          console.warn('❌ No product found for barcode:', this.manualBarcodeInput)
         }
-        
       } catch (error) {
-        console.error('❌ Manual barcode processing failed:', error)
+        // Manual barcode processing failed
       }
     },
     
     // Watch for barcode scanner results and auto-add to cart
     watchBarcodeResults() {
-      console.log('🔍 watchBarcodeResults called')
-      console.log('🔍 scanSuccess:', this.barcodeScanner.scanSuccess)
-      console.log('🔍 scanResult:', this.barcodeScanner.scanResult)
-      
       // This will be called when barcode scanner finds a product
       if (this.barcodeScanner.scanSuccess && this.barcodeScanner.scanResult?.product) {
         const product = this.barcodeScanner.scanResult.product
         
-        console.log('🛒 Auto-adding product to cart:', product)
         // Add to cart
         this.addToCart(product)
         
@@ -2285,17 +2181,11 @@ export default {
         setTimeout(() => {
           this.barcodeScanner.clearResults()
         }, 1000)
-      } else {
-        console.log('🔍 Not adding to cart - conditions not met:', {
-          scanSuccess: this.barcodeScanner.scanSuccess,
-          hasProduct: !!(this.barcodeScanner.scanResult?.product)
-        })
       }
     },
     
     // Manual test function to trigger cart addition
     testCartAddition() {
-      console.log('🧪 Testing manual cart addition')
       const testProduct = {
         _id: "PROD-00276",
         id: "PROD-00276",
@@ -2314,14 +2204,12 @@ export default {
         isTaxable: true
       }
       
-      console.log('🧪 Adding test product to cart:', testProduct)
       this.addToCart(testProduct)
     },
     
-    // Watch cart items for debugging
+    // Watch cart items
     watchCartItems() {
-      console.log('🛒 Cart items changed:', this.cartStore.items.length)
-      console.log('🛒 Cart items:', this.cartStore.items)
+      // Cart items changed
     },
 
     // ================================================================
@@ -2440,6 +2328,127 @@ export default {
     width: 100%;
   }
   
+}
+
+/* Shift Required Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.shift-modal {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 500px;
+  width: 90%;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.shift-modal-header {
+  padding: 2rem;
+  text-align: center;
+}
+
+.shift-modal-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.shift-modal-icon svg {
+  color: #6366f1;
+  width: 48px;
+  height: 48px;
+}
+
+.shift-modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.75rem 0;
+}
+
+.shift-modal-message {
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.shift-modal-footer {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.shift-modal-btn {
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.shift-modal-btn-cancel {
+  background: white;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+}
+
+.shift-modal-btn-cancel:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.shift-modal-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.shift-modal-btn-primary:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #653a8a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.shift-modal-btn-primary:active {
+  transform: translateY(0);
 }
 
 </style>

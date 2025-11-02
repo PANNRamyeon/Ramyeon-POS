@@ -135,11 +135,72 @@ class BatchService:
             print(f"   Used {len(batch_deductions)} batches")
             print(f"{'='*60}\n")
             
+            # ✅ Sync product total_stock with batch sum
+            self.update_product_total_stock(product_id)
+            
             return batch_deductions
             
         except Exception as e:
             logger.error(f"❌ FIFO deduction failed: {str(e)}")
             raise
+    
+    # ================================================================
+    # PRODUCT STOCK SYNCHRONIZATION
+    # ================================================================
+    
+    def update_product_total_stock(self, product_id):
+        """
+        Update product's total_stock to match sum of all batches' quantity_remaining
+        
+        This ensures the product collection always reflects the current batch stock.
+        """
+        try:
+            # Get all batches for this product (including depleted ones)
+            batches = list(self.batches_collection.find({
+                'product_id': product_id
+            }))
+            
+            # Sum up all remaining quantities
+            total_remaining = sum(batch.get('quantity_remaining', 0) for batch in batches)
+            
+            # Update product's total_stock
+            update_result = self.products_collection.update_one(
+                {'_id': product_id},
+                {
+                    '$set': {
+                        'total_stock': total_remaining,
+                        'updated_at': datetime.utcnow()
+                    }
+                }
+            )
+            
+            if update_result.modified_count > 0:
+                logger.info(f"✅ Synced product {product_id} total_stock to {total_remaining} (from {len(batches)} batches)")
+            
+            # Also sync to cloud if online
+            try:
+                from ..sync_service import sync_service
+                from ...database import db_manager
+                
+                if sync_service and db_manager.is_online:
+                    cloud_db = db_manager.get_cloud_database()
+                    if cloud_db is not None:
+                        cloud_db.products.update_one(
+                            {'_id': product_id},
+                            {
+                                '$set': {
+                                    'total_stock': total_remaining,
+                                    'updated_at': datetime.utcnow()
+                                }
+                            }
+                        )
+                        logger.info(f"✅ Synced product {product_id} total_stock to cloud: {total_remaining}")
+                        sync_service.add_sync_log_to_document('products', product_id, 'synced', 'cloud', {'action': 'batch_sync'})
+            except Exception as e:
+                logger.warning(f"Could not sync to cloud: {e}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to sync product total_stock: {e}")
         
     # ================================================================
     # STOCK VALIDATION (Check before checkout)

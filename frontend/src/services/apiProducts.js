@@ -34,7 +34,6 @@ class ProductAPIService {
         return this.transformProductData(data.products || data.data || data, categoryId);
         
     } catch (error) {
-      console.error('Get all products error:', error.response?.data);
       this.handleError(error);
     }
   }
@@ -44,15 +43,6 @@ class ProductAPIService {
     
     return products.map(product => {
         const productId = product._id || product.id || product.product_id
-        
-        // Debug: Log what fields are available in the raw product
-        console.log(`🔍 Transforming product ${product.name || product.product_name}:`, {
-          id: productId,
-          total_stock: product.total_stock,
-          batch_stock: product.batch_stock,
-          stock: product.stock,
-          availableFields: Object.keys(product)
-        });
         
         // ✅ Use total_stock if available, otherwise fallback to batch_stock
         let stockValue;
@@ -72,11 +62,6 @@ class ProductAPIService {
         if (categoryId && typeof categoryId === 'number') {
             categoryId = `CTGY-${String(categoryId).padStart(3, '0')}`
         }
-        
-        console.log(`📦 Product: ${product.name}`)
-        console.log(`   ID: ${productId}`)
-        console.log(`   Category: ${categoryId}`)
-        console.log(`   Stock: ${stockValue}`)
         
         const transformed = {
             id: productId,
@@ -102,15 +87,6 @@ class ProductAPIService {
             // ✅ ADD: Keep original data for debugging
             originalData: product
         }
-        
-        console.log(`🔍 Transformed product ${transformed.name}:`, {
-          id: transformed.id,
-          name: transformed.name,
-          barcode: transformed.barcode,
-          price: transformed.price,
-          total_stock: transformed.total_stock,
-          stock: transformed.stock
-        });
         
         return transformed;
     });
@@ -151,18 +127,10 @@ class ProductAPIService {
         // Extract products from response
         const products = data.data || data.products || data;
         
-        // Debug: Log raw API response
-        console.log('🔍 Raw API response for products batch:', products);
-        if (Array.isArray(products) && products.length > 0) {
-          console.log('🔍 First product from API:', products[0]);
-          console.log('🔍 total_stock field:', products[0].total_stock);
-        }
-        
         // Transform products to match frontend format
         return this.transformProductData(products);
         
     } catch (error) {
-        console.error('❌ Get products batch failed:', error);
         this.handleError(error);
     }
   }

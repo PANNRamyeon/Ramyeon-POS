@@ -67,18 +67,14 @@ export const useCartStore = defineStore('cart', () => {
   }
   
   function addItem(product) {
-    console.log('🛒 Cart store - Adding item to cart:', product)
-    console.log('🛒 Cart store - Current items count:', items.value.length)
-    
     // Check if item already exists
     const existingItem = items.value.find(item => item.productId === product.id)
     
     if (existingItem) {
       existingItem.quantity += 1
       existingItem.subtotal = existingItem.price * existingItem.quantity
-      console.log('   ➕ Increased quantity:', existingItem.quantity)
     } else {
-      // ✅ ADD: Store category info with cart item
+      // ADD: Store category info with cart item
       const newItem = {
         productId: product.id,
         productName: product.name,
@@ -88,18 +84,15 @@ export const useCartStore = defineStore('cart', () => {
         subtotal: product.price,
         isTaxable: product.isTaxable !== false,
         image: product.image,
-        category: product.category,  // ✅ Store category
-        subcategory: product.subcategory,  // ✅ Store subcategory
+        category: product.category,  // Store category
+        subcategory: product.subcategory,  // Store subcategory
         addedAt: new Date().toISOString()
       }
       
       items.value.push(newItem)
-      console.log('   ✅ New item added:', newItem)
-      console.log('   ✅ Cart items after adding:', items.value.length)
     }
     
     saveToLocalStorage()
-    console.log('🛒 Cart store - Final items count:', items.value.length)
   }
   
   function removeItem(productId) {

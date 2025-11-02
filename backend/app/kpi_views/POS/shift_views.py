@@ -2,6 +2,28 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from ...services.POS.shift_service import ShiftService
+from datetime import datetime
+
+def serialize_shift_datetime(dt):
+    """Convert datetime to ISO string with UTC marker"""
+    if dt and hasattr(dt, 'isoformat'):
+        # Add 'Z' for UTC if no timezone info
+        return dt.isoformat() + 'Z' if dt.tzinfo is None else dt.isoformat()
+    return dt
+
+def serialize_shift(shift):
+    """Serialize shift document for JSON response"""
+    if not shift:
+        return shift
+    
+    serialized = dict(shift)
+    
+    # Convert datetime fields
+    for field in ['start_time', 'end_time', 'last_transaction_time']:
+        if field in serialized:
+            serialized[field] = serialize_shift_datetime(serialized[field])
+    
+    return serialized
 
 class ShiftActiveView(APIView):
     """
@@ -29,7 +51,7 @@ class ShiftActiveView(APIView):
             
             return Response({
                 'success': True,
-                'shift': shift  # ✅ Changed 'data' to 'shift' for consistency
+                'shift': serialize_shift(shift)  # ✅ Changed 'data' to 'shift' for consistency
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
@@ -97,7 +119,7 @@ class ShiftStartView(APIView):
             return Response({
                 'success': True,
                 'message': 'Shift started successfully',
-                'shift': shift
+                'shift': serialize_shift(shift)
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
@@ -173,7 +195,7 @@ class ShiftCloseView(APIView):
             return Response({
                 'success': True,
                 'message': 'Shift closed successfully',
-                'shift': closed_shift
+                'shift': serialize_shift(closed_shift)
             }, status=status.HTTP_200_OK)
             
         except ValueError as e:
@@ -211,7 +233,7 @@ class ShiftDetailView(APIView):
             
             return Response({
                 'success': True,
-                'shift': shift
+                'shift': serialize_shift(shift)
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
@@ -246,8 +268,8 @@ class ShiftListView(APIView):
             
             return Response({
                 'success': True,
-                'shifts': shifts,
-                'count': len(shifts)
+                'shifts': [serialize_shift(shift) for shift in shifts] if shifts else [],
+                'count': len(shifts) if shifts else 0
             }, status=status.HTTP_200_OK)
             
         except ValueError as e:

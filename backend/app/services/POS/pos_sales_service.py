@@ -6,6 +6,13 @@ from .batch_service import BatchService
 import logging
 logger = logging.getLogger(__name__)
 
+# Import sync service for dual-mode operations
+try:
+    from ..sync_service import sync_service
+except ImportError:
+    sync_service = None
+    logger.warning("Sync service not available")
+
 class POSSalesService:
     """
     POS transaction processing - String ID version
@@ -44,6 +51,34 @@ class POSSalesService:
         except Exception:
             count = self.sales_collection.count_documents({}) + 1
             return f"SALE-{count:06d}"
+    
+    def get_next_shift_sequence(self, shift_id):
+        """
+        Get next sequence number for a shift.
+        Used to maintain transaction order within a shift.
+        
+        Args:
+            shift_id: Shift ID (e.g., 'SHIFT-0045')
+            
+        Returns:
+            int: Next sequence number (starts at 1)
+        """
+        try:
+            # Find the last sale in this shift
+            last_sale = self.sales_collection.find_one(
+                {'shift_id': shift_id},
+                sort=[('shift_sequence', -1)]
+            )
+            
+            # Return next sequence number
+            if last_sale and 'shift_sequence' in last_sale:
+                return last_sale['shift_sequence'] + 1
+            else:
+                return 1  # First transaction in shift
+                
+        except Exception as e:
+            logger.error(f"Error generating shift sequence: {e}")
+            return 1
 
     # ================================================================
     # LOYALTY POINTS MANAGEMENT
@@ -369,11 +404,17 @@ class POSSalesService:
                 print(f"   Points to earn: {loyalty_points_earned} points (20%)")
             
             # ✅ Step 5: Build sale record with loyalty tracking
+            shift_id = sale_data.get('shift_id')
+            
+            # Generate shift_sequence for this sale
+            shift_sequence = self.get_next_shift_sequence(shift_id) if shift_id else 0
+            
             sale_record = {
                 '_id': sale_id,
                 'transaction_date': transaction_date,
                 'cashier_id': cashier_id,
-                'shift_id': sale_data.get('shift_id'),
+                'shift_id': shift_id,
+                'shift_sequence': shift_sequence,  # NEW: Sequence within shift
                 'customer_id': customer_id,
                 'items': [],  # Will be populated with batch info
                 'subtotal': subtotal,
@@ -407,7 +448,8 @@ class POSSalesService:
                 'created_at': transaction_date,
                 'updated_at': transaction_date,
                 'is_voided': False,
-                'points_awarded': False  # Will be set to True after awarding
+                'points_awarded': False,  # Will be set to True after awarding
+                'sync_logs': []  # For tracking sync status
             }
             
             # ✅ Step 6: Process each item with FIFO batch deduction
@@ -465,24 +507,21 @@ class POSSalesService:
                 }
                 
                 sale_record['items'].append(sale_item)
-                
-                # ✅ Update product total stock (cached)
-                new_total_stock = product.get('stock', 0) - quantity_needed
-                
-                self.products_collection.update_one(
-                    {'_id': product_id},
-                    {
-                        '$set': {
-                            'stock': new_total_stock,
-                            'updated_at': transaction_date
-                        }
-                    }
-                )
-                
-                print(f"      Stock updated: {product.get('stock')} → {new_total_stock}")
             
-            # ✅ Step 7: Insert sale record
+            # ✅ Step 7: Insert sale record to local database
             self.sales_collection.insert_one(sale_record)
+            
+            # ✅ Step 7b: Immediate sync to cloud if online
+            if sync_service:
+                try:
+                    synced = sync_service.sync_transaction_immediate('sales', sale_record)
+                    if synced:
+                        logger.info(f"✅ Synced sale to cloud immediately: {sale_id}")
+                    else:
+                        logger.info(f"📝 Sale queued for later sync: {sale_id}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to sync sale to cloud: {e}")
+                    # Already queued by sync_service
             
             # ✅ Step 8: Award loyalty points to customer
             if customer_id and loyalty_points_earned > 0:
@@ -671,23 +710,8 @@ class POSSalesService:
                         transaction_info=transaction_info
                     )
                     
-                    # Restore product total stock
-                    product = self.products_collection.find_one({'_id': item['product_id']})
-                    
-                    if product:
-                        new_stock = product.get('stock', 0) + item['quantity']
-                        
-                        self.products_collection.update_one(
-                            {'_id': item['product_id']},
-                            {
-                                '$set': {
-                                    'stock': new_stock,
-                                    'updated_at': datetime.utcnow()
-                                }
-                            }
-                        )
-                        
-                        print(f"      Stock restored: {product.get('stock')} → {new_stock}")
+                    # ✅ Sync product total_stock with batch sum
+                    self.batch_service.update_product_total_stock(item['product_id'])
             
             print("\n✅ Stock restored to batches\n")
             
@@ -832,6 +856,11 @@ class POSSalesService:
     def get_shift_summary(self, shift_id):
         """Get sales summary for a specific shift"""
         try:
+            # Get shift details
+            shift = self.shifts_collection.find_one({'_id': shift_id})
+            if not shift:
+                raise ValueError(f"Shift {shift_id} not found")
+            
             sales = self.get_sales_by_shift(shift_id)
             
             total_revenue = sum(sale['total_amount'] for sale in sales)
@@ -843,10 +872,35 @@ class POSSalesService:
                 method = sale['payment_method']
                 payment_breakdown[method] = payment_breakdown.get(method, 0) + sale['total_amount']
             
+            # Cash sales calculation
+            cash_sales = payment_breakdown.get('cash', 0)
+            
+            # Calculate expected cash if shift has opening cash
+            opening_cash = shift.get('opening_cash', 0)
+            closing_cash = shift.get('closing_cash', 0)
+            expected_cash = opening_cash + cash_sales
+            cash_variance = closing_cash - expected_cash if closing_cash else 0
+            
+            # Convert datetime objects to ISO strings with UTC timezone marker
+            start_time = shift.get('start_time')
+            if start_time and hasattr(start_time, 'isoformat'):
+                start_time = start_time.isoformat() + 'Z' if not start_time.tzinfo else start_time.isoformat()
+            
+            end_time = shift.get('end_time')
+            if end_time and hasattr(end_time, 'isoformat'):
+                end_time = end_time.isoformat() + 'Z' if not end_time.tzinfo else end_time.isoformat()
+            
             return {
                 'shift_id': shift_id,
+                'start_time': start_time,
+                'end_time': end_time,
+                'opening_cash': opening_cash,
+                'closing_cash': closing_cash,
+                'expected_cash': round(expected_cash, 2),
+                'cash_variance': round(cash_variance, 2),
                 'total_revenue': round(total_revenue, 2),
                 'total_transactions': total_transactions,
+                'cash_sales': round(cash_sales, 2),
                 'average_transaction': round(total_revenue / total_transactions, 2) if total_transactions else 0,
                 'payment_breakdown': payment_breakdown,
                 'transactions': sales

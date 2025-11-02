@@ -10,6 +10,8 @@ import NewOrder from '@/pages/NewOrder.vue'
 import Settings from '@/pages/Settings.vue'
 import History from '@/pages/History.vue'
 import Checkout from '@/pages/Checkout.vue'
+import Shift from '@/pages/Shift.vue'
+import ShiftSummary from '@/pages/ShiftSummary.vue'
 import PaymentCallback from '@/components/PaymentCallback.vue'
 
 // Auth guard function
@@ -18,7 +20,6 @@ function requireAuth(to, from, next) {
   if (token) {
     next() // User is authenticated, proceed
   } else {
-    console.log('Auth required, redirecting to login')
     next('/login') // Redirect to login
   }
 }
@@ -29,7 +30,6 @@ function requireGuest(to, from, next) {
   if (!token) {
     next() // User is not authenticated, proceed to login
   } else {
-    console.log('Already authenticated, redirecting to dashboard')
     next('/dashboard') // Redirect to dashboard if already logged in
   }
 }
@@ -79,10 +79,20 @@ const router = createRouter({
           component: History
         },
         {
+          path: 'shift',
+          name: 'Shift',
+          component: Shift
+        },
+        {
           path: 'checkout',
           name: 'Checkout',
           component: Checkout,
           meta: { requiresAuth: true }
+        },
+        {
+          path: 'shift-summary/:shiftId',
+          name: 'ShiftSummary',
+          component: ShiftSummary
         }
       ]
     },
@@ -102,9 +112,8 @@ const router = createRouter({
   ],
 })
 
-// Global navigation guard for debugging
+// Global navigation guard
 router.beforeEach((to, from, next) => {
-  console.log(`Navigating from ${from.path} to ${to.path}`)
   next()
 })
 

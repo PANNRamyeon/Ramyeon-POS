@@ -259,8 +259,8 @@ class CartService:
             product = self._get_product_cached(product_id)
             
             # ✅ Validate stock
-            if product['stock'] < quantity:
-                raise ValueError(f"Insufficient stock. Available: {product['stock']}")
+            if product['total_stock'] < quantity:
+                raise ValueError(f"Insufficient stock. Available: {product['total_stock']}")
             
             # ✅ Get current cart (single read)
             cart = self.get_cart(cart_id)
@@ -272,8 +272,8 @@ class CartService:
                     new_quantity = item['quantity'] + quantity
                     
                     # Check total stock needed
-                    if product['stock'] < new_quantity:
-                        raise ValueError(f"Insufficient stock. Available: {product['stock']}")
+                    if product['total_stock'] < new_quantity:
+                        raise ValueError(f"Insufficient stock. Available: {product['total_stock']}")
                     
                     item['quantity'] = new_quantity
                     item['subtotal'] = item['unit_price'] * new_quantity
@@ -615,7 +615,7 @@ class CartService:
                 if not product:
                     raise ValueError(f"Product {item['product_id']} not found")
                 
-                available_stock = product.get('stock', 0)
+                available_stock = product.get('total_stock', 0)
                 
                 if available_stock < item['quantity']:
                     raise ValueError(

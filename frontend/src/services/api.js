@@ -81,7 +81,14 @@ api.interceptors.response.use(
       console.error('Network error:', error.message);
       
       // Check if it's an offline scenario
-      if (!navigator.onLine) {
+      if (!navigator.onLine || error.code === 'ECONNABORTED') {
+        // Import and use offline manager
+        import('./offlineManager.js').then(({ default: offlineManager }) => {
+          offlineManager.queueRequest(originalRequest)
+        }).catch(err => {
+          console.error('Failed to queue offline request:', err)
+        })
+        
         return Promise.reject({
           message: 'No internet connection. Request will be synced when online.',
           offline: true,
@@ -100,7 +107,7 @@ api.interceptors.response.use(
           console.error('Forbidden:', error.response.data);
           break;
         case 404:
-          console.error('Not Found:', error.response.data);
+          // 404s are handled individually by API methods, no need to log here
           break;
         case 500:
           console.error('Server Error:', error.response.data);
@@ -133,23 +140,13 @@ class ApiService {
   // AUTH METHODS
   async login(email, password, opening_cash = 0) {
     try {
-      // ✅ Debug logging
-      console.log('📤 API: Sending login request');
-      console.log('   Email:', email);
-      console.log('   Opening Cash:', opening_cash);
-      console.log('   Opening Cash Type:', typeof opening_cash);
-      
       const payload = {
         email, 
         password,
         opening_cash: parseFloat(opening_cash) || 0  // ✅ Ensure it's a number
       };
       
-      console.log('📤 API: Final payload:', payload);
-      
       const response = await api.post('/auth/login/', payload);
-      
-      console.log('✅ API: Login response:', response.data);
       
       return this.handleResponse(response);
     } catch (error) {
@@ -159,19 +156,14 @@ class ApiService {
 
   async logout(closingCash = 0) {
     try {
-      console.log('📤 Logging out with closing cash:', closingCash);
-
       const activeShiftId = localStorage.getItem('activeShiftId');
       if (activeShiftId) {
-        console.log('   Closing active shift:', activeShiftId);
         await this.closeShift(activeShiftId, closingCash);
       }
 
       const response = await api.post('/auth/logout/', {
         closing_cash: closingCash
       });
-
-      console.log('✅ Logout successful');
 
       // 🧹 Clear tokens and shift data
       localStorage.removeItem('authToken');
@@ -185,8 +177,28 @@ class ApiService {
       return this.handleResponse(response);
 
     } catch (error) {
-      console.error('❌ Logout failed:', error);
       this.handleError(error);
+    }
+  }
+
+  async logoutSession() {
+    try {
+      const response = await api.post('/auth/logout/', {
+        closing_cash: 0
+      });
+
+      // 🧹 Clear tokens and shift data
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('activeShiftId');
+      localStorage.removeItem('userData');
+      localStorage.removeItem('currentCartId');
+      sessionStorage.removeItem('authToken');
+
+      return this.handleResponse(response);
+
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -390,43 +402,38 @@ class ApiService {
   // SHIFT METHODS
   async startShift(cashierId, openingCash) {
     try {
-      console.log('📤 Starting shift:', { cashierId, openingCash });
       const response = await api.post('/pos/shifts/start/', {
         cashier_id: cashierId,
         opening_cash: openingCash
       });
-      console.log('✅ Shift started:', response.data);
       return this.handleResponse(response);
     } catch (error) {
-      console.error('❌ Start shift failed:', error);
       this.handleError(error);
     }
   }
 
   async getActiveShift(cashierId) {
     try {
-      console.log('📤 Getting active shift for:', cashierId);
       const response = await api.get('/pos/shifts/active/', {
         params: { cashier_id: cashierId }
       });
-      console.log('✅ Active shift:', response.data);
       return this.handleResponse(response);
     } catch (error) {
-      console.error('❌ Get active shift failed:', error);
+      // 404 is expected when no active shift exists - return null instead of throwing
+      if (error.response?.status === 404) {
+        return null;
+      }
       this.handleError(error);
     }
   }
 
   async closeShift(shiftId, closingCash) {
     try {
-      console.log('📤 Closing shift:', { shiftId, closingCash });
       const response = await api.post(`/pos/shifts/${shiftId}/close/`, {
         closing_cash: closingCash
       });
-      console.log('✅ Shift closed:', response.data);
       return this.handleResponse(response);
     } catch (error) {
-      console.error('❌ Close shift failed:', error);
       this.handleError(error);
     }
   }

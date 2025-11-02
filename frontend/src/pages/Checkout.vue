@@ -546,83 +546,53 @@ export default {
     
     promoDiscount() {
       if (!this.appliedPromotion) {
-        console.log('⚠️ No promotion applied')
         return 0
       }
       
       const promotion = this.appliedPromotion
-      console.log('\n💰 Calculating promo discount...')
-      console.log('   Promotion:', promotion.name)
-      console.log('   Type:', promotion.type)
-      console.log('   Value:', promotion.discount_value)
       
-      // ✅ SAFETY CHECK
+      // SAFETY CHECK
       if (!promotion.discount_config) {
-        console.warn('⚠️ Missing discount_config')
         return 0
       }
       
       const targetType = promotion.discount_config.target_type
       const targetIds = promotion.discount_config.target_ids || []
       
-      console.log('   Target Type:', targetType)
-      console.log('   Target IDs:', targetIds)
-      console.log('   Cart Items:', this.cartItems.length)
-      console.log('   Products Loaded:', this.products.length)
-      
       let eligibleAmount = 0
       
       if (targetType === 'all') {
         eligibleAmount = this.cartSubtotal
-        console.log('   ✅ ALL items eligible: ₱' + eligibleAmount)
         
       } else if (targetType === 'categories') {
-        console.log('   🔍 Checking category matches...')
-        
         // Filter cart items by category
         const eligibleItems = this.cartItems.filter(item => {
           const product = this.products.find(p => p.id === item.productId)
           
           if (!product) {
-            console.log(`      ⚠️ Product not found: ${item.productId} (${item.productName})`)
             return false
           }
           
           const productCategory = product.category
           const isEligible = targetIds.includes(productCategory)
           
-          console.log(`      ${isEligible ? '✅' : '❌'} ${product.name}`)
-          console.log(`         Category: "${productCategory}"`)
-          console.log(`         Targets:`, targetIds)
-          console.log(`         Subtotal: ₱${item.subtotal}`)
-          
           return isEligible
         })
         
         eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        console.log(`   💰 Category total: ₱${eligibleAmount} (${eligibleItems.length} items)`)
         
       } else if (targetType === 'products') {
-        console.log('   🔍 Checking product matches...')
-        
         // Filter cart items by product ID
         const eligibleItems = this.cartItems.filter(item => {
           const isEligible = targetIds.includes(item.productId)
           
-          console.log(`      ${isEligible ? '✅' : '❌'} ${item.productName}`)
-          console.log(`         Product ID: "${item.productId}"`)
-          console.log(`         Targets:`, targetIds)
-          console.log(`         Subtotal: ₱${item.subtotal}`)
-          
           return isEligible
         })
         
         eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        console.log(`   💰 Products total: ₱${eligibleAmount} (${eligibleItems.length} items)`)
       }
       
       if (eligibleAmount === 0) {
-        console.log('   ❌ No eligible items - Discount = ₱0')
         return 0
       }
       
@@ -631,14 +601,11 @@ export default {
       
       if (promotion.type === 'percentage') {
         discount = eligibleAmount * (promotion.discount_value / 100)
-        console.log(`   💰 Calculation: ₱${eligibleAmount} × ${promotion.discount_value}% = ₱${discount}`)
       } else if (promotion.type === 'fixed') {
         discount = Math.min(promotion.discount_value, eligibleAmount)
-        console.log(`   💰 Calculation: min(₱${promotion.discount_value}, ₱${eligibleAmount}) = ₱${discount}`)
       }
       
       const finalDiscount = Math.round(discount * 100) / 100
-      console.log(`   ✅ FINAL DISCOUNT: ₱${finalDiscount}\n`)
       
       return finalDiscount
     },
@@ -749,21 +716,10 @@ export default {
         
         // ✅ STEP 2: Load promotion from session
         const promoData = sessionStorage.getItem('appliedPromotion')
-        console.log('\n🎟️ ========================================')
-        console.log('   LOADING PROMOTION FROM SESSION')
-        console.log('🎟️ ========================================')
-        console.log('Raw sessionStorage data:', promoData)
         
         if (promoData) {
           try {
             const parsedPromo = JSON.parse(promoData)
-            console.log('Parsed promotion object:', parsedPromo)
-            console.log('Promotion structure check:')
-            console.log('  - _id:', parsedPromo._id || parsedPromo.promotion_id)
-            console.log('  - name:', parsedPromo.promotion_name || parsedPromo.name)
-            console.log('  - type:', parsedPromo.type)
-            console.log('  - discount_value:', parsedPromo.discount_value)
-            console.log('  - discount_config:', parsedPromo.discount_config)
             
             // ✅ FIX: Handle both formats (from NewOrder.vue)
             const promotion = {
@@ -778,31 +734,22 @@ export default {
             if (typeof promotion.discount_config === 'string') {
               try {
                 promotion.discount_config = JSON.parse(promotion.discount_config)
-                console.log('✅ Parsed discount_config:', promotion.discount_config)
               } catch (e) {
-                console.error('❌ Failed to parse discount_config:', e)
+                // Failed to parse discount_config
               }
             }
             
             // ✅ VERIFY: Ensure all required fields exist
             if (!promotion._id || !promotion.name || !promotion.type || !promotion.discount_value) {
-              console.error('❌ Incomplete promotion data:', promotion)
-              console.error('❌ Missing required fields')
               this.appliedPromotion = null
             } else {
               this.appliedPromotion = promotion
-              console.log('✅ Loaded promotion:', this.appliedPromotion.name)
-              console.log('✅ Final promotion object:', this.appliedPromotion)
             }
             
           } catch (error) {
-            console.error('❌ Failed to parse promotion data:', error)
             this.appliedPromotion = null
           }
-        } else {
-          console.log('⚠️ No promotion in session')
         }
-        console.log('🎟️ ========================================\n')
         
         // ✅ STEP 3: Load customer from session
         const customerData = sessionStorage.getItem('checkoutCustomer')
@@ -822,11 +769,10 @@ export default {
             this.appliedPointsDiscount = customer.pointsDiscount
           }
           
-          console.log('✅ Loaded customer:', this.selectedCustomer.full_name)
         }
         
       } catch (error) {
-        console.error('❌ Failed to load checkout data:', error)
+        // Failed to load checkout data
       } finally {
         this.isLoading = false
       }
@@ -835,35 +781,21 @@ export default {
     // ✅ NEW METHOD: Load products for promotion calculation
     async loadProductsForPromotion() {
       try {
-        console.log('📦 Loading products for promotion calculation...')
-        console.log('📦 Cart items:', this.cartItems.length)
-        
         if (this.cartItems.length === 0) {
-          console.warn('⚠️ No cart items to load products for')
           return
         }
         
         // Get all unique product IDs from cart
         const productIds = [...new Set(this.cartItems.map(item => item.productId))]
-        console.log('📦 Product IDs to fetch:', productIds)
         
         // Fetch products in batch
         const products = await apiProducts.getProductsBatch(productIds)
-        console.log('📦 Fetched products:', products)
         
         // Store products in data for promotion calculation
         this.products = products
         
-        // ✅ VERIFY: Check if products have category IDs
-        console.log('\n🔍 Product Categories:')
-        products.forEach(p => {
-          console.log(`   ${p.name}: ${p.category}`)
-        })
-        
-        console.log('✅ Products loaded for promotion calculation')
-        
       } catch (error) {
-        console.error('❌ Failed to load products:', error)
+        // Failed to load products
       }
     },
     
@@ -879,7 +811,6 @@ export default {
         this.customerSearchError = null
         
         const query = this.customerSearchQuery.trim().toLowerCase()
-        console.log('🔍 Searching for customer:', query)
         
         const response = await api.get('/customers/', {
           params: { search: query }
@@ -921,38 +852,33 @@ export default {
             return
           }
           
-          console.log('📋 Matched customer:', customer)
-          
-          this.selectedCustomer = {
-            _id: customer._id,
-            username: customer.username,
-            full_name: customer.full_name,
-            email: customer.email,
-            phone: customer.phone,
-            loyalty_points: customer.loyalty_points || 0
-          }
-          
-          console.log('✅ Selected customer:', this.selectedCustomer.full_name)
-          this.customerSearchQuery = ''
-          
-        } else {
-          this.customerSearchError = 'Customer not found. Please check the username/email.'
+        this.selectedCustomer = {
+          _id: customer._id,
+          username: customer.username,
+          full_name: customer.full_name,
+          email: customer.email,
+          phone: customer.phone,
+          loyalty_points: customer.loyalty_points || 0
         }
         
-      } catch (error) {
-        console.error('❌ Customer search failed:', error)
+        this.customerSearchQuery = ''
         
-        if (error.response?.status === 403) {
-          this.customerSearchError = 'Permission denied. Contact administrator.'
-        } else if (error.response?.status === 400) {
-          this.customerSearchError = 'Invalid search query.'
-        } else {
-          this.customerSearchError = 'Failed to search customer. Please try again.'
-        }
-      } finally {
-        this.customerSearching = false
+      } else {
+        this.customerSearchError = 'Customer not found. Please check the username/email.'
       }
-    },
+      
+    } catch (error) {
+      if (error.response?.status === 403) {
+        this.customerSearchError = 'Permission denied. Contact administrator.'
+      } else if (error.response?.status === 400) {
+        this.customerSearchError = 'Invalid search query.'
+      } else {
+        this.customerSearchError = 'Failed to search customer. Please try again.'
+      }
+    } finally {
+      this.customerSearching = false
+    }
+  },
     
     clearCustomer() {
       this.selectedCustomer = null
@@ -990,8 +916,6 @@ export default {
       this.pointsRedeemed = this.pointsToRedeem
       this.appliedPointsDiscount = discount
       this.pointsToRedeem = 0
-      
-      console.log(`✅ Applied ${this.pointsRedeemed} points (₱${discount.toFixed(2)} discount)`)
     },
     
     removePointsDiscount() {
@@ -1050,7 +974,6 @@ export default {
         }
         
       } catch (error) {
-        console.error('❌ Stock validation failed:', error)
         alert(`Failed to validate stock: ${error.message}`)
         this.$router.replace('/new-order')
       } finally {
@@ -1158,14 +1081,11 @@ export default {
           timestamp: new Date().toISOString()
         })
         
-        console.log('📝 Creating cash sale:', saleData)
-        
         const result = await apiSales.createSale(saleData)
         
         this.handleSaleSuccess(result, 'cash')
         
       } catch (error) {
-        console.error('❌ Cash payment failed:', error)
         alert(`Payment failed: ${error.message}`)
       } finally {
         this.isProcessing = false
@@ -1196,8 +1116,6 @@ export default {
           throw new Error('Stock validation failed')
         }
         
-        console.log(`📱 Creating ${walletName} payment source...`)
-        
         // Prepare order metadata (PayMongo requires all string values)
         const orderMetadata = {
           order_id: `ORDER-${Date.now()}`,
@@ -1219,8 +1137,6 @@ export default {
             metadata: orderMetadata
           }
         )
-        
-        console.log('✅ E-wallet source created:', source.id)
         
         // Save pending transaction to sessionStorage
         const pendingPayment = {
@@ -1245,8 +1161,6 @@ export default {
         
         sessionStorage.setItem('pendingEWalletPayment', JSON.stringify(pendingPayment))
         
-        console.log('💾 Saved pending payment:', pendingPayment)
-        
         // Redirect to GCash/Maya
         this.loadingMessage = `Redirecting to ${walletName}...`
         
@@ -1255,7 +1169,6 @@ export default {
         }, 500)
         
       } catch (error) {
-        console.error(`❌ ${walletName} payment failed:`, error)
         alert(`${walletName} payment failed: ${error.message}`)
         this.isProcessing = false
         this.isLoading = false
@@ -1304,10 +1217,6 @@ export default {
     // ----------------------------------------------------------------
     
     handleSaleSuccess(result, paymentMethod) {
-      console.log('🎉 Sale completed successfully!')
-      console.log('💳 Payment method:', paymentMethod)
-      console.log('🛒 Cart items to update stock for:', this.cartItems)
-      
       // Calculate final change (from previous version)
       const backendChange = result?.payment_details?.change
       const snapshotChange = Math.max(0, (this.cashTendered || 0) - (result?.total_amount ?? this.grandTotal))
@@ -1317,12 +1226,8 @@ export default {
 
       // Update stock cache with sold items
       try {
-        console.log('🔄 Calling stockCache.updateStockAfterSale()...')
         this.stockCache.updateStockAfterSale(this.cartItems)
-        console.log('✅ Stock cache update call completed')
       } catch (error) {
-        console.error('❌ Failed to update stock cache:', error)
-        console.error('Error details:', error)
         // Don't block success flow if cache update fails
       }
       
@@ -1338,8 +1243,6 @@ export default {
       this.cartStore.clearCart()
       sessionStorage.removeItem('appliedPromotion')
       sessionStorage.removeItem('checkoutCustomer')
-      
-      console.log('[handleSaleSuccess] TX dates', result?.transaction_date_local, result?.transaction_date)
 
       // Normalize transaction date: if backend didn't include timezone, assume UTC
       let transactionDateRaw = result.transaction_date_local || result.transaction_date
@@ -1358,7 +1261,6 @@ export default {
         change: finalChange,
         shiftId: result.shift_id || this.cartStore.shiftId
       }
-      console.log('[handleSaleSuccess] completedSale', this.completedSale)
       
       this.showSuccessModal = true
     },
@@ -1382,7 +1284,6 @@ export default {
           }
         }
       } catch (error) {
-        console.error('❌ Print receipt failed:', error)
         alert(`Failed to print receipt: ${error.message}`)
       }
     },
@@ -1424,7 +1325,6 @@ export default {
       if (!dateString) return ''
       const source = new Date(dateString)
       try {
-        console.log('[formatDateTime] input', dateString)
         const datePart = source.toLocaleDateString('en-US', {
           month: 'long',
           day: 'numeric',
@@ -1440,7 +1340,6 @@ export default {
         })
         return `${datePart} ${timePart}`
       } catch (error) {
-        console.error('Date formatting error:', error)
         return source.toString()
       }
     }

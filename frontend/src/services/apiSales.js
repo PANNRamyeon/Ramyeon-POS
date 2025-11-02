@@ -34,9 +34,7 @@ class SalesAPIService {
    */
   async createSale(saleData) {
     try {
-      console.log('💳 API: Creating sale...', saleData)
-      
-      // ✅ Validate required fields
+      // Validate required fields
       if (!saleData.payment_method) {
         throw new Error('Payment method is required')
       }
@@ -45,18 +43,10 @@ class SalesAPIService {
         throw new Error('Cashier ID is required')
       }
       
-      console.log('👤 Cashier ID:', saleData.cashier_id)
-      console.log('⏰ Shift ID:', saleData.shift_id)
-      console.log('💳 Payment method:', saleData.payment_method)
-      
-      // ✅ Send saleData as-is (it already has everything)
+      // Send saleData as-is (it already has everything)
       const payload = saleData
       
-      console.log('📤 Sending payload:', payload)
-      
       const response = await api.post('/pos/sales/create/', payload)
-      
-      console.log('✅ Sale created:', response.data)
       
       // Extract sale data
       if (response.data.success && response.data.data) {
@@ -67,8 +57,6 @@ class SalesAPIService {
       return response.data
       
     } catch (error) {
-      console.error('❌ Create sale failed:', error)
-      
       let errorMessage = 'Failed to create sale'
       
       if (error.response?.data) {
@@ -95,7 +83,6 @@ class SalesAPIService {
       const response = await api.get(`/pos/sales/${saleId}/`);
       return this.extractData(response, 'Get sale');
     } catch (error) {
-      console.error('❌ Get sale failed:', error);
       throw new Error(error.response?.data?.message || error.message);
     }
   }
@@ -105,16 +92,11 @@ class SalesAPIService {
    */
   async getReceipt(saleId) {
     try {
-      console.log('🧾 API: Fetching receipt for sale:', saleId);
-      
       const response = await api.get(`/pos/sales/${saleId}/receipt/`);
-      
-      console.log('✅ Receipt data received:', response.data);
       
       return this.extractData(response, 'Get receipt');
       
     } catch (error) {
-      console.error('❌ Get receipt failed:', error);
       throw new Error(error.response?.data?.message || error.message);
     }
   }
@@ -136,7 +118,6 @@ class SalesAPIService {
       return this.extractData(response, 'Void sale');
       
     } catch (error) {
-      console.error('❌ Void sale failed:', error);
       throw new Error(error.response?.data?.message || error.message);
     }
   }
@@ -163,7 +144,6 @@ class SalesAPIService {
       return this.extractData(response, 'Get sales list');
       
     } catch (error) {
-      console.error('❌ Get sales list failed:', error);
       throw new Error(error.response?.data?.message || error.message);
     }
   }
@@ -180,7 +160,6 @@ class SalesAPIService {
       return this.extractData(response, 'Get daily summary');
       
     } catch (error) {
-      console.error('❌ Get daily summary failed:', error);
       throw new Error(error.response?.data?.message || error.message);
     }
   }

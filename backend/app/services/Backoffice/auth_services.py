@@ -122,10 +122,10 @@ class AuthService:
             user_id = str(user["_id"])
             print(f"🆔 Converting ObjectId to string: {user_id}")
             
-            # ============= START SHIFT FOR CASHIER/EMPLOYEE =============
+            # ============= CHECK FOR EXISTING SHIFT =============
             shift_data = None
             if user_role in ['cashier', 'employee']:
-                print(f"💼 Starting shift for {user_role}: {user_id}")
+                print(f"💼 Checking for existing shift for {user_role}: {user_id}")
                 try:
                     from ..POS.shift_service import ShiftService
                     shift_service = ShiftService()
@@ -142,33 +142,13 @@ class AuthService:
                             'message': 'Resumed existing active shift'
                         }
                     else:
-                        # Start new shift
-                        print(f"✅ No existing shift found - creating new shift")
-                        print(f"   User ID: {user_id}")
-                        print(f"   Opening Cash: {opening_cash}")
-                        
-                        shift_result = shift_service.start_shift(
-                            cashier_id=user_id,
-                            opening_cash=float(opening_cash) if opening_cash else 0.0
-                        )
-                        
-                        shift_data = {
-                            'shift_id': shift_result.get('_id'),
-                            'opening_cash': shift_result.get('opening_cash', 0),
-                            'start_time': shift_result.get('start_time').isoformat() if shift_result.get('start_time') else None,
-                            'message': 'Shift started successfully'
-                        }
-                        print(f"✅ New shift created successfully: {shift_data['shift_id']}")
+                        print(f"ℹ️ No active shift - user must start shift manually")
                     
                 except Exception as shift_error:
-                    print(f"⚠️ Shift start failed: {shift_error}")
+                    print(f"⚠️ Shift check failed: {shift_error}")
                     import traceback
                     traceback.print_exc()
                     # Don't fail login, just log the error
-                    shift_data = {
-                        'error': str(shift_error),
-                        'message': 'Shift could not be started'
-                    }
             else:
                 print(f"ℹ️ Admin user - no shift required")
             # ============= END SHIFT LOGIC =============

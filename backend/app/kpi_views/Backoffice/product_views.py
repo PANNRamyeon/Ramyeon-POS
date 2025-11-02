@@ -50,15 +50,8 @@ class ProductListView(APIView):
         try:
             product_service = ProductService()
             
-            # Debug the incoming data
-            print(f"=== DJANGO VIEW DEBUG ===")
-            print(f"request.data type: {type(request.data)}")
-            print(f"request.data: {request.data}")
-            
             # Convert to plain dict
             product_data = dict(request.data)
-            print(f"Converted to dict type: {type(product_data)}")
-            print(f"Converted dict: {product_data}")
             
             new_product = product_service.create_product(product_data)
             return Response({
@@ -66,13 +59,12 @@ class ProductListView(APIView):
                 'data': new_product
             }, status=status.HTTP_201_CREATED)
         except ValueError as ve:
-            print(f"ValueError: {ve}")
+            logger.error(f"ValueError in ProductListView.post: {ve}")
             return Response(
                 {"error": str(ve)}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
-            print(f"Exception: {e}")
             logger.error(f"Error in ProductListView.post: {e}")
             return Response(
                 {"error": str(e)}, 
@@ -475,7 +467,7 @@ class StockHistoryView(APIView):
             return Response({
                 'product_id': product_id,
                 'product_name': product.get('product_name'),
-                'current_stock': product.get('stock'),
+                'current_stock': product.get('total_stock'),
                 'stock_history': stock_history
             }, status=status.HTTP_200_OK)
             
@@ -537,14 +529,8 @@ class ProductsByCategoryView(APIView):
             product_service = ProductService()
             batch_service = BatchService()  # ✅ Initialize batch service
             
-            print(f"\n{'='*60}")
-            print(f"📊 ProductsByCategoryView: Getting products for category {category_id}")
-            print(f"{'='*60}")
-            
             # Get products from category
             products = product_service.get_products_by_category(category_id)
-            
-            print(f"✅ Found {len(products)} products in database\n")
             
             if not products:
                 return Response({
@@ -557,31 +543,18 @@ class ProductsByCategoryView(APIView):
             # ✅ Calculate batch stock for each product
             for product in products:
                 product_id = product.get('_id')
-                cached_stock = product.get('stock', 0)
-                
-                print(f"Processing {product_id}:")
-                print(f"   Product name: {product.get('product_name')}")
-                print(f"   Cached stock: {cached_stock}")
                 
                 # Get batch availability
                 batch_info = batch_service.check_batch_availability(product_id, 0)
                 
                 # Update stock fields with batch stock
-                product['stock'] = batch_info['total_stock']
-                product['stock_quantity'] = batch_info['total_stock']
+                product['stock'] = batch_info['total_stock']  # Keep for frontend compatibility
+                product['total_stock'] = batch_info['total_stock']
                 product['batch_stock'] = batch_info['total_stock']
                 product['batches_count'] = batch_info['batches_count']
                 
                 if batch_info.get('oldest_batch'):
                     product['oldest_expiry'] = batch_info['oldest_batch'].get('expiry_date')
-                
-                print(f"   Batch stock: {batch_info['total_stock']}")
-                print(f"   Batches count: {batch_info['batches_count']}")
-                print()
-            
-            print(f"{'='*60}")
-            print(f"✅ Returning {len(products)} products with batch stock")
-            print(f"{'='*60}\n")
             
             return Response({
                 'success': True,

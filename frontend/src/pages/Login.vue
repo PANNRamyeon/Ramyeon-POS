@@ -45,24 +45,6 @@
                 />
               </div>
 
-              <!-- Opening Cash Field - ALWAYS SHOW -->
-              <div class="form-group">
-                <label for="openingCash" class="form-label">
-                  Opening Cash:
-                  <span class="optional-text"></span>
-                </label>
-                <input 
-                  id="openingCash"
-                  v-model.number="loginForm.openingCash" 
-                  type="number" 
-                  step="0.01"
-                  min="0"
-                  class="form-input" 
-                  placeholder="Enter opening cash (leave 0 if admin)" 
-                  :disabled="loading"
-                />
-              </div>
-
               <!-- Error Message -->
               <div v-if="error" class="error-message">
                 {{ error }}
@@ -171,8 +153,6 @@ export default {
 
         // ✅ Convert to number and add debug logging
         const openingCash = parseFloat(this.loginForm.openingCash) || 0;
-        console.log('💰 Frontend: Opening Cash (before send):', openingCash);
-        console.log('💰 Frontend: Type:', typeof openingCash);
 
         // Send login request WITH opening_cash
         const response = await apiService.login(
@@ -184,7 +164,6 @@ export default {
         await this.handleLoginSuccess(response)
 
       } catch (error) {
-        console.error('Login error:', error)
         this.error = error.message || 'An error occurred during login'
       } finally {
         this.loading = false
@@ -193,23 +172,15 @@ export default {
 
     async handleLoginSuccess(response) {
       try {
-        console.log('✅ Processing login success...', response);
-        
         // ✅ Save auth token (check multiple possible fields)
         const token = response.token || response.access_token;
         if (token) {
           localStorage.setItem('authToken', token);
-          console.log('🔑 Auth token saved');
-        } else {
-          console.warn('⚠️ No token found in response');
         }
         
         // ✅ Save user data
         if (response.user) {
           localStorage.setItem('userData', JSON.stringify(response.user));
-          console.log('👤 User data saved:', response.user);
-        } else {
-          console.warn('⚠️ No user data in response');
         }
         
         // ✅ Save shift ID (check both top-level and nested)
@@ -218,24 +189,18 @@ export default {
         // Try top-level first
         if (response.shift_id) {
           shiftId = response.shift_id;
-          console.log('⏰ Found shift_id at top level:', shiftId);
         } 
         // Fallback to nested shift.shift_id
         else if (response.shift && response.shift.shift_id) {
           shiftId = response.shift.shift_id;
-          console.log('⏰ Found shift_id in nested shift object:', shiftId);
         }
         // Another fallback for shift._id
         else if (response.shift && response.shift._id) {
           shiftId = response.shift._id;
-          console.log('⏰ Found _id in nested shift object:', shiftId);
         }
         
         if (shiftId) {
           localStorage.setItem('activeShiftId', shiftId);
-          console.log('✅ Shift ID saved to localStorage:', shiftId);
-        } else {
-          console.warn('⚠️ No shift ID in login response - user may be admin or shift creation failed');
         }
         
         // ✅ Show success message
@@ -247,7 +212,6 @@ export default {
         }, 500);
         
       } catch (error) {
-        console.error('❌ Login success handler error:', error);
         this.error = 'Login succeeded but session setup failed. Please try again.';
         throw error;
       }
@@ -264,10 +228,9 @@ export default {
 
       this.$router.push(route)
         .then(() => {
-          console.log(`Successfully navigated to ${route}`)
+          // Navigation successful
         })
         .catch((error) => {
-          console.error('Navigation error:', error)
           this.$router.push('/dashboard')
         })
     },
@@ -302,13 +265,10 @@ export default {
         // Perform logout with closing cash
         const response = await apiService.logout(this.closingCash)
         
-        console.log('Logout response:', response)
-        
         this.showLogoutModal = false
         await this.performLogout()
         
       } catch (error) {
-        console.error('Error during logout:', error)
         this.logoutError = error.message || 'Failed to end shift. Please try again.'
       } finally {
         this.logoutLoading = false
@@ -338,8 +298,6 @@ export default {
       
       // Navigate back to login
       this.$router.push('/login')
-      
-      console.log('User logged out successfully')
     },
 
     closeLogoutModal() {
@@ -377,8 +335,6 @@ export default {
       
       this.$router.push('/dashboard')
     }
-    
-    console.log('Backend-integrated login component with shift management mounted')
   }
 }
 </script>

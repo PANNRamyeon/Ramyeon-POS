@@ -18,12 +18,8 @@ export function useStockCache() {
    */
   function updateStockAfterSale(soldItems) {
     if (!soldItems || soldItems.length === 0) {
-      console.log('⚠️ No items to update stock for')
       return
     }
-
-    console.log('📦 Updating stock cache after sale:', soldItems.length, 'items')
-    console.log('📋 Sold items structure:', JSON.stringify(soldItems, null, 2))
 
     // Group items by product_id and sum quantities
     const stockChanges = {}
@@ -33,16 +29,10 @@ export function useStockCache() {
       
       if (productId) {
         stockChanges[productId] = (stockChanges[productId] || 0) + quantity
-        console.log(`  📌 Product ${productId}: -${quantity}`)
-      } else {
-        console.warn('⚠️ Item missing product ID:', item)
       }
     })
-
-    console.log('📊 Stock changes:', stockChanges)
     
     if (Object.keys(stockChanges).length === 0) {
-      console.warn('⚠️ No valid product IDs found in sold items')
       return
     }
 
@@ -56,10 +46,8 @@ export function useStockCache() {
         }
       }
     } catch (error) {
-      console.error('❌ Error reading localStorage keys:', error)
+      // Error reading localStorage keys
     }
-
-    console.log('🔑 Found', allKeys.length, 'product cache keys:', allKeys)
 
     let updatedCount = 0
     let totalProductsChecked = 0
@@ -71,17 +59,13 @@ export function useStockCache() {
         // Extract the key without prefix
         const key = fullKey.replace('newOrder_', '')
         
-        console.log(`\n🔍 Checking cache key: ${key}`)
-        
         // Get cached products
         const cached = storage.getItem(key, null)
         
         if (!Array.isArray(cached)) {
-          console.log(`  ⚠️ Cache entry is not an array, skipping`)
           return
         }
 
-        console.log(`  📦 Found ${cached.length} products in this cache`)
         totalProductsChecked += cached.length
 
         // Update stock for affected products
@@ -95,9 +79,6 @@ export function useStockCache() {
             const oldStock = product.stock || 0
             const newStock = Math.max(0, oldStock - stockChange)
             
-            console.log(`  ✏️ UPDATING: ${product.name} (ID: ${product.id})`)
-            console.log(`     Stock: ${oldStock} → ${newStock} (-${stockChange})`)
-            
             return {
               ...product,
               stock: newStock
@@ -110,35 +91,18 @@ export function useStockCache() {
         // Save back to cache if any changes were made
         if (wasUpdated) {
           const ttl = 24 * 60 * 60 * 1000 // 24 hours
-          console.log(`  💾 Saving updated cache back to localStorage...`)
           storage.setItem(key, updated, ttl)
           
           // Also update memory cache
           memCache.set(key, updated, 30 * 60 * 1000) // 30 minutes
           
           updatedCount++
-          console.log(`  ✅ Cache entry updated successfully`)
-        } else {
-          console.log(`  ℹ️ No products matched in this cache entry`)
         }
         
       } catch (error) {
-        console.error('❌ Error updating cache key', fullKey, ':', error)
+        // Error updating cache key
       }
     })
-
-    console.log(`\n✅ SUMMARY:`)
-    console.log(`   - Updated ${updatedCount} cache entries`)
-    console.log(`   - Checked ${totalProductsChecked} total products`)
-    console.log(`   - Updated ${totalProductsUpdated} products`)
-    
-    if (updatedCount === 0) {
-      console.warn('⚠️ WARNING: No cache entries were updated!')
-      console.warn('   This could mean:')
-      console.warn('   1. Product IDs in cart don\'t match cached product IDs')
-      console.warn('   2. No product caches exist yet')
-      console.warn('   3. Products sold are not in any cached category')
-    }
   }
 
   /**
@@ -149,8 +113,6 @@ export function useStockCache() {
   async function refreshStockForProducts(productIds, fetchProductFn) {
     if (!productIds || productIds.length === 0) return
 
-    console.log('🔄 Refreshing stock for', productIds.length, 'products')
-
     const updates = {}
 
     // Fetch fresh data for each product
@@ -159,10 +121,9 @@ export function useStockCache() {
         const freshProduct = await fetchProductFn(productId)
         if (freshProduct && freshProduct.id) {
           updates[freshProduct.id] = freshProduct.stock
-          console.log(`  ✅ Fetched ${freshProduct.name}: stock = ${freshProduct.stock}`)
         }
       } catch (error) {
-        console.error(`❌ Failed to fetch product ${productId}:`, error)
+        // Failed to fetch product
       }
     }
 
@@ -176,7 +137,7 @@ export function useStockCache() {
         }
       }
     } catch (error) {
-      console.error('❌ Error reading localStorage keys:', error)
+      // Error reading localStorage keys
     }
 
     allKeys.forEach(fullKey => {
@@ -192,7 +153,6 @@ export function useStockCache() {
           
           if (newStock !== undefined && newStock !== product.stock) {
             wasUpdated = true
-            console.log(`  ✏️ ${product.name}: ${product.stock} → ${newStock}`)
             
             return {
               ...product,
@@ -210,19 +170,15 @@ export function useStockCache() {
         }
         
       } catch (error) {
-        console.error('❌ Error updating cache key', fullKey, ':', error)
+        // Error updating cache key
       }
     })
-
-    console.log('✅ Stock refresh complete')
   }
 
   /**
    * Invalidate all product caches (nuclear option - use sparingly)
    */
   function invalidateAllProductCaches() {
-    console.log('💥 Invalidating all product caches')
-
     // Clear memory cache
     memCache.clear()
 
@@ -236,18 +192,16 @@ export function useStockCache() {
         }
       }
     } catch (error) {
-      console.error('❌ Error reading localStorage keys:', error)
+      // Error reading localStorage keys
     }
 
     keysToRemove.forEach(key => {
       try {
         localStorage.removeItem(key)
       } catch (error) {
-        console.error('❌ Error removing key', key, ':', error)
+        // Error removing key
       }
     })
-
-    console.log(`✅ Removed ${keysToRemove.length} cache entries`)
   }
 
   return {
@@ -256,4 +210,3 @@ export function useStockCache() {
     invalidateAllProductCaches
   }
 }
-

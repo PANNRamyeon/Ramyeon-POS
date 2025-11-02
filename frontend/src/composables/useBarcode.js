@@ -27,8 +27,6 @@ export function useBarcode() {
    */
   const searchLocalStorageByBarcode = async (barcode) => {
     try {
-      console.log('🔍 Searching localStorage for barcode:', barcode)
-      
       const results = []
       
       // Search through all localStorage keys that contain product data
@@ -50,7 +48,6 @@ export function useBarcode() {
             )
             
             if (matches.length > 0) {
-              console.log(`✅ Found ${matches.length} matches in cache key: ${key}`)
               results.push(...matches)
             }
           }
@@ -60,11 +57,9 @@ export function useBarcode() {
         }
       }
       
-      console.log(`🔍 Local storage search complete: ${results.length} matches`)
       return results
       
     } catch (error) {
-      console.warn('Local storage search failed:', error.message)
       return []
     }
   }
@@ -110,15 +105,12 @@ export function useBarcode() {
   const startScanning = () => {
     if (isScanning.value) return
     
-    console.log('🔍 Starting barcode scanning mode')
     isScanning.value = true
     scanError.value = null
     scanSuccess.value = false
     
     // Set up keyboard listener for barcode scanner
     document.addEventListener('keydown', handleBarcodeInput)
-    
-    console.log('✅ Barcode scanner is now always listening')
   }
   
   /**
@@ -142,9 +134,6 @@ export function useBarcode() {
     // Ignore if not in scanning mode
     if (!isScanning.value) return
     
-    // Debug: Log all key presses to see if scanner is working
-    console.log('🔍 Key pressed:', event.key, 'Type:', event.key.length)
-    
     // Barcode scanners typically send Enter key after the code
     if (event.key === 'Enter') {
       event.preventDefault()
@@ -154,10 +143,8 @@ export function useBarcode() {
       if (activeElement && activeElement.type === 'text') {
         const barcode = activeElement.value.trim()
         if (barcode) {
-          console.log('>>', barcode)
           processBarcode(barcode)
           activeElement.value = '' // Clear the input
-          console.log('←', barcode)
         }
       }
     }
@@ -180,9 +167,7 @@ export function useBarcode() {
         clearTimeout(window.barcodeTimeout)
         window.barcodeTimeout = setTimeout(() => {
           if (window.barcodeBuffer && window.barcodeBuffer.length > 3) {
-            console.log('>>', window.barcodeBuffer)
             processBarcode(window.barcodeBuffer)
-            console.log('←', window.barcodeBuffer)
           }
           window.barcodeBuffer = ''
         }, 100)
@@ -196,8 +181,6 @@ export function useBarcode() {
    */
   const processBarcode = async (barcode) => {
     if (!barcode || isProcessing.value) return
-    
-    console.log('📦 Processing barcode:', barcode)
     
     try {
       isProcessing.value = true
@@ -217,23 +200,12 @@ export function useBarcode() {
         }
         scanSuccess.value = true
         
-        console.log('✅ Product found:', product.product_name || product.name)
-        console.log('🛒 Product data:', product)
-        console.log('🔍 Setting scanSuccess to true, scanResult:', scanResult.value)
-        
         // Force trigger the cart addition by calling the watcher manually
         // This is a workaround for Vue reactivity issues
         setTimeout(() => {
-          console.log('🔍 Manual trigger: scanSuccess is', scanSuccess.value)
-          console.log('🔍 Manual trigger: scanResult is', scanResult.value)
-          
           // Try to trigger the cart addition directly
-          console.log('🔍 Attempting direct cart addition...')
           if (window.addToCartDirectly) {
-            console.log('🔍 Calling window.addToCartDirectly')
             window.addToCartDirectly(product)
-          } else {
-            console.log('🔍 window.addToCartDirectly not available')
           }
         }, 100)
         
@@ -241,7 +213,6 @@ export function useBarcode() {
         return product
         
       } else {
-        console.warn('❌ Product not found for barcode:', barcode)
         scanError.value = `Product not found for barcode: ${barcode}`
         scanResult.value = {
           barcode,
@@ -253,7 +224,6 @@ export function useBarcode() {
       }
       
     } catch (error) {
-      console.error('❌ Barcode processing failed:', error)
       scanError.value = error.message
       scanResult.value = {
         barcode,
@@ -276,8 +246,6 @@ export function useBarcode() {
    */
   const findProductByBarcode = async (barcode) => {
     try {
-      console.log('🔍 Searching for product with barcode:', barcode)
-      
       // Try multiple search strategies
       const searchStrategies = [
         // 1. Direct barcode search (if API supports it)
@@ -296,11 +264,9 @@ export function useBarcode() {
           if (result && result.length > 0) {
             // Return the first matching product
             const product = result[0]
-            console.log('✅ Found product:', product.name)
             return product
           }
         } catch (error) {
-          console.warn('Search strategy failed:', error.message)
           continue
         }
       }
@@ -308,7 +274,6 @@ export function useBarcode() {
       return null
       
     } catch (error) {
-      console.error('❌ Product search failed:', error)
       throw error
     }
   }
@@ -321,20 +286,15 @@ export function useBarcode() {
   const searchByBarcode = async (barcode) => {
     try {
       // Search local storage first (much faster!)
-      console.log('🔍 Searching local storage for barcode:', barcode)
       const localResults = await searchLocalStorageByBarcode(barcode)
       
       if (localResults.length > 0) {
-        console.log('✅ Found product in local storage:', localResults[0].name)
         return localResults
       }
       
       // Fallback to backend API if not found locally
-      console.log('🔍 Not found locally, trying backend API...')
       const response = await api.get(`/pos/barcode/${barcode}/`)
       const data = response.data
-      
-      console.log('🔍 Barcode endpoint response:', data)
       
       // Handle different response structures
       let product = null
@@ -345,8 +305,6 @@ export function useBarcode() {
       }
       
       if (product && product._id) {
-        console.log('✅ Backend found product:', product.name || product.product_name)
-        
         // Transform the product data to match our format
         const transformedProduct = {
           _id: product._id,
@@ -370,21 +328,12 @@ export function useBarcode() {
           originalData: product
         }
         
-        console.log('🔍 Transformed barcode product:', transformedProduct)
         return [transformedProduct]
       }
       
-      console.log('❌ Backend response structure issue:', {
-        hasData: !!data,
-        hasProduct: !!(data && data.product),
-        hasId: !!(data && data._id),
-        dataKeys: data ? Object.keys(data) : 'no data'
-      })
-      console.log('🔍 No product found for barcode:', barcode)
       return []
       
     } catch (error) {
-      console.warn('Barcode search failed:', error.message)
       return []
     }
   }
@@ -406,11 +355,10 @@ export function useBarcode() {
         product.barcode === sku
       )
     } catch (error) {
-      console.warn('SKU search failed:', error.message)
       return []
     }
   }
-  
+
   /**
    * General product search
    * @param {string} query - Search query
@@ -418,13 +366,9 @@ export function useBarcode() {
    */
   const searchProducts = async (query) => {
     try {
-      console.log('🔍 General search for query:', query)
       const results = await productsAPI.searchProducts(query)
-      console.log('🔍 General search results:', results.length, 'products')
-      console.log('🔍 General search results:', results)
       return results
     } catch (error) {
-      console.warn('General search failed:', error.message)
       return []
     }
   }

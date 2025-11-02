@@ -26,6 +26,9 @@ yarn-error.log*
 .npm
 .yarn-integrity
 
+# Electron Desktop Build
+desktop/
+
 # Environment files
 .env
 .env.local

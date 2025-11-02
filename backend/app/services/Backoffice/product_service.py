@@ -10,6 +10,13 @@ from .product_subcategory_service import ProductSubcategoryService
 
 logger = logging.getLogger(__name__)
 
+# Import sync service for dual-mode operations
+try:
+    from ..sync_service import sync_service
+except ImportError:
+    sync_service = None
+    logger.warning("Sync service not available")
+
 class ProductService:
     def __init__(self):
         self.db = db_manager.get_database()
@@ -304,7 +311,7 @@ class ProductService:
                 'category_id': product_data.get('category_id', ''),
                 'SKU': product_data['SKU'],
                 'unit': product_data.get('unit', ''),
-                'stock': int(product_data.get('stock', 0)),
+                'total_stock': int(product_data.get('total_stock', 0)),
                 'low_stock_threshold': int(product_data.get('low_stock_threshold', 10)),
                 'cost_price': float(product_data.get('cost_price', 0)),
                 'selling_price': float(product_data.get('selling_price', 0)),
@@ -443,7 +450,7 @@ class ProductService:
             if not current_product:
                 raise Exception(f"Product with ID {product_id} not found or is deleted")
             
-            current_stock = current_product.get('stock', 0)
+            current_stock = current_product.get('total_stock', 0)
             
             # Extract operation details
             operation_type = stock_data.get('operation_type', 'set')
@@ -478,7 +485,7 @@ class ProductService:
             
             # Update the product (only non-deleted products)
             update_data = {
-                'stock': new_stock,
+                'total_stock': new_stock,
                 'updated_at': current_time
             }
             
@@ -491,10 +498,29 @@ class ProductService:
             )
             
             if result.modified_count > 0:
-                # Mark as needing sync since stock was updated
-                self.update_sync_status(product_id, sync_status='pending', source='cloud')
-                
                 updated_product = self.product_collection.find_one({'_id': product_id})
+                
+                # Try immediate sync to cloud if online
+                if sync_service and db_manager.is_online:
+                    try:
+                        cloud_db = db_manager.get_cloud_database()
+                        if cloud_db is not None:
+                            cloud_db.products.update_one(
+                                {'_id': product_id},
+                                {
+                                    '$set': update_data,
+                                    '$push': {'stock_history': stock_history_entry}
+                                }
+                            )
+                            logger.info(f"✅ Synced stock update to cloud for {product_id}")
+                            self.update_sync_status(product_id, sync_status='synced', source='cloud')
+                    except Exception as e:
+                        logger.error(f"❌ Failed to sync stock update to cloud: {e}")
+                        # Mark as pending for later sync
+                        self.update_sync_status(product_id, sync_status='pending', source='cloud')
+                else:
+                    # Offline or no sync service - mark as pending
+                    self.update_sync_status(product_id, sync_status='pending', source='cloud')
                 
                 # Prepare notification data
                 product_name = updated_product.get("product_name", updated_product.get("SKU", "Unknown Product"))
@@ -898,7 +924,7 @@ class ProductService:
             products = list(self.product_collection.find({
                 'category_id': category_id,  # Direct string comparison
                 'isDeleted': {'$ne': True}
-            }))
+            }).sort('product_name', 1))
             return products  # Return directly, no conversion needed
         
         except Exception as e:
@@ -1162,7 +1188,7 @@ class ProductService:
                 'SKU': ['sku', 'SKU', 'product_code', 'code'],
                 'category_id': ['category_id', 'category', 'category_name'],
                 'supplier_id': ['supplier_id', 'supplier', 'supplier_name'],
-                'stock': ['stock', 'quantity', 'qty', 'current_stock'],
+                'total_stock': ['total_stock', 'stock', 'quantity', 'qty', 'current_stock'],
                 'low_stock_threshold': ['low_stock_threshold', 'min_stock', 'reorder_level'],
                 'cost_price': ['cost_price', 'cost', 'purchase_price'],
                 'selling_price': ['selling_price', 'price', 'sale_price'],
@@ -1310,7 +1336,7 @@ class ProductService:
                 'SKU': ['NOOD-SAMP-001', 'DRIN-SAMP-001'],
                 'category_id': ['category_name_or_id', 'category_name_or_id'],
                 'supplier_id': ['supplier_name_or_id', 'supplier_name_or_id'],
-                'stock': [100, 50],
+                'total_stock': [100, 50],
                 'low_stock_threshold': [10, 5],
                 'cost_price': [15.00, 25.00],
                 'selling_price': [20.00, 30.00],
