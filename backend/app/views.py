@@ -1,5 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.views.generic import TemplateView
+
+# ================ FRONTEND SPA VIEW ================
+
+class FrontendView(TemplateView):
+    """Serve Vue.js SPA for all non-API routes"""
+    template_name = 'index.html'
 
 # ================ API DOCUMENTATION VIEW ================
         

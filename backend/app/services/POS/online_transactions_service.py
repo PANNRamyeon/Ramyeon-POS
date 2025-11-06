@@ -197,6 +197,14 @@ class OnlineTransactionService:
                     'error': f'Insufficient points. Available: {available_points}, Requested: {points_to_redeem}'
                 }
             
+            # Hard cap: Maximum 80 points (₱20) per transaction
+            ABSOLUTE_MAX_POINTS = 80
+            if points_to_redeem > ABSOLUTE_MAX_POINTS:
+                return {
+                    'valid': False,
+                    'error': f'Maximum redemption is {ABSOLUTE_MAX_POINTS} points (₱20) per transaction'
+                }
+            
             # Check max discount: min(₱20, 20% of subtotal)
             points_discount = self.calculate_points_discount(points_to_redeem)
             max_discount = min(20, subtotal * 0.20)

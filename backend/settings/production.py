@@ -1,5 +1,6 @@
 from .base import *
 from decouple import config
+import os
 
 # Production settings
 DEBUG = False
@@ -14,6 +15,32 @@ ALLOWED_HOSTS = [
 # Add any custom domains you might have
 CUSTOM_DOMAINS = config('CUSTOM_DOMAINS', default='', cast=lambda v: [s.strip() for s in v.split(',') if s.strip()])
 ALLOWED_HOSTS.extend(CUSTOM_DOMAINS)
+
+# Static files configuration for standalone .exe
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Static files directories for serving Vue frontend
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
+# Templates directory for serving Vue SPA
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'static' / 'frontend'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
 
 # CORS settings for production
 CORS_ALLOWED_ORIGINS = config(

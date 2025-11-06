@@ -12,6 +12,11 @@ class AppConfig(AppConfig):
         logger = logging.getLogger(__name__)
         
         try:
+            # Start MongoDB if not running (for offline mode)
+            from .services.mongodb_manager import mongodb_manager
+            if not mongodb_manager.start_mongodb():
+                logger.warning("⚠️ MongoDB auto-start failed. The app may not work in offline mode.")
+            
             from .database import db_manager
             db_manager.initialize()
             

@@ -440,6 +440,154 @@ class SyncService:
                 'error': str(e)
             }
     
+    def is_local_database_empty(self):
+        """
+        Check if local database is empty (first launch scenario).
+        Checks key collections: products, categories, batches, customers.
+        
+        Returns:
+            bool: True if local database appears empty, False otherwise
+        """
+        try:
+            local_db, _ = self.get_databases()
+            
+            # Check key collections that should have data
+            key_collections = ['products', 'categories', 'batches', 'customers']
+            total_docs = 0
+            
+            for collection_name in key_collections:
+                count = local_db[collection_name].count_documents({})
+                total_docs += count
+            
+            # Consider database empty if total documents < 10 (arbitrary threshold)
+            is_empty = total_docs < 10
+            
+            if is_empty:
+                logger.info(f"📊 Local database appears empty (total docs: {total_docs})")
+            
+            return is_empty
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to check if local database is empty: {e}")
+            return False  # Assume not empty on error
+    
+    def pull_all_from_cloud(self):
+        """
+        Pull all data from cloud to local (initial bootstrap).
+        Only runs if local database is empty and cloud is available.
+        
+        Returns:
+            dict: Summary of pulled data
+        """
+        if not db_manager.is_online:
+            logger.warning("⚠️ Cannot pull from cloud - offline")
+            return {'pulled': 0, 'failed': 0, 'collections': []}
+        
+        try:
+            local_db, cloud_db = self.get_databases()
+            if cloud_db is None:
+                logger.warning("⚠️ No cloud database available")
+                return {'pulled': 0, 'failed': 0, 'collections': []}
+            
+            print("\n" + "=" * 60)
+            print("INITIAL DATA PULL FROM CLOUD")
+            print("=" * 60)
+            print()
+            
+            # Get ALL collections from cloud database dynamically
+            try:
+                # List all collection names from cloud database
+                collections_to_pull = cloud_db.list_collection_names()
+                
+                # Filter out MongoDB system collections
+                system_collections = ['system.indexes', 'system.collections', 'system.profile']
+                collections_to_pull = [c for c in collections_to_pull if c not in system_collections]
+                
+                print(f"Found {len(collections_to_pull)} collections in cloud database")
+                
+            except Exception as e:
+                logger.error(f"Failed to list cloud collections: {e}")
+                # Fallback to hardcoded list if listing fails
+                collections_to_pull = [
+                    'products', 'category', 'batches', 'customers', 'suppliers',
+                    'promotions', 'users', 'sales', 'sales_log', 'shifts', 'carts',
+                    'online_transactions', 'audit_logs', 'session_logs', 
+                    'token_blacklist', 'notifications', 'loyalty_transactions'
+                ]
+                print(f"Using fallback list: {len(collections_to_pull)} collections")
+            
+            total_pulled = 0
+            total_failed = 0
+            collection_results = {}
+            
+            for collection_name in collections_to_pull:
+                try:
+                    # Get all documents from cloud
+                    cloud_docs = list(cloud_db[collection_name].find({}))
+                    cloud_count = len(cloud_docs)
+                    
+                    if cloud_count == 0:
+                        print(f"   {collection_name}: No data in cloud (skipping)")
+                        collection_results[collection_name] = {'pulled': 0, 'failed': 0}
+                        continue
+                    
+                    print(f"   {collection_name}: Pulling {cloud_count} documents...")
+                    
+                    pulled_count = 0
+                    failed_count = 0
+                    
+                    for doc in cloud_docs:
+                        doc_id = doc.get('_id')
+                        try:
+                            # Check if document already exists locally
+                            local_doc = local_db[collection_name].find_one({'_id': doc_id})
+                            
+                            if local_doc:
+                                # Update existing document
+                                local_db[collection_name].replace_one({'_id': doc_id}, doc)
+                                pulled_count += 1
+                            else:
+                                # Insert new document
+                                local_db[collection_name].insert_one(doc)
+                                pulled_count += 1
+                                
+                        except Exception as e:
+                            logger.error(f"Failed to pull {collection_name} {doc_id}: {e}")
+                            failed_count += 1
+                    
+                    total_pulled += pulled_count
+                    total_failed += failed_count
+                    collection_results[collection_name] = {
+                        'pulled': pulled_count,
+                        'failed': failed_count,
+                        'total': cloud_count
+                    }
+                    
+                    print(f"   ✓ {collection_name}: {pulled_count} pulled, {failed_count} failed")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error pulling {collection_name}: {e}")
+                    collection_results[collection_name] = {'pulled': 0, 'failed': 0, 'error': str(e)}
+            
+            print()
+            print("=" * 60)
+            print(f"INITIAL PULL COMPLETE")
+            print("=" * 60)
+            print(f"Total pulled: {total_pulled}")
+            print(f"Total failed: {total_failed}")
+            print("=" * 60)
+            print()
+            
+            return {
+                'pulled': total_pulled,
+                'failed': total_failed,
+                'collections': collection_results
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to pull all data from cloud: {e}")
+            return {'pulled': 0, 'failed': 0, 'error': str(e)}
+    
     def backfill_collection(self, collection_name):
         """
         Backfill unsynced documents from local to cloud.

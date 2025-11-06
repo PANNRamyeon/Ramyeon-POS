@@ -148,20 +148,64 @@ class BatchService:
     # PRODUCT STOCK SYNCHRONIZATION
     # ================================================================
     
-    def update_product_total_stock(self, product_id):
+    def update_product_total_stock(self, product_id, verbose=False):
         """
-        Update product's total_stock to match sum of all batches' quantity_remaining
+        Update product's total_stock to match sum of ACTIVE batches' quantity_remaining
+        This should only count active batches with stock > 0 (not pending/depleted)
         
-        This ensures the product collection always reflects the current batch stock.
+        This ensures the product collection always reflects the sellable batch stock.
+        
+        Args:
+            product_id: Product ID to update
+            verbose: If True, print detailed batch information
         """
         try:
-            # Get all batches for this product (including depleted ones)
-            batches = list(self.batches_collection.find({
+            # Get ALL batches for this product (for breakdown display)
+            all_batches = list(self.batches_collection.find({
                 'product_id': product_id
             }))
             
-            # Sum up all remaining quantities
-            total_remaining = sum(batch.get('quantity_remaining', 0) for batch in batches)
+            # Get only ACTIVE batches with stock > 0 for total_stock calculation
+            active_batches = list(self.batches_collection.find({
+                'product_id': product_id,
+                'status': 'active',
+                'quantity_remaining': {'$gt': 0}
+            }))
+            
+            # Calculate total from ACTIVE batches only
+            total_remaining = sum(batch.get('quantity_remaining', 0) for batch in active_batches)
+            
+            # Calculate breakdown from ALL batches for verbose display
+            batch_breakdown = {
+                'active': 0,
+                'pending': 0,
+                'depleted': 0,
+                'expired': 0
+            }
+            
+            for batch in all_batches:
+                qty = batch.get('quantity_remaining', 0)
+                status = batch.get('status', 'unknown')
+                batch_breakdown[status] = batch_breakdown.get(status, 0) + qty
+            
+            if verbose:
+                product = self.products_collection.find_one({'_id': product_id})
+                product_name = product.get('product_name', 'Unknown') if product else 'Unknown'
+                print(f"\n📊 Updating stock for: {product_name} ({product_id})")
+                print(f"   Total batches: {len(all_batches)}")
+                print(f"   Active (counted): {len(active_batches)} batches")
+                print(f"   Pending (not counted): {batch_breakdown.get('pending', 0)}")
+                print(f"   Depleted (not counted): {batch_breakdown.get('depleted', 0)}")
+                print(f"   Expired (not counted): {batch_breakdown.get('expired', 0)}")
+                print(f"   TOTAL STOCK (active only): {total_remaining}")
+            
+            # Get current product stock for comparison
+            product = self.products_collection.find_one({'_id': product_id})
+            old_stock = product.get('total_stock', 0) if product else 0
+            
+            if verbose and old_stock != total_remaining:
+                print(f"   ⚠️  STOCK MISMATCH: Product shows {old_stock}, batches sum to {total_remaining}")
+                print(f"   Difference: {total_remaining - old_stock}")
             
             # Update product's total_stock
             update_result = self.products_collection.update_one(

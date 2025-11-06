@@ -15,12 +15,16 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.http import HttpResponse
+from app.views import FrontendView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include('app.urls')),
     path('api/v1/notifications/', include('notifications.urls')),
-    path('', lambda request: HttpResponse("POS System API is running!")),
+    
+    # Catch-all: Serve Vue.js SPA for all other routes
+    # This must be last to allow API routes to work
+    re_path(r'^(?!api/)(?!admin/).*', FrontendView.as_view(), name='frontend'),
 ]

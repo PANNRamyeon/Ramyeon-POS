@@ -1,0 +1,48 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    IMPORTANT: HTTP vs HTTPS Notice                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📌 THE APPLICATION USES HTTP, NOT HTTPS
+
+Your POS system runs on: http://localhost:8000
+
+If you see HTTPS errors in the browser:
+  1. The server is working fine
+  2. Your browser tried HTTPS first
+  3. Just type: http://localhost:8000 (with http://)
+
+══════════════════════════════════════════════════════════════════════════════
+
+🔧 HOW TO ACCESS:
+
+Method 1: Type manually
+  1. Open browser
+  2. Type: http://localhost:8000
+  3. Press Enter
+
+Method 2: Click the URL in console
+  The console shows the correct URL
+
+Method 3: Copy from console
+  1. Look at console output
+  2. Copy: http://localhost:8000
+  3. Paste in browser
+
+══════════════════════════════════════════════════════════════════════════════
+
+✅ YOUR SERVER LOGS SHOW IT'S WORKING:
+
+  "Starting development server at http://0.0.0.0:8000/"
+  "GET / HTTP/1.1" 200
+
+This means the server is RUNNING and serving requests correctly!
+
+══════════════════════════════════════════════════════════════════════════════
+
+The installer is working perfectly! Just access via http:// not https://
+
+
+
+
+
+

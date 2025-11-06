@@ -41,17 +41,17 @@
                   v-if="category.isCustom"
                   class="delete-category-btn btn-complete"
                   @click.stop="deleteCategory(category.id)"
-                  title="Delete Category">
+                  title="Delete Page">
                   <X :size="12" />
                 </button>
               </div>
               
-              <!-- Add Category Button -->
+              <!-- Add Page Button -->
               <div class="cat-card add-category card-complete hover-lift" @click="showCategoryModal = true">
                 <div class="cat-icon">
                   <Plus :size="24" />
                 </div>
-                <span class="cat-label">Add Category</span>
+                <span class="cat-label">Add Page</span>
               </div>
             </div>
           </div>
@@ -162,7 +162,7 @@
               v-if="!product.isSubcategory && isCustomCategory" 
               class="delete-product-btn btn-complete" 
               @click.stop="removeFromCategory(product.id)" 
-              title="Remove from category">
+              title="Remove from page">
               <X :size="14" />
             </button>
           </div>
@@ -187,22 +187,22 @@
       </div>
     </div>
 
-    <!-- Category Creation Modal -->
+    <!-- Page Creation Modal -->
     <div v-if="showCategoryModal" class="modal-overlay modal-overlay-theme" @click="closeCategoryModal">
       <div class="modal-content modal-theme transition-theme" @click.stop>
         <div class="modal-header header-theme">
-          <h3>Create New Category</h3>
+          <h3>Create New Page</h3>
           <button class="close-btn btn-complete" @click="closeCategoryModal">
             <X :size="20" />
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Category Name</label>
+            <label>Page Name</label>
             <input 
               type="text" 
               v-model="newCategory.name" 
-              placeholder="Enter category name"
+              placeholder="Enter page name"
               class="form-input input-complete focus-ring-theme"
               maxlength="20"
             />
@@ -231,7 +231,7 @@
             class="btn-primary btn-complete" 
             @click="createCategory" 
             :disabled="!newCategory.name.trim()">
-            Create Category
+            Create Page
           </button>
         </div>
       </div>
@@ -1448,7 +1448,7 @@ export default {
     },
 
     deleteCategory(categoryId) {
-      if (confirm('Are you sure you want to delete this category and all its items?')) {
+      if (confirm('Are you sure you want to delete this page and all its items?')) {
         this.customCategories = this.customCategories.filter(cat => cat.id !== categoryId)
         delete this.customCategoryProducts[categoryId]
         
@@ -2047,10 +2047,12 @@ export default {
     
     saveCustomCategories() {
       try {
-        this.storage?.setItem('customCategories', this.customCategories, this.cacheTTLms)
+        // Use direct localStorage (no expiration) for permanent favorites/custom categories
+        localStorage.setItem('customCategories', JSON.stringify(this.customCategories))
+        // Also update memory cache for immediate use
         this.memCache?.set('customCategories', this.customCategories, this.memCacheTTLms)
       } catch (error) {
-        // Failed to save custom categories
+        console.error('Failed to save custom categories:', error)
       }
     },
     
@@ -2063,23 +2065,38 @@ export default {
           return
         }
         
-        // Try localStorage
-        const lsHit = this.storage?.getItem('customCategories', null)
-        if (Array.isArray(lsHit)) {
-          this.customCategories = lsHit
-          this.memCache?.set('customCategories', lsHit, this.memCacheTTLms)
+        // Load from localStorage directly (permanent storage, no expiration)
+        const stored = localStorage.getItem('customCategories')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (Array.isArray(parsed)) {
+            this.customCategories = parsed
+            // Update memory cache for faster access
+            this.memCache?.set('customCategories', parsed, this.memCacheTTLms)
+            return
+          }
+        }
+        
+        // Fallback: Try old storage format (for migration)
+        const oldStored = this.storage?.getItem('customCategories', null)
+        if (Array.isArray(oldStored)) {
+          this.customCategories = oldStored
+          // Migrate to new permanent format
+          this.saveCustomCategories()
         }
       } catch (error) {
-        // Failed to load custom categories
+        console.error('Failed to load custom categories:', error)
       }
     },
     
     saveCustomCategoryProducts() {
       try {
-        this.storage?.setItem('customCategoryProducts', this.customCategoryProducts, this.cacheTTLms)
+        // Use direct localStorage (no expiration) for permanent favorites/custom category products
+        localStorage.setItem('customCategoryProducts', JSON.stringify(this.customCategoryProducts))
+        // Also update memory cache for immediate use
         this.memCache?.set('customCategoryProducts', this.customCategoryProducts, this.memCacheTTLms)
       } catch (error) {
-        // Failed to save custom category products
+        console.error('Failed to save custom category products:', error)
       }
     },
     
@@ -2092,39 +2109,75 @@ export default {
           return
         }
         
-        // Try localStorage
-        const lsHit = this.storage?.getItem('customCategoryProducts', null)
-        if (lsHit && typeof lsHit === 'object') {
-          this.customCategoryProducts = lsHit
-          this.memCache?.set('customCategoryProducts', lsHit, this.memCacheTTLms)
+        // Load from localStorage directly (permanent storage, no expiration)
+        const stored = localStorage.getItem('customCategoryProducts')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (parsed && typeof parsed === 'object') {
+            this.customCategoryProducts = parsed
+            // Update memory cache for faster access
+            this.memCache?.set('customCategoryProducts', parsed, this.memCacheTTLms)
+            return
+          }
+        }
+        
+        // Fallback: Try old storage format (for migration)
+        const oldStored = this.storage?.getItem('customCategoryProducts', null)
+        if (oldStored && typeof oldStored === 'object') {
+          this.customCategoryProducts = oldStored
+          // Migrate to new permanent format
+          this.saveCustomCategoryProducts()
         }
       } catch (error) {
-        // Failed to load custom category products
+        console.error('Failed to load custom category products:', error)
       }
     },
     
     saveIdCounters() {
       try {
-        this.storage?.setItem('nextCategoryId', this.nextCategoryId, this.cacheTTLms)
-        this.storage?.setItem('nextProductId', this.nextProductId, this.cacheTTLms)
+        // Use direct localStorage (no expiration) for permanent storage of ID counters
+        localStorage.setItem('nextCategoryId', this.nextCategoryId.toString())
+        localStorage.setItem('nextProductId', this.nextProductId.toString())
       } catch (error) {
-        // Failed to save ID counters
+        console.error('Failed to save ID counters:', error)
       }
     },
     
     loadIdCounters() {
       try {
-        const savedCategoryId = this.storage?.getItem('nextCategoryId', null)
-        const savedProductId = this.storage?.getItem('nextProductId', null)
+        // Load from localStorage directly (permanent storage, no expiration)
+        const savedCategoryId = localStorage.getItem('nextCategoryId')
+        const savedProductId = localStorage.getItem('nextProductId')
         
-        if (savedCategoryId && savedCategoryId > this.nextCategoryId) {
-          this.nextCategoryId = savedCategoryId
+        if (savedCategoryId) {
+          const parsed = parseInt(savedCategoryId, 10)
+          if (!isNaN(parsed) && parsed > this.nextCategoryId) {
+            this.nextCategoryId = parsed
+          }
         }
-        if (savedProductId && savedProductId > this.nextProductId) {
-          this.nextProductId = savedProductId
+        if (savedProductId) {
+          const parsed = parseInt(savedProductId, 10)
+          if (!isNaN(parsed) && parsed > this.nextProductId) {
+            this.nextProductId = parsed
+          }
+        }
+        
+        // Fallback: Try old storage format (for migration)
+        if (!savedCategoryId || !savedProductId) {
+          const oldCategoryId = this.storage?.getItem('nextCategoryId', null)
+          const oldProductId = this.storage?.getItem('nextProductId', null)
+          
+          if (oldCategoryId && typeof oldCategoryId === 'number' && oldCategoryId > this.nextCategoryId) {
+            this.nextCategoryId = oldCategoryId
+            this.saveIdCounters() // Migrate to new format
+          }
+          if (oldProductId && typeof oldProductId === 'number' && oldProductId > this.nextProductId) {
+            this.nextProductId = oldProductId
+            this.saveIdCounters() // Migrate to new format
+          }
         }
       } catch (error) {
-        // Failed to load ID counters
+        console.error('Failed to load ID counters:', error)
       }
     },
     

@@ -464,6 +464,115 @@
         </div>
       </div>
     </div>
+
+        <!-- Cash Payment Confirmation Modal -->
+        <div v-if="showCashConfirmModal" class="modal-overlay" @click.self="cancelCashConfirm">
+          <div class="modal-container cash-confirm-modal">
+            <div class="modal-header">
+              <h3 class="modal-title text-primary">💵 Confirm Cash Payment</h3>
+            </div>
+            <div class="p-4">
+              <div class="payment-summary">
+                <div class="summary-row">
+                  <span class="summary-label">Total:</span>
+                  <span class="summary-value text-primary">₱{{ formatPrice(grandTotal) }}</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label">Cash:</span>
+                  <span class="summary-value text-success">₱{{ formatPrice(cashTendered) }}</span>
+                </div>
+                <div class="summary-row change-row">
+                  <span class="summary-label">Change:</span>
+                  <span class="summary-value change-amount">₱{{ formatPrice(changeAmount) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline-secondary" @click="cancelCashConfirm" :disabled="isProcessing">
+                Cancel
+              </button>
+              <button class="btn btn-primary" @click="confirmCashPayment" :disabled="isProcessing">
+                <span v-if="!isProcessing">Confirm Payment</span>
+                <span v-else class="d-flex align-items-center gap-2">
+                  Processing...
+                  <span class="spinner-border spinner-border-sm" role="status"></span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- GCash Payment Confirmation Modal -->
+        <div v-if="showGCashConfirmModal" class="modal-overlay" @click.self="cancelEWalletConfirm">
+          <div class="modal-container ewallet-confirm-modal gcash-modal">
+            <div class="modal-header">
+              <h3 class="modal-title" style="color: #0070BA;">📱 Confirm GCash Payment</h3>
+            </div>
+            <div class="p-4">
+              <div class="payment-summary">
+                <div class="summary-row">
+                  <span class="summary-label">Total:</span>
+                  <span class="summary-value text-primary">₱{{ formatPrice(grandTotal) }}</span>
+                </div>
+              </div>
+              <div class="ewallet-info-box">
+                <div class="ewallet-icon">📱</div>
+                <div class="ewallet-message">
+                  <p class="mb-2">You will be redirected to <strong>GCash</strong> to complete your payment securely.</p>
+                  <p class="text-secondary fs-7 mb-0">Make sure you have the GCash app or access to the GCash website ready.</p>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline-secondary" @click="cancelEWalletConfirm" :disabled="isProcessing">
+                Cancel
+              </button>
+              <button class="btn btn-primary" style="background-color: #0070BA; border-color: #0070BA;" @click="confirmEWalletPayment('gcash')" :disabled="isProcessing">
+                <span v-if="!isProcessing">Continue to GCash →</span>
+                <span v-else class="d-flex align-items-center gap-2">
+                  Creating payment link...
+                  <span class="spinner-border spinner-border-sm" role="status"></span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PayMaya Payment Confirmation Modal -->
+        <div v-if="showPayMayaConfirmModal" class="modal-overlay" @click.self="cancelEWalletConfirm">
+          <div class="modal-container ewallet-confirm-modal paymaya-modal">
+            <div class="modal-header">
+              <h3 class="modal-title" style="color: #00AFEF;">💳 Confirm Maya Payment</h3>
+            </div>
+            <div class="p-4">
+              <div class="payment-summary">
+                <div class="summary-row">
+                  <span class="summary-label">Total:</span>
+                  <span class="summary-value text-primary">₱{{ formatPrice(grandTotal) }}</span>
+                </div>
+              </div>
+              <div class="ewallet-info-box">
+                <div class="ewallet-icon">💳</div>
+                <div class="ewallet-message">
+                  <p class="mb-2">You will be redirected to <strong>Maya</strong> to complete your payment securely.</p>
+                  <p class="text-secondary fs-7 mb-0">Make sure you have the Maya app or access to the Maya website ready.</p>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline-secondary" @click="cancelEWalletConfirm" :disabled="isProcessing">
+                Cancel
+              </button>
+              <button class="btn btn-primary" style="background-color: #00AFEF; border-color: #00AFEF;" @click="confirmEWalletPayment('grab_pay')" :disabled="isProcessing">
+                <span v-if="!isProcessing">Continue to Maya →</span>
+                <span v-else class="d-flex align-items-center gap-2">
+                  Creating payment link...
+                  <span class="spinner-border spinner-border-sm" role="status"></span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
   </div>
 </template>
 
@@ -531,7 +640,12 @@ export default {
         paymentMethod: '',
         change: 0,
         shiftId: null
-      }
+      },
+
+      // Payment confirmation modals
+      showCashConfirmModal: false,
+      showGCashConfirmModal: false,
+      showPayMayaConfirmModal: false,
     }
   },
   
@@ -646,8 +760,11 @@ export default {
       // Limit by customer’s actual points
       const customerPoints = this.selectedCustomer.loyalty_points || 0
 
-      // Final allowed redemption
-      return Math.min(maxPointsFromSubtotal, customerPoints)
+      // Hard cap: Maximum 80 points (₱20) per transaction
+      const ABSOLUTE_MAX_POINTS = 80
+
+      // Final allowed redemption: min of (calculated max, customer points, absolute max)
+      return Math.min(maxPointsFromSubtotal, customerPoints, ABSOLUTE_MAX_POINTS)
     },
 
     
@@ -897,7 +1014,13 @@ export default {
     
     applyPointsDiscount() {
       if (!this.canRedeemPoints) {
-        alert('Invalid points amount. Please enter between 100 and ' + this.maxRedeemablePoints + ' points.')
+        alert('Invalid points amount. Please enter between 40 and ' + this.maxRedeemablePoints + ' points.')
+        return
+      }
+      
+      // Enforce absolute max 80 points (₱20) per transaction
+      if (this.pointsToRedeem > 80) {
+        alert('Maximum points redemption is 80 points (₱20) per transaction')
         return
       }
       
@@ -1056,15 +1179,16 @@ export default {
     async processCashPayment() {
       if (!this.validateCashPayment()) return
       
-      const confirmMessage = `Confirm cash payment:\nTotal: ₱${this.formatPrice(this.grandTotal)}\n` +
-        `Cash: ₱${this.formatPrice(this.cashTendered)}\nChange: ₱${this.formatPrice(this.changeAmount)}`
-      
-      if (!confirm(confirmMessage)) return
-      
+      // Show custom confirmation modal instead of browser confirm
+      this.showCashConfirmModal = true
+    },
+
+    async executeCashPayment() {
       try {
         this.isProcessing = true
         this.isLoading = true
         this.loadingMessage = 'Processing cash payment...'
+        this.showCashConfirmModal = false // Close modal immediately when processing starts
         
         await this.validateStock()
         
@@ -1087,6 +1211,7 @@ export default {
         
       } catch (error) {
         alert(`Payment failed: ${error.message}`)
+        this.showCashConfirmModal = false
       } finally {
         this.isProcessing = false
         this.isLoading = false
@@ -1098,17 +1223,23 @@ export default {
     // ----------------------------------------------------------------
     
     async processEWalletPayment(type) {
+      // Show custom confirmation modal instead of browser confirm
+      if (type === 'gcash') {
+        this.showGCashConfirmModal = true
+      } else if (type === 'grab_pay') {
+        this.showPayMayaConfirmModal = true
+      }
+    },
+
+    async executeEWalletPayment(type) {
       const walletName = type === 'gcash' ? 'GCash' : 'Maya'
-      
-      const confirmMessage = `Confirm ${walletName} payment:\nTotal: ₱${this.formatPrice(this.grandTotal)}\n\n` +
-        `You will be redirected to ${walletName} to complete payment.`
-      
-      if (!confirm(confirmMessage)) return
       
       try {
         this.isProcessing = true
         this.isLoading = true
         this.loadingMessage = `Creating ${walletName} payment link...`
+        this.showGCashConfirmModal = false // Close modals immediately when processing starts
+        this.showPayMayaConfirmModal = false
         
         await this.validateStock()
         
@@ -1302,6 +1433,36 @@ export default {
       
       this.$router.replace('/new-order')
     },
+
+    // Cash Payment Confirmation Modal Methods
+    showCashConfirm() {
+      this.showCashConfirmModal = true
+    },
+    cancelCashConfirm() {
+      this.showCashConfirmModal = false
+      this.cashTendered = 0
+      this.cashValidationError = null
+    },
+    async confirmCashPayment() {
+      if (this.cashTendered < this.grandTotal) {
+        alert(`Insufficient cash tendered. Need ₱${this.formatPrice(this.grandTotal - this.cashTendered)} more.`)
+        return
+      }
+
+      this.showCashConfirmModal = false
+      await this.executeCashPayment()
+    },
+
+    // E-Wallet Payment Confirmation Modal Methods
+    cancelEWalletConfirm() {
+      this.showGCashConfirmModal = false
+      this.showPayMayaConfirmModal = false
+    },
+    async confirmEWalletPayment(type) {
+      this.showGCashConfirmModal = false
+      this.showPayMayaConfirmModal = false
+      await this.executeEWalletPayment(type)
+    },
     
     // ================================================================
     // NAVIGATION
@@ -1379,5 +1540,165 @@ export default {
 
 .success-modal {
   animation: fadeIn 0.3s ease-out;
+}
+/* Payment Confirmation Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-container {
+  background: var(--surface-primary, #ffffff);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-close:hover {
+  background-color: var(--surface-secondary, #f5f5f5);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.cash-confirm-modal {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.ewallet-confirm-modal {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.gcash-modal .modal-header {
+  border-bottom-color: rgba(0, 112, 186, 0.2);
+}
+
+.paymaya-modal .modal-header {
+  border-bottom-color: rgba(0, 175, 239, 0.2);
+}
+
+.payment-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--surface-secondary, #f8f9fa);
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.summary-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.summary-label {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-secondary, #666);
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.change-row {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border: 2px solid #28a745;
+}
+
+.change-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #155724;
+}
+
+.ewallet-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #dee2e6);
+  margin-top: 20px;
+}
+
+.ewallet-icon {
+  font-size: 48px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ewallet-message {
+  flex: 1;
+}
+
+.ewallet-message p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>

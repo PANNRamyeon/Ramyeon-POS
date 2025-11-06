@@ -1,0 +1,102 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    PANN POS SYSTEM - BUILD INSTRUCTIONS                    ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ STEP 1: Open Command Prompt                                               │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Press:  Windows Key + R
+    Type:   cmd
+    Press:  Enter
+
+    OR
+
+    Press:  Windows Key + X
+    Click:  "Terminal" or "Windows PowerShell"
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ STEP 2: Navigate to the Project Folder                                    │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Type this command and press Enter:
+
+    cd C:\Users\ngjam\Desktop\PANN_POS_SYSTEM
+
+    You should now see something like:
+
+    C:\Users\ngjam\Desktop\PANN_POS_SYSTEM>
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ STEP 3: Run the Build Script                                              │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Type this command and press Enter:
+
+    build.bat
+
+    The build will start automatically!
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ STEP 4: Wait for Build to Complete                                        │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    You'll see messages like:
+
+    ✓ Building Vue.js frontend...
+    ✓ Frontend built successfully
+    ✓ Installing Python dependencies...
+    ✓ Collecting Django static files...
+    ✓ Building executable with PyInstaller...
+    
+    This takes about 5-10 minutes the first time.
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ STEP 5: Find Your Executable                                              │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    When done, your .exe will be here:
+
+    C:\Users\ngjam\Desktop\PANN_POS_SYSTEM\backend\dist\PANN_POS_System.exe
+
+    Just double-click it to run!
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  QUICK REFERENCE                                                           │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Build Scripts Available:
+    
+    1. build.bat                  →  Build executable only
+    2. build_with_installer.bat  →  Build + Windows installer
+    3. CreateInstaller.ps1       →  PowerShell installer
+
+    Start with: build.bat
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  TROUBLESHOOTING                                                           │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    If you get errors:
+    
+    → Read: BUILD_NOTES.md
+    → Read: BUILD_COMPLETE_README.md
+    → Check: HOW_TO_BUILD.txt
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  NEED MORE HELP?                                                           │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Documentation Files:
+    
+    • HOW_TO_BUILD.txt           →  Simple instructions
+    • BUILD_COMPLETE_README.md   →  Complete guide
+    • BUILD_NOTES.md             →  Technical details
+    • QUICK_BUILD_GUIDE.md       →  Fast reference
+    • BUILD_COMPLETE_README.md   →  Full details
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║                      READY TO BUILD? RUN: build.bat                        ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+
