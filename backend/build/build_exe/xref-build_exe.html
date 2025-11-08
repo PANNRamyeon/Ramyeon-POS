@@ -4104,6 +4104,7 @@ imported by:
  &#8226;   <a href="#app.services.sync_service">app.services.sync_service</a>
  &#8226;   <a href="#django">django</a>
  &#8226;   <a href="#notifications.services">notifications.services</a>
+ &#8226;   <a href="#notifications.shift_summary_service">notifications.shift_summary_service</a>
  &#8226;   <a href="#start_server.py">start_server.py</a>
 
   </div>
@@ -5477,6 +5478,7 @@ imports:
  &#8226;   <a href="#app.services.POS">app.services.POS</a>
  &#8226;   <a href="#datetime">datetime</a>
  &#8226;   <a href="#logging">logging</a>
+ &#8226;   <a href="#notifications.shift_summary_service">notifications.shift_summary_service</a>
 
   </div>
   <div class="import">
@@ -6913,6 +6915,7 @@ imported by:
  &#8226;   <a href="#dns.rdtypes.svcbbase">dns.rdtypes.svcbbase</a>
  &#8226;   <a href="#dns.tsig">dns.tsig</a>
  &#8226;   <a href="#ecdsa.der">ecdsa.der</a>
+ &#8226;   <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
  &#8226;   <a href="#email._encoded_words">email._encoded_words</a>
  &#8226;   <a href="#email.base64mime">email.base64mime</a>
  &#8226;   <a href="#email.encoders">email.encoders</a>
@@ -6931,6 +6934,7 @@ imported by:
  &#8226;   <a href="#rest_framework.renderers">rest_framework.renderers</a>
  &#8226;   <a href="#rsa.pem">rsa.pem</a>
  &#8226;   <a href="#secrets">secrets</a>
+ &#8226;   <a href="#sendgrid.twilio_email">sendgrid.twilio_email</a>
  &#8226;   <a href="#setuptools._vendor.wheel.util">setuptools._vendor.wheel.util</a>
  &#8226;   <a href="#smtplib">smtplib</a>
  &#8226;   <a href="#ssl">ssl</a>
@@ -7034,6 +7038,7 @@ imported by:
  &#8226;   <a href="#ecdsa.rfc6979">ecdsa.rfc6979</a>
  &#8226;   <a href="#ecdsa.ssh">ecdsa.ssh</a>
  &#8226;   <a href="#ecdsa.util">ecdsa.util</a>
+ &#8226;   <a href="#ellipticcurve.utils.compatibility">ellipticcurve.utils.compatibility</a>
  &#8226;   <a href="#email._encoded_words">email._encoded_words</a>
  &#8226;   <a href="#email.base64mime">email.base64mime</a>
  &#8226;   <a href="#email.contentmanager">email.contentmanager</a>
@@ -11346,6 +11351,7 @@ imported by:
  &#8226;   <a href="#django.utils.version">django.utils.version</a>
  &#8226;   <a href="#django.views.decorators.http">django.views.decorators.http</a>
  &#8226;   <a href="#django.views.generic.dates">django.views.generic.dates</a>
+ &#8226;   <a href="#ellipticcurve.utils.der">ellipticcurve.utils.der</a>
  &#8226;   <a href="#email.utils">email.utils</a>
  &#8226;   <a href="#gridfs.asynchronous.grid_file">gridfs.asynchronous.grid_file</a>
  &#8226;   <a href="#gridfs.synchronous.grid_file">gridfs.synchronous.grid_file</a>
@@ -11353,6 +11359,7 @@ imported by:
  &#8226;   <a href="#http.server">http.server</a>
  &#8226;   <a href="#jose.jwt">jose.jwt</a>
  &#8226;   <a href="#notifications.services">notifications.services</a>
+ &#8226;   <a href="#notifications.shift_summary_service">notifications.shift_summary_service</a>
  &#8226;   <a href="#openpyxl.cell._writer">openpyxl.cell._writer</a>
  &#8226;   <a href="#openpyxl.cell.cell">openpyxl.cell.cell</a>
  &#8226;   <a href="#openpyxl.compat.strings">openpyxl.compat.strings</a>
@@ -11909,6 +11916,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.database">app.database</a>
+ &#8226;   <a href="#notifications.email_service">notifications.email_service</a>
  &#8226;   <a href="#settings.base">settings.base</a>
  &#8226;   <a href="#settings.local">settings.local</a>
  &#8226;   <a href="#settings.production">settings.production</a>
@@ -39954,6 +39962,338 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="ellipticcurve"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/__init__.py" type="text/plain"><tt>ellipticcurve</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
+ &#8226;   <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+ &#8226;   <a href="#ellipticcurve.signature">ellipticcurve.signature</a>
+ &#8226;   <a href="#ellipticcurve.utils.compatibility">ellipticcurve.utils.compatibility</a>
+ &#8226;   <a href="#ellipticcurve.utils.file">ellipticcurve.utils.file</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.curve">ellipticcurve.curve</a>
+ &#8226;   <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
+ &#8226;   <a href="#ellipticcurve.math">ellipticcurve.math</a>
+ &#8226;   <a href="#ellipticcurve.point">ellipticcurve.point</a>
+ &#8226;   <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+ &#8226;   <a href="#ellipticcurve.signature">ellipticcurve.signature</a>
+ &#8226;   <a href="#ellipticcurve.utils">ellipticcurve.utils</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.curve"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/curve.py" type="text/plain"><tt>ellipticcurve.curve</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.math">ellipticcurve.math</a>
+ &#8226;   <a href="#ellipticcurve.point">ellipticcurve.point</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.ecdsa"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/ecdsa.py" type="text/plain"><tt>ellipticcurve.ecdsa</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.math">ellipticcurve.math</a>
+ &#8226;   <a href="#ellipticcurve.signature">ellipticcurve.signature</a>
+ &#8226;   <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
+ &#8226;   <a href="#ellipticcurve.utils.compatibility">ellipticcurve.utils.compatibility</a>
+ &#8226;   <a href="#ellipticcurve.utils.integer">ellipticcurve.utils.integer</a>
+ &#8226;   <a href="#hashlib">hashlib</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#sendgrid.helpers.eventwebhook">sendgrid.helpers.eventwebhook</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.math"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/math.py" type="text/plain"><tt>ellipticcurve.math</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.point">ellipticcurve.point</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.curve">ellipticcurve.curve</a>
+ &#8226;   <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
+ &#8226;   <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.point"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/point.py" type="text/plain"><tt>ellipticcurve.point</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve">ellipticcurve</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.curve">ellipticcurve.curve</a>
+ &#8226;   <a href="#ellipticcurve.math">ellipticcurve.math</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.privateKey"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/privateKey.py" type="text/plain"><tt>ellipticcurve.privateKey</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.curve">ellipticcurve.curve</a>
+ &#8226;   <a href="#ellipticcurve.math">ellipticcurve.math</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+ &#8226;   <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
+ &#8226;   <a href="#ellipticcurve.utils.der">ellipticcurve.utils.der</a>
+ &#8226;   <a href="#ellipticcurve.utils.integer">ellipticcurve.utils.integer</a>
+ &#8226;   <a href="#ellipticcurve.utils.pem">ellipticcurve.utils.pem</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve">ellipticcurve</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.publicKey"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/publicKey.py" type="text/plain"><tt>ellipticcurve.publicKey</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.curve">ellipticcurve.curve</a>
+ &#8226;   <a href="#ellipticcurve.math">ellipticcurve.math</a>
+ &#8226;   <a href="#ellipticcurve.point">ellipticcurve.point</a>
+ &#8226;   <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
+ &#8226;   <a href="#ellipticcurve.utils.der">ellipticcurve.utils.der</a>
+ &#8226;   <a href="#ellipticcurve.utils.pem">ellipticcurve.utils.pem</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+ &#8226;   <a href="#sendgrid.helpers.eventwebhook">sendgrid.helpers.eventwebhook</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.signature"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/signature.py" type="text/plain"><tt>ellipticcurve.signature</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
+ &#8226;   <a href="#ellipticcurve.utils.compatibility">ellipticcurve.utils.compatibility</a>
+ &#8226;   <a href="#ellipticcurve.utils.der">ellipticcurve.utils.der</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
+ &#8226;   <a href="#sendgrid.helpers.eventwebhook">sendgrid.helpers.eventwebhook</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.utils"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/utils/__init__.py" type="text/plain"><tt>ellipticcurve.utils</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve">ellipticcurve</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
+ &#8226;   <a href="#ellipticcurve.utils.compatibility">ellipticcurve.utils.compatibility</a>
+ &#8226;   <a href="#ellipticcurve.utils.der">ellipticcurve.utils.der</a>
+ &#8226;   <a href="#ellipticcurve.utils.file">ellipticcurve.utils.file</a>
+ &#8226;   <a href="#ellipticcurve.utils.integer">ellipticcurve.utils.integer</a>
+ &#8226;   <a href="#ellipticcurve.utils.oid">ellipticcurve.utils.oid</a>
+ &#8226;   <a href="#ellipticcurve.utils.pem">ellipticcurve.utils.pem</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.utils.binary"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/utils/binary.py" type="text/plain"><tt>ellipticcurve.utils.binary</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#base64">base64</a>
+ &#8226;   <a href="#ellipticcurve.utils">ellipticcurve.utils</a>
+ &#8226;   <a href="#ellipticcurve.utils.compatibility">ellipticcurve.utils.compatibility</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
+ &#8226;   <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+ &#8226;   <a href="#ellipticcurve.signature">ellipticcurve.signature</a>
+ &#8226;   <a href="#ellipticcurve.utils.der">ellipticcurve.utils.der</a>
+ &#8226;   <a href="#ellipticcurve.utils.oid">ellipticcurve.utils.oid</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.utils.compatibility"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/utils/compatibility.py" type="text/plain"><tt>ellipticcurve.utils.compatibility</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#binascii">binascii</a>
+ &#8226;   <a href="#ellipticcurve.utils">ellipticcurve.utils</a>
+ &#8226;   <a href="#sys">sys</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve">ellipticcurve</a>
+ &#8226;   <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
+ &#8226;   <a href="#ellipticcurve.signature">ellipticcurve.signature</a>
+ &#8226;   <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.utils.der"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/utils/der.py" type="text/plain"><tt>ellipticcurve.utils.der</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#datetime">datetime</a>
+ &#8226;   <a href="#ellipticcurve.utils">ellipticcurve.utils</a>
+ &#8226;   <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
+ &#8226;   <a href="#ellipticcurve.utils.oid">ellipticcurve.utils.oid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+ &#8226;   <a href="#ellipticcurve.signature">ellipticcurve.signature</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.utils.file"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/utils/file.py" type="text/plain"><tt>ellipticcurve.utils.file</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve.utils">ellipticcurve.utils</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve">ellipticcurve</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.utils.integer"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/utils/integer.py" type="text/plain"><tt>ellipticcurve.utils.integer</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve.utils">ellipticcurve.utils</a>
+ &#8226;   <a href="#random">random</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
+ &#8226;   <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.utils.oid"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/utils/oid.py" type="text/plain"><tt>ellipticcurve.utils.oid</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve.utils">ellipticcurve.utils</a>
+ &#8226;   <a href="#ellipticcurve.utils.binary">ellipticcurve.utils.binary</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.utils.der">ellipticcurve.utils.der</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="ellipticcurve.utils.pem"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/ellipticcurve/utils/pem.py" type="text/plain"><tt>ellipticcurve.utils.pem</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve.utils">ellipticcurve.utils</a>
+ &#8226;   <a href="#re">re</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#ellipticcurve.privateKey">ellipticcurve.privateKey</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="email"></a>
   <a target="code" href="///C:/Users/ngjam/AppData/Local/Programs/Python/Python313/Lib/email/__init__.py" type="text/plain"><tt>email</tt></a>
 <span class="moduletype">Package</span>  <div class="import">
@@ -40637,6 +40977,7 @@ imported by:
  &#8226;   <a href="#email.policy">email.policy</a>
  &#8226;   <a href="#http.server">http.server</a>
  &#8226;   <a href="#logging.handlers">logging.handlers</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
  &#8226;   <a href="#smtplib">smtplib</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
  &#8226;   <a href="#urllib3.fields">urllib3.fields</a>
@@ -44307,6 +44648,7 @@ imported by:
  &#8226;   <a href="#ecdsa.eddsa">ecdsa.eddsa</a>
  &#8226;   <a href="#ecdsa.keys">ecdsa.keys</a>
  &#8226;   <a href="#ecdsa.util">ecdsa.util</a>
+ &#8226;   <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
  &#8226;   <a href="#hmac">hmac</a>
  &#8226;   <a href="#jose.backends.ecdsa_backend">jose.backends.ecdsa_backend</a>
  &#8226;   <a href="#jose.backends.native">jose.backends.native</a>
@@ -46412,6 +46754,8 @@ imported by:
  &#8226;   <a href="#pandas.io.parquet">pandas.io.parquet</a>
  &#8226;   <a href="#pandas.util._print_versions">pandas.util._print_versions</a>
  &#8226;   <a href="#pymongo._azure_helpers">pymongo._azure_helpers</a>
+ &#8226;   <a href="#python_http_client.client">python_http_client.client</a>
+ &#8226;   <a href="#python_http_client.exceptions">python_http_client.exceptions</a>
  &#8226;   <a href="#requests.compat">requests.compat</a>
  &#8226;   <a href="#rest_framework.utils.encoders">rest_framework.utils.encoders</a>
  &#8226;   <a href="#rest_framework.utils.json">rest_framework.utils.json</a>
@@ -46690,6 +47034,8 @@ imported by:
  &#8226;   <a href="#logging.config">logging.config</a>
  &#8226;   <a href="#logging.handlers">logging.handlers</a>
  &#8226;   <a href="#multiprocessing.util">multiprocessing.util</a>
+ &#8226;   <a href="#notifications.email_service">notifications.email_service</a>
+ &#8226;   <a href="#notifications.shift_summary_service">notifications.shift_summary_service</a>
  &#8226;   <a href="#packaging.tags">packaging.tags</a>
  &#8226;   <a href="#passlib.crypto.digest">passlib.crypto.digest</a>
  &#8226;   <a href="#passlib.handlers.digests">passlib.handlers.digests</a>
@@ -46717,6 +47063,7 @@ imported by:
  &#8226;   <a href="#pymongo.synchronous.pool">pymongo.synchronous.pool</a>
  &#8226;   <a href="#pymongo.synchronous.server">pymongo.synchronous.server</a>
  &#8226;   <a href="#pymongo.synchronous.topology">pymongo.synchronous.topology</a>
+ &#8226;   <a href="#python_http_client.client">python_http_client.client</a>
  &#8226;   <a href="#requests">requests</a>
  &#8226;   <a href="#setuptools._distutils._log">setuptools._distutils._log</a>
  &#8226;   <a href="#setuptools._distutils.cmd">setuptools._distutils.cmd</a>
@@ -48103,8 +48450,30 @@ imported by:
   <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/notifications/__init__.py" type="text/plain"><tt>notifications</tt></a>
 <span class="moduletype">Package</span>  <div class="import">
 imported by:
-    <a href="#notifications.services">notifications.services</a>
+    <a href="#notifications.email_service">notifications.email_service</a>
+ &#8226;   <a href="#notifications.services">notifications.services</a>
+ &#8226;   <a href="#notifications.shift_summary_service">notifications.shift_summary_service</a>
  &#8226;   <a href="#start_server.py">start_server.py</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="notifications.email_service"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/notifications/email_service.py" type="text/plain"><tt>notifications.email_service</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#decouple">decouple</a>
+ &#8226;   <a href="#logging">logging</a>
+ &#8226;   <a href="#notifications">notifications</a>
+ &#8226;   <a href="#sendgrid">sendgrid</a>
+ &#8226;   <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#notifications.shift_summary_service">notifications.shift_summary_service</a>
 
   </div>
 
@@ -48133,6 +48502,26 @@ imported by:
  &#8226;   <a href="#app.services.Backoffice.user_service">app.services.Backoffice.user_service</a>
  &#8226;   <a href="#app.services.POS.online_transactions_service">app.services.POS.online_transactions_service</a>
  &#8226;   <a href="#app.services.POS.pos_sales_service">app.services.POS.pos_sales_service</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="notifications.shift_summary_service"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/notifications/shift_summary_service.py" type="text/plain"><tt>notifications.shift_summary_service</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#app.database">app.database</a>
+ &#8226;   <a href="#datetime">datetime</a>
+ &#8226;   <a href="#logging">logging</a>
+ &#8226;   <a href="#notifications">notifications</a>
+ &#8226;   <a href="#notifications.email_service">notifications.email_service</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#app.services.POS.shift_service">app.services.POS.shift_service</a>
 
   </div>
 
@@ -60282,6 +60671,7 @@ imported by:
  &#8226;   <a href="#pymongo.synchronous.mongo_client">pymongo.synchronous.mongo_client</a>
  &#8226;   <a href="#pymongo.synchronous.pool">pymongo.synchronous.pool</a>
  &#8226;   <a href="#pymongo.synchronous.topology">pymongo.synchronous.topology</a>
+ &#8226;   <a href="#python_http_client">python_http_client</a>
  &#8226;   <a href="#random">random</a>
  &#8226;   <a href="#requests.auth">requests.auth</a>
  &#8226;   <a href="#requests.sessions">requests.sessions</a>
@@ -60290,6 +60680,8 @@ imported by:
  &#8226;   <a href="#rsa.pkcs1">rsa.pkcs1</a>
  &#8226;   <a href="#rsa.randnum">rsa.randnum</a>
  &#8226;   <a href="#runpy">runpy</a>
+ &#8226;   <a href="#sendgrid.sendgrid">sendgrid.sendgrid</a>
+ &#8226;   <a href="#sendgrid.twilio_email">sendgrid.twilio_email</a>
  &#8226;   <a href="#settings.base">settings.base</a>
  &#8226;   <a href="#settings.production">settings.production</a>
  &#8226;   <a href="#settings.standalone">settings.standalone</a>
@@ -79363,6 +79755,69 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="python_http_client"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/python_http_client/__init__.py" type="text/plain"><tt>python_http_client</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#os">os</a>
+ &#8226;   <a href="#python_http_client.client">python_http_client.client</a>
+ &#8226;   <a href="#python_http_client.exceptions">python_http_client.exceptions</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#python_http_client.client">python_http_client.client</a>
+ &#8226;   <a href="#python_http_client.exceptions">python_http_client.exceptions</a>
+ &#8226;   <a href="#sendgrid.base_interface">sendgrid.base_interface</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="python_http_client.client"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/python_http_client/client.py" type="text/plain"><tt>python_http_client.client</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#json">json</a>
+ &#8226;   <a href="#logging">logging</a>
+ &#8226;   <a href="#python_http_client">python_http_client</a>
+ &#8226;   <a href="#python_http_client.exceptions">python_http_client.exceptions</a>
+ &#8226;   <a href="#urllib">urllib</a>
+ &#8226;   <a href="#urllib.error">urllib.error</a>
+ &#8226;   <a href="#urllib.parse">urllib.parse</a>
+ &#8226;   <a href="#urllib.request">urllib.request</a>
+ &#8226;   <a href="#urllib.urlencode">urllib.urlencode</a>
+ &#8226;   <a href="#urllib2">urllib2</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#python_http_client">python_http_client</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="python_http_client.exceptions"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/python_http_client/exceptions.py" type="text/plain"><tt>python_http_client.exceptions</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#json">json</a>
+ &#8226;   <a href="#python_http_client">python_http_client</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#python_http_client">python_http_client</a>
+ &#8226;   <a href="#python_http_client.client">python_http_client.client</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="pythoncom"></a>
   <a target="code" href="" type="text/plain"><tt>pythoncom</tt></a>
 <span class="moduletype">MissingModule</span>  <div class="import">
@@ -79613,6 +80068,7 @@ imported by:
  &#8226;   <a href="#dns.renderer">dns.renderer</a>
  &#8226;   <a href="#dns.resolver">dns.resolver</a>
  &#8226;   <a href="#ecdsa.numbertheory">ecdsa.numbertheory</a>
+ &#8226;   <a href="#ellipticcurve.utils.integer">ellipticcurve.utils.integer</a>
  &#8226;   <a href="#email.generator">email.generator</a>
  &#8226;   <a href="#email.utils">email.utils</a>
  &#8226;   <a href="#passlib.utils">passlib.utils</a>
@@ -79742,6 +80198,7 @@ imported by:
  &#8226;   <a href="#dns.zonefile">dns.zonefile</a>
  &#8226;   <a href="#doctest">doctest</a>
  &#8226;   <a href="#ecdsa._compat">ecdsa._compat</a>
+ &#8226;   <a href="#ellipticcurve.utils.pem">ellipticcurve.utils.pem</a>
  &#8226;   <a href="#email._encoded_words">email._encoded_words</a>
  &#8226;   <a href="#email._header_value_parser">email._header_value_parser</a>
  &#8226;   <a href="#email.feedparser">email.feedparser</a>
@@ -79879,6 +80336,7 @@ imported by:
  &#8226;   <a href="#rest_framework.utils.representation">rest_framework.utils.representation</a>
  &#8226;   <a href="#rest_framework.versioning">rest_framework.versioning</a>
  &#8226;   <a href="#rlcompleter">rlcompleter</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.validators">sendgrid.helpers.mail.validators</a>
  &#8226;   <a href="#setuptools._distutils.cmd">setuptools._distutils.cmd</a>
  &#8226;   <a href="#setuptools._distutils.command.build_ext">setuptools._distutils.command.build_ext</a>
  &#8226;   <a href="#setuptools._distutils.compilers.C.base">setuptools._distutils.compilers.C.base</a>
@@ -82610,6 +83068,17 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="rfc822"></a>
+  <a target="code" href="" type="text/plain"><tt>rfc822</tt></a>
+<span class="moduletype">MissingModule</span>  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="rlcompleter"></a>
   <a target="code" href="///C:/Users/ngjam/AppData/Local/Programs/Python/Python313/Lib/rlcompleter.py" type="text/plain"><tt>rlcompleter</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
@@ -82995,6 +83464,1442 @@ imported by:
 <span class="moduletype">MissingModule</span>  <div class="import">
 imported by:
     <a href="#django.test.selenium">django.test.selenium</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/__init__.py" type="text/plain"><tt>sendgrid</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#sendgrid">sendgrid</a>
+ &#8226;   <a href="#sendgrid.helpers.endpoints">sendgrid.helpers.endpoints</a>
+ &#8226;   <a href="#sendgrid.helpers.eventwebhook">sendgrid.helpers.eventwebhook</a>
+ &#8226;   <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.stats">sendgrid.helpers.stats</a>
+ &#8226;   <a href="#sendgrid.sendgrid">sendgrid.sendgrid</a>
+ &#8226;   <a href="#sendgrid.twilio_email">sendgrid.twilio_email</a>
+ &#8226;   <a href="#sendgrid.version">sendgrid.version</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#notifications.email_service">notifications.email_service</a>
+ &#8226;   <a href="#sendgrid">sendgrid</a>
+ &#8226;   <a href="#sendgrid.base_interface">sendgrid.base_interface</a>
+ &#8226;   <a href="#sendgrid.helpers">sendgrid.helpers</a>
+ &#8226;   <a href="#sendgrid.sendgrid">sendgrid.sendgrid</a>
+ &#8226;   <a href="#sendgrid.twilio_email">sendgrid.twilio_email</a>
+ &#8226;   <a href="#sendgrid.version">sendgrid.version</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.base_interface"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/base_interface.py" type="text/plain"><tt>sendgrid.base_interface</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#python_http_client">python_http_client</a>
+ &#8226;   <a href="#sendgrid">sendgrid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.sendgrid">sendgrid.sendgrid</a>
+ &#8226;   <a href="#sendgrid.twilio_email">sendgrid.twilio_email</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/__init__.py" type="text/plain"><tt>sendgrid.helpers</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#sendgrid">sendgrid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.endpoints">sendgrid.helpers.endpoints</a>
+ &#8226;   <a href="#sendgrid.helpers.eventwebhook">sendgrid.helpers.eventwebhook</a>
+ &#8226;   <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.stats">sendgrid.helpers.stats</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.endpoints"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/endpoints/__init__.py" type="text/plain"><tt>sendgrid.helpers.endpoints</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers">sendgrid.helpers</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid">sendgrid</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.eventwebhook"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/eventwebhook/__init__.py" type="text/plain"><tt>sendgrid.helpers.eventwebhook</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#ellipticcurve.ecdsa">ellipticcurve.ecdsa</a>
+ &#8226;   <a href="#ellipticcurve.publicKey">ellipticcurve.publicKey</a>
+ &#8226;   <a href="#ellipticcurve.signature">ellipticcurve.signature</a>
+ &#8226;   <a href="#sendgrid.helpers">sendgrid.helpers</a>
+ &#8226;   <a href="#sendgrid.helpers.eventwebhook.eventwebhook_header">sendgrid.helpers.eventwebhook.eventwebhook_header</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid">sendgrid</a>
+ &#8226;   <a href="#sendgrid.helpers.eventwebhook.eventwebhook_header">sendgrid.helpers.eventwebhook.eventwebhook_header</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.eventwebhook.eventwebhook_header"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/eventwebhook/eventwebhook_header.py" type="text/plain"><tt>sendgrid.helpers.eventwebhook.eventwebhook_header</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.eventwebhook">sendgrid.helpers.eventwebhook</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.eventwebhook">sendgrid.helpers.eventwebhook</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/__init__.py" type="text/plain"><tt>sendgrid.helpers.mail</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers">sendgrid.helpers</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.amp_html_content">sendgrid.helpers.mail.amp_html_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.asm">sendgrid.helpers.mail.asm</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.attachment">sendgrid.helpers.mail.attachment</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.batch_id">sendgrid.helpers.mail.batch_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bcc_email">sendgrid.helpers.mail.bcc_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bcc_settings">sendgrid.helpers.mail.bcc_settings</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bcc_settings_email">sendgrid.helpers.mail.bcc_settings_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bypass_bounce_management">sendgrid.helpers.mail.bypass_bounce_management</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bypass_list_management">sendgrid.helpers.mail.bypass_list_management</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bypass_spam_management">sendgrid.helpers.mail.bypass_spam_management</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bypass_unsubscribe_management">sendgrid.helpers.mail.bypass_unsubscribe_management</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.category">sendgrid.helpers.mail.category</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.cc_email">sendgrid.helpers.mail.cc_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.click_tracking">sendgrid.helpers.mail.click_tracking</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content">sendgrid.helpers.mail.content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content_id">sendgrid.helpers.mail.content_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.custom_arg">sendgrid.helpers.mail.custom_arg</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.disposition">sendgrid.helpers.mail.disposition</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.dynamic_template_data">sendgrid.helpers.mail.dynamic_template_data</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.exceptions">sendgrid.helpers.mail.exceptions</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_content">sendgrid.helpers.mail.file_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_name">sendgrid.helpers.mail.file_name</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_type">sendgrid.helpers.mail.file_type</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.footer_html">sendgrid.helpers.mail.footer_html</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.footer_settings">sendgrid.helpers.mail.footer_settings</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.footer_text">sendgrid.helpers.mail.footer_text</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.from_email">sendgrid.helpers.mail.from_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.ganalytics">sendgrid.helpers.mail.ganalytics</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.group_id">sendgrid.helpers.mail.group_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.groups_to_display">sendgrid.helpers.mail.groups_to_display</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.header">sendgrid.helpers.mail.header</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.html_content">sendgrid.helpers.mail.html_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.ip_pool_name">sendgrid.helpers.mail.ip_pool_name</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail_settings">sendgrid.helpers.mail.mail_settings</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mime_type">sendgrid.helpers.mail.mime_type</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.open_tracking">sendgrid.helpers.mail.open_tracking</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.open_tracking_substitution_tag">sendgrid.helpers.mail.open_tracking_substitution_tag</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.personalization">sendgrid.helpers.mail.personalization</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.plain_text_content">sendgrid.helpers.mail.plain_text_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.reply_to">sendgrid.helpers.mail.reply_to</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.sandbox_mode">sendgrid.helpers.mail.sandbox_mode</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.section">sendgrid.helpers.mail.section</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.send_at">sendgrid.helpers.mail.send_at</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_check">sendgrid.helpers.mail.spam_check</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_threshold">sendgrid.helpers.mail.spam_threshold</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_url">sendgrid.helpers.mail.spam_url</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subject">sendgrid.helpers.mail.subject</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subscription_html">sendgrid.helpers.mail.subscription_html</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subscription_substitution_tag">sendgrid.helpers.mail.subscription_substitution_tag</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subscription_text">sendgrid.helpers.mail.subscription_text</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subscription_tracking">sendgrid.helpers.mail.subscription_tracking</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.substitution">sendgrid.helpers.mail.substitution</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.template_id">sendgrid.helpers.mail.template_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.to_email">sendgrid.helpers.mail.to_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.tracking_settings">sendgrid.helpers.mail.tracking_settings</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_campaign">sendgrid.helpers.mail.utm_campaign</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_content">sendgrid.helpers.mail.utm_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_medium">sendgrid.helpers.mail.utm_medium</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_source">sendgrid.helpers.mail.utm_source</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_term">sendgrid.helpers.mail.utm_term</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.validators">sendgrid.helpers.mail.validators</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#notifications.email_service">notifications.email_service</a>
+ &#8226;   <a href="#sendgrid">sendgrid</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.amp_html_content">sendgrid.helpers.mail.amp_html_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.asm">sendgrid.helpers.mail.asm</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.attachment">sendgrid.helpers.mail.attachment</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.batch_id">sendgrid.helpers.mail.batch_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bcc_email">sendgrid.helpers.mail.bcc_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bcc_settings">sendgrid.helpers.mail.bcc_settings</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bcc_settings_email">sendgrid.helpers.mail.bcc_settings_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bypass_bounce_management">sendgrid.helpers.mail.bypass_bounce_management</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bypass_list_management">sendgrid.helpers.mail.bypass_list_management</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bypass_spam_management">sendgrid.helpers.mail.bypass_spam_management</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bypass_unsubscribe_management">sendgrid.helpers.mail.bypass_unsubscribe_management</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.category">sendgrid.helpers.mail.category</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.cc_email">sendgrid.helpers.mail.cc_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.click_tracking">sendgrid.helpers.mail.click_tracking</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content">sendgrid.helpers.mail.content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content_id">sendgrid.helpers.mail.content_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.custom_arg">sendgrid.helpers.mail.custom_arg</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.disposition">sendgrid.helpers.mail.disposition</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.dynamic_template_data">sendgrid.helpers.mail.dynamic_template_data</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.exceptions">sendgrid.helpers.mail.exceptions</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_content">sendgrid.helpers.mail.file_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_name">sendgrid.helpers.mail.file_name</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_type">sendgrid.helpers.mail.file_type</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.footer_html">sendgrid.helpers.mail.footer_html</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.footer_settings">sendgrid.helpers.mail.footer_settings</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.footer_text">sendgrid.helpers.mail.footer_text</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.from_email">sendgrid.helpers.mail.from_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.ganalytics">sendgrid.helpers.mail.ganalytics</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.group_id">sendgrid.helpers.mail.group_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.groups_to_display">sendgrid.helpers.mail.groups_to_display</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.header">sendgrid.helpers.mail.header</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.html_content">sendgrid.helpers.mail.html_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.ip_pool_name">sendgrid.helpers.mail.ip_pool_name</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail_settings">sendgrid.helpers.mail.mail_settings</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mime_type">sendgrid.helpers.mail.mime_type</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.open_tracking">sendgrid.helpers.mail.open_tracking</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.open_tracking_substitution_tag">sendgrid.helpers.mail.open_tracking_substitution_tag</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.personalization">sendgrid.helpers.mail.personalization</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.plain_text_content">sendgrid.helpers.mail.plain_text_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.reply_to">sendgrid.helpers.mail.reply_to</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.sandbox_mode">sendgrid.helpers.mail.sandbox_mode</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.section">sendgrid.helpers.mail.section</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.send_at">sendgrid.helpers.mail.send_at</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_check">sendgrid.helpers.mail.spam_check</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_threshold">sendgrid.helpers.mail.spam_threshold</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_url">sendgrid.helpers.mail.spam_url</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subject">sendgrid.helpers.mail.subject</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subscription_html">sendgrid.helpers.mail.subscription_html</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subscription_substitution_tag">sendgrid.helpers.mail.subscription_substitution_tag</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subscription_text">sendgrid.helpers.mail.subscription_text</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subscription_tracking">sendgrid.helpers.mail.subscription_tracking</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.substitution">sendgrid.helpers.mail.substitution</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.template_id">sendgrid.helpers.mail.template_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.to_email">sendgrid.helpers.mail.to_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.tracking_settings">sendgrid.helpers.mail.tracking_settings</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_campaign">sendgrid.helpers.mail.utm_campaign</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_content">sendgrid.helpers.mail.utm_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_medium">sendgrid.helpers.mail.utm_medium</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_source">sendgrid.helpers.mail.utm_source</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.utm_term">sendgrid.helpers.mail.utm_term</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.validators">sendgrid.helpers.mail.validators</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.amp_html_content"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/amp_html_content.py" type="text/plain"><tt>sendgrid.helpers.mail.amp_html_content</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content">sendgrid.helpers.mail.content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.validators">sendgrid.helpers.mail.validators</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.asm"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/asm.py" type="text/plain"><tt>sendgrid.helpers.mail.asm</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.group_id">sendgrid.helpers.mail.group_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.groups_to_display">sendgrid.helpers.mail.groups_to_display</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.attachment"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/attachment.py" type="text/plain"><tt>sendgrid.helpers.mail.attachment</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content_id">sendgrid.helpers.mail.content_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.disposition">sendgrid.helpers.mail.disposition</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_content">sendgrid.helpers.mail.file_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_name">sendgrid.helpers.mail.file_name</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.file_type">sendgrid.helpers.mail.file_type</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.batch_id"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/batch_id.py" type="text/plain"><tt>sendgrid.helpers.mail.batch_id</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.bcc_email"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/bcc_email.py" type="text/plain"><tt>sendgrid.helpers.mail.bcc_email</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.bcc_settings"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/bcc_settings.py" type="text/plain"><tt>sendgrid.helpers.mail.bcc_settings</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.bcc_settings_email"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/bcc_settings_email.py" type="text/plain"><tt>sendgrid.helpers.mail.bcc_settings_email</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.bypass_bounce_management"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/bypass_bounce_management.py" type="text/plain"><tt>sendgrid.helpers.mail.bypass_bounce_management</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.bypass_list_management"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/bypass_list_management.py" type="text/plain"><tt>sendgrid.helpers.mail.bypass_list_management</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.bypass_spam_management"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/bypass_spam_management.py" type="text/plain"><tt>sendgrid.helpers.mail.bypass_spam_management</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.bypass_unsubscribe_management"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/bypass_unsubscribe_management.py" type="text/plain"><tt>sendgrid.helpers.mail.bypass_unsubscribe_management</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.category"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/category.py" type="text/plain"><tt>sendgrid.helpers.mail.category</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.cc_email"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/cc_email.py" type="text/plain"><tt>sendgrid.helpers.mail.cc_email</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.click_tracking"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/click_tracking.py" type="text/plain"><tt>sendgrid.helpers.mail.click_tracking</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.content"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/content.py" type="text/plain"><tt>sendgrid.helpers.mail.content</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.validators">sendgrid.helpers.mail.validators</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.amp_html_content">sendgrid.helpers.mail.amp_html_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.html_content">sendgrid.helpers.mail.html_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.plain_text_content">sendgrid.helpers.mail.plain_text_content</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.content_id"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/content_id.py" type="text/plain"><tt>sendgrid.helpers.mail.content_id</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.attachment">sendgrid.helpers.mail.attachment</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.custom_arg"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/custom_arg.py" type="text/plain"><tt>sendgrid.helpers.mail.custom_arg</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.disposition"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/disposition.py" type="text/plain"><tt>sendgrid.helpers.mail.disposition</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.attachment">sendgrid.helpers.mail.attachment</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.dynamic_template_data"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/dynamic_template_data.py" type="text/plain"><tt>sendgrid.helpers.mail.dynamic_template_data</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.email"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/email.py" type="text/plain"><tt>sendgrid.helpers.mail.email</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#email.utils">email.utils</a>
+ &#8226;   <a href="#rfc822">rfc822</a>
+ &#8226;   <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bcc_email">sendgrid.helpers.mail.bcc_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.cc_email">sendgrid.helpers.mail.cc_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.from_email">sendgrid.helpers.mail.from_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.reply_to">sendgrid.helpers.mail.reply_to</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.to_email">sendgrid.helpers.mail.to_email</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.exceptions"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/exceptions.py" type="text/plain"><tt>sendgrid.helpers.mail.exceptions</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.validators">sendgrid.helpers.mail.validators</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.file_content"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/file_content.py" type="text/plain"><tt>sendgrid.helpers.mail.file_content</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.attachment">sendgrid.helpers.mail.attachment</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.file_name"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/file_name.py" type="text/plain"><tt>sendgrid.helpers.mail.file_name</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.attachment">sendgrid.helpers.mail.attachment</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.file_type"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/file_type.py" type="text/plain"><tt>sendgrid.helpers.mail.file_type</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.attachment">sendgrid.helpers.mail.attachment</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.footer_html"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/footer_html.py" type="text/plain"><tt>sendgrid.helpers.mail.footer_html</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.footer_settings"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/footer_settings.py" type="text/plain"><tt>sendgrid.helpers.mail.footer_settings</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.footer_text"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/footer_text.py" type="text/plain"><tt>sendgrid.helpers.mail.footer_text</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.from_email"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/from_email.py" type="text/plain"><tt>sendgrid.helpers.mail.from_email</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.ganalytics"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/ganalytics.py" type="text/plain"><tt>sendgrid.helpers.mail.ganalytics</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.group_id"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/group_id.py" type="text/plain"><tt>sendgrid.helpers.mail.group_id</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.asm">sendgrid.helpers.mail.asm</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.groups_to_display"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/groups_to_display.py" type="text/plain"><tt>sendgrid.helpers.mail.groups_to_display</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.asm">sendgrid.helpers.mail.asm</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.header"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/header.py" type="text/plain"><tt>sendgrid.helpers.mail.header</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.html_content"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/html_content.py" type="text/plain"><tt>sendgrid.helpers.mail.html_content</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content">sendgrid.helpers.mail.content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.validators">sendgrid.helpers.mail.validators</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.ip_pool_name"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/ip_pool_name.py" type="text/plain"><tt>sendgrid.helpers.mail.ip_pool_name</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.mail"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/mail.py" type="text/plain"><tt>sendgrid.helpers.mail.mail</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.bcc_email">sendgrid.helpers.mail.bcc_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.cc_email">sendgrid.helpers.mail.cc_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content">sendgrid.helpers.mail.content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.custom_arg">sendgrid.helpers.mail.custom_arg</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.dynamic_template_data">sendgrid.helpers.mail.dynamic_template_data</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.from_email">sendgrid.helpers.mail.from_email</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.header">sendgrid.helpers.mail.header</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mime_type">sendgrid.helpers.mail.mime_type</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.personalization">sendgrid.helpers.mail.personalization</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.reply_to">sendgrid.helpers.mail.reply_to</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.send_at">sendgrid.helpers.mail.send_at</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.subject">sendgrid.helpers.mail.subject</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.substitution">sendgrid.helpers.mail.substitution</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.template_id">sendgrid.helpers.mail.template_id</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.to_email">sendgrid.helpers.mail.to_email</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.mail_settings"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/mail_settings.py" type="text/plain"><tt>sendgrid.helpers.mail.mail_settings</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.mime_type"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/mime_type.py" type="text/plain"><tt>sendgrid.helpers.mail.mime_type</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.open_tracking"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/open_tracking.py" type="text/plain"><tt>sendgrid.helpers.mail.open_tracking</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.open_tracking_substitution_tag"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/open_tracking_substitution_tag.py" type="text/plain"><tt>sendgrid.helpers.mail.open_tracking_substitution_tag</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.personalization"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/personalization.py" type="text/plain"><tt>sendgrid.helpers.mail.personalization</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.plain_text_content"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/plain_text_content.py" type="text/plain"><tt>sendgrid.helpers.mail.plain_text_content</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content">sendgrid.helpers.mail.content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.validators">sendgrid.helpers.mail.validators</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.reply_to"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/reply_to.py" type="text/plain"><tt>sendgrid.helpers.mail.reply_to</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.sandbox_mode"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/sandbox_mode.py" type="text/plain"><tt>sendgrid.helpers.mail.sandbox_mode</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.section"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/section.py" type="text/plain"><tt>sendgrid.helpers.mail.section</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.send_at"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/send_at.py" type="text/plain"><tt>sendgrid.helpers.mail.send_at</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.spam_check"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/spam_check.py" type="text/plain"><tt>sendgrid.helpers.mail.spam_check</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_threshold">sendgrid.helpers.mail.spam_threshold</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_url">sendgrid.helpers.mail.spam_url</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.spam_threshold"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/spam_threshold.py" type="text/plain"><tt>sendgrid.helpers.mail.spam_threshold</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_check">sendgrid.helpers.mail.spam_check</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.spam_url"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/spam_url.py" type="text/plain"><tt>sendgrid.helpers.mail.spam_url</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.spam_check">sendgrid.helpers.mail.spam_check</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.subject"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/subject.py" type="text/plain"><tt>sendgrid.helpers.mail.subject</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.subscription_html"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/subscription_html.py" type="text/plain"><tt>sendgrid.helpers.mail.subscription_html</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.subscription_substitution_tag"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/subscription_substitution_tag.py" type="text/plain"><tt>sendgrid.helpers.mail.subscription_substitution_tag</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.subscription_text"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/subscription_text.py" type="text/plain"><tt>sendgrid.helpers.mail.subscription_text</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.subscription_tracking"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/subscription_tracking.py" type="text/plain"><tt>sendgrid.helpers.mail.subscription_tracking</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.substitution"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/substitution.py" type="text/plain"><tt>sendgrid.helpers.mail.substitution</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.template_id"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/template_id.py" type="text/plain"><tt>sendgrid.helpers.mail.template_id</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.to_email"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/to_email.py" type="text/plain"><tt>sendgrid.helpers.mail.to_email</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.email">sendgrid.helpers.mail.email</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.mail">sendgrid.helpers.mail.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.tracking_settings"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/tracking_settings.py" type="text/plain"><tt>sendgrid.helpers.mail.tracking_settings</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.utm_campaign"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/utm_campaign.py" type="text/plain"><tt>sendgrid.helpers.mail.utm_campaign</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.utm_content"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/utm_content.py" type="text/plain"><tt>sendgrid.helpers.mail.utm_content</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.utm_medium"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/utm_medium.py" type="text/plain"><tt>sendgrid.helpers.mail.utm_medium</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.utm_source"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/utm_source.py" type="text/plain"><tt>sendgrid.helpers.mail.utm_source</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.utm_term"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/utm_term.py" type="text/plain"><tt>sendgrid.helpers.mail.utm_term</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.mail.validators"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/mail/validators.py" type="text/plain"><tt>sendgrid.helpers.mail.validators</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#re">re</a>
+ &#8226;   <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.exceptions">sendgrid.helpers.mail.exceptions</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.mail">sendgrid.helpers.mail</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.amp_html_content">sendgrid.helpers.mail.amp_html_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.content">sendgrid.helpers.mail.content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.html_content">sendgrid.helpers.mail.html_content</a>
+ &#8226;   <a href="#sendgrid.helpers.mail.plain_text_content">sendgrid.helpers.mail.plain_text_content</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.stats"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/stats/__init__.py" type="text/plain"><tt>sendgrid.helpers.stats</tt></a>
+<span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers">sendgrid.helpers</a>
+ &#8226;   <a href="#sendgrid.helpers.stats.stats">sendgrid.helpers.stats.stats</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid">sendgrid</a>
+ &#8226;   <a href="#sendgrid.helpers.stats.stats">sendgrid.helpers.stats.stats</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.helpers.stats.stats"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/helpers/stats/stats.py" type="text/plain"><tt>sendgrid.helpers.stats.stats</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid.helpers.stats">sendgrid.helpers.stats</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid.helpers.stats">sendgrid.helpers.stats</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.sendgrid"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/sendgrid.py" type="text/plain"><tt>sendgrid.sendgrid</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#os">os</a>
+ &#8226;   <a href="#sendgrid">sendgrid</a>
+ &#8226;   <a href="#sendgrid.base_interface">sendgrid.base_interface</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid">sendgrid</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.twilio_email"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/twilio_email.py" type="text/plain"><tt>sendgrid.twilio_email</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#base64">base64</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#sendgrid">sendgrid</a>
+ &#8226;   <a href="#sendgrid.base_interface">sendgrid.base_interface</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid">sendgrid</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="sendgrid.version"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/venv/Lib/site-packages/sendgrid/version.py" type="text/plain"><tt>sendgrid.version</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#sendgrid">sendgrid</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#sendgrid">sendgrid</a>
 
   </div>
 
@@ -88894,6 +90799,7 @@ imported by:
  &#8226;   <a href="#ecdsa._compat">ecdsa._compat</a>
  &#8226;   <a href="#ecdsa.numbertheory">ecdsa.numbertheory</a>
  &#8226;   <a href="#ecdsa.util">ecdsa.util</a>
+ &#8226;   <a href="#ellipticcurve.utils.compatibility">ellipticcurve.utils.compatibility</a>
  &#8226;   <a href="#email._header_value_parser">email._header_value_parser</a>
  &#8226;   <a href="#email.generator">email.generator</a>
  &#8226;   <a href="#email.iterators">email.iterators</a>
@@ -91635,9 +93541,15 @@ imported by:
   <a name="urllib"></a>
   <a target="code" href="///C:/Users/ngjam/AppData/Local/Programs/Python/Python313/Lib/urllib/__init__.py" type="text/plain"><tt>urllib</tt></a>
 <span class="moduletype">Package</span>  <div class="import">
+imports:
+    <a href="#urllib.urlencode">urllib.urlencode</a>
+
+  </div>
+  <div class="import">
 imported by:
     <a href="#dns.quic._common">dns.quic._common</a>
  &#8226;   <a href="#email._header_value_parser">email._header_value_parser</a>
+ &#8226;   <a href="#python_http_client.client">python_http_client.client</a>
  &#8226;   <a href="#rest_framework.pagination">rest_framework.pagination</a>
  &#8226;   <a href="#rest_framework.relations">rest_framework.relations</a>
  &#8226;   <a href="#rest_framework.renderers">rest_framework.renderers</a>
@@ -91665,6 +93577,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#numpy.lib._datasource">numpy.lib._datasource</a>
+ &#8226;   <a href="#python_http_client.client">python_http_client.client</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
 
   </div>
@@ -91742,6 +93655,7 @@ imported by:
  &#8226;   <a href="#pymongo.synchronous.auth">pymongo.synchronous.auth</a>
  &#8226;   <a href="#pymongo.synchronous.uri_parser">pymongo.synchronous.uri_parser</a>
  &#8226;   <a href="#pymongo.uri_parser_shared">pymongo.uri_parser_shared</a>
+ &#8226;   <a href="#python_http_client.client">python_http_client.client</a>
  &#8226;   <a href="#requests.compat">requests.compat</a>
  &#8226;   <a href="#rest_framework.pagination">rest_framework.pagination</a>
  &#8226;   <a href="#rest_framework.relations">rest_framework.relations</a>
@@ -91813,6 +93727,7 @@ imported by:
  &#8226;   <a href="#pandas.io.common">pandas.io.common</a>
  &#8226;   <a href="#pymongo._azure_helpers">pymongo._azure_helpers</a>
  &#8226;   <a href="#pymongo._gcp_helpers">pymongo._gcp_helpers</a>
+ &#8226;   <a href="#python_http_client.client">python_http_client.client</a>
  &#8226;   <a href="#requests.compat">requests.compat</a>
  &#8226;   <a href="#setuptools._vendor.jaraco.context">setuptools._vendor.jaraco.context</a>
  &#8226;   <a href="#setuptools.config._validate_pyproject.formats">setuptools.config._validate_pyproject.formats</a>
@@ -91836,6 +93751,29 @@ imports:
 imported by:
     <a href="#urllib.error">urllib.error</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="urllib.urlencode"></a>
+  <a target="code" href="" type="text/plain"><tt>urllib.urlencode</tt></a>
+<span class="moduletype">MissingModule</span>  <div class="import">
+imported by:
+    <a href="#python_http_client.client">python_http_client.client</a>
+ &#8226;   <a href="#urllib">urllib</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="urllib2"></a>
+  <a target="code" href="" type="text/plain"><tt>urllib2</tt></a>
+<span class="moduletype">MissingModule</span>  <div class="import">
+imported by:
+    <a href="#python_http_client.client">python_http_client.client</a>
 
   </div>
 

@@ -1,6 +1,7 @@
 from datetime import datetime
-from ...database import db_manager
 import logging
+from ...database import db_manager
+from notifications.shift_summary_service import shift_summary_service
 
 logger = logging.getLogger(__name__)
 
@@ -197,9 +198,27 @@ class ShiftService:
             
             logger.info(f"\n✅ Shift closed successfully")
             logger.info(f"{'='*60}\n")
-            
-            # Return updated shift
-            return self.shift_collection.find_one({'_id': shift_id})
+
+            # Fetch the updated shift document
+            updated_shift = self.shift_collection.find_one({'_id': shift_id})
+
+            # Trigger shift summary email for verified admins
+            try:
+                email_result = shift_summary_service.send_shift_summary_email(updated_shift)
+                if email_result.get("success"):
+                    logger.info(
+                        "Shift summary email dispatched to %s verified admin(s)",
+                        email_result.get("sent_count", 0)
+                    )
+                else:
+                    logger.warning(
+                        "Shift summary email dispatch reported issues: %s",
+                        email_result.get("error")
+                    )
+            except Exception as email_exc:
+                logger.error("Failed to send shift summary email: %s", email_exc, exc_info=True)
+
+            return updated_shift
             
         except Exception as e:
             logger.error(f"❌ Error closing shift: {str(e)}")
