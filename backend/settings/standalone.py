@@ -13,8 +13,8 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 
-# Debug mode for easier troubleshooting
-DEBUG = config('DEBUG', default=True, cast=bool)
+# Debug mode - read from .env, default to False for production
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Add more hosts for local access
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '::1']

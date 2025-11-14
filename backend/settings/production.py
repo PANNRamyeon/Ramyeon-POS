@@ -3,7 +3,7 @@ from decouple import config
 import os
 
 # Production settings
-DEBUG = False
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Allowed hosts - Render auto-assigns URLs
 ALLOWED_HOSTS = [

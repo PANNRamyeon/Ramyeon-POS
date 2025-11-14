@@ -7,6 +7,15 @@ from django.views.generic import TemplateView
 class FrontendView(TemplateView):
     """Serve Vue.js SPA for all non-API routes"""
     template_name = 'index.html'
+    
+    def get(self, request, *args, **kwargs):
+        """
+        Override get to ensure index.html is always served for client-side routes.
+        This allows Vue Router to handle routing on the client side.
+        """
+        # Always serve index.html for any non-API route
+        # Vue Router will handle the actual routing client-side
+        return super().get(request, *args, **kwargs)
 
 # ================ API DOCUMENTATION VIEW ================
         

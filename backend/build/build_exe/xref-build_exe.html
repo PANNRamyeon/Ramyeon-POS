@@ -4079,6 +4079,7 @@ imported by:
  &#8226;   <a href="#app.management.commands.backfill_sales">app.management.commands.backfill_sales</a>
  &#8226;   <a href="#app.management.commands.migrate_users_to_string_ids">app.management.commands.migrate_users_to_string_ids</a>
  &#8226;   <a href="#app.management.commands.run_sync_worker">app.management.commands.run_sync_worker</a>
+ &#8226;   <a href="#app.management.commands.set_email_verified">app.management.commands.set_email_verified</a>
  &#8226;   <a href="#app.management.commands.sync_product_stock">app.management.commands.sync_product_stock</a>
  &#8226;   <a href="#app.services.Backoffice.audit_service">app.services.Backoffice.audit_service</a>
  &#8226;   <a href="#app.services.Backoffice.auth_services">app.services.Backoffice.auth_services</a>
@@ -4670,6 +4671,7 @@ imported by:
  &#8226;   <a href="#app.management.commands.generate_auth_token">app.management.commands.generate_auth_token</a>
  &#8226;   <a href="#app.management.commands.migrate_users_to_string_ids">app.management.commands.migrate_users_to_string_ids</a>
  &#8226;   <a href="#app.management.commands.run_sync_worker">app.management.commands.run_sync_worker</a>
+ &#8226;   <a href="#app.management.commands.set_email_verified">app.management.commands.set_email_verified</a>
  &#8226;   <a href="#app.management.commands.sync_product_stock">app.management.commands.sync_product_stock</a>
  &#8226;   <a href="#django">django</a>
 
@@ -4752,6 +4754,25 @@ imports:
  &#8226;   <a href="#django.core.management.base">django.core.management.base</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#time">time</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#django">django</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="app.management.commands.set_email_verified"></a>
+  <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/app/management/commands/set_email_verified.py" type="text/plain"><tt>app.management.commands.set_email_verified</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#app.database">app.database</a>
+ &#8226;   <a href="#app.management.commands">app.management.commands</a>
+ &#8226;   <a href="#datetime">datetime</a>
+ &#8226;   <a href="#django.core.management.base">django.core.management.base</a>
 
   </div>
   <div class="import">
@@ -11254,6 +11275,7 @@ imported by:
  &#8226;   <a href="#app.kpi_views.POS.pos_sales_views">app.kpi_views.POS.pos_sales_views</a>
  &#8226;   <a href="#app.kpi_views.POS.shift_views">app.kpi_views.POS.shift_views</a>
  &#8226;   <a href="#app.management.commands.migrate_users_to_string_ids">app.management.commands.migrate_users_to_string_ids</a>
+ &#8226;   <a href="#app.management.commands.set_email_verified">app.management.commands.set_email_verified</a>
  &#8226;   <a href="#app.models">app.models</a>
  &#8226;   <a href="#app.services.Backoffice.audit_service">app.services.Backoffice.audit_service</a>
  &#8226;   <a href="#app.services.Backoffice.auth_services">app.services.Backoffice.auth_services</a>
@@ -11917,6 +11939,8 @@ imports:
 imported by:
     <a href="#app.database">app.database</a>
  &#8226;   <a href="#notifications.email_service">notifications.email_service</a>
+ &#8226;   <a href="#notifications.shift_summary_service">notifications.shift_summary_service</a>
+ &#8226;   <a href="#posbackend.settings">posbackend.settings</a>
  &#8226;   <a href="#settings.base">settings.base</a>
  &#8226;   <a href="#settings.local">settings.local</a>
  &#8226;   <a href="#settings.production">settings.production</a>
@@ -12051,6 +12075,7 @@ imports:
  &#8226;   <a href="#app.management.commands.generate_auth_token">app.management.commands.generate_auth_token</a>
  &#8226;   <a href="#app.management.commands.migrate_users_to_string_ids">app.management.commands.migrate_users_to_string_ids</a>
  &#8226;   <a href="#app.management.commands.run_sync_worker">app.management.commands.run_sync_worker</a>
+ &#8226;   <a href="#app.management.commands.set_email_verified">app.management.commands.set_email_verified</a>
  &#8226;   <a href="#app.management.commands.sync_product_stock">app.management.commands.sync_product_stock</a>
  &#8226;   <a href="#app.middleware">app.middleware</a>
  &#8226;   <a href="#app.migrations">app.migrations</a>
@@ -13397,6 +13422,7 @@ imported by:
  &#8226;   <a href="#django.views.debug">django.views.debug</a>
  &#8226;   <a href="#django.views.generic.dates">django.views.generic.dates</a>
  &#8226;   <a href="#django.views.i18n">django.views.i18n</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
  &#8226;   <a href="#rest_framework.authtoken.migrations.0001_initial">rest_framework.authtoken.migrations.0001_initial</a>
  &#8226;   <a href="#rest_framework.authtoken.migrations.0002_auto_20160226_1747">rest_framework.authtoken.migrations.0002_auto_20160226_1747</a>
  &#8226;   <a href="#rest_framework.authtoken.models">rest_framework.authtoken.models</a>
@@ -16368,6 +16394,7 @@ imports:
 imported by:
     <a href="#django">django</a>
  &#8226;   <a href="#django.contrib.staticfiles.urls">django.contrib.staticfiles.urls</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
 
   </div>
 
@@ -23780,6 +23807,7 @@ imported by:
  &#8226;   <a href="#django.contrib.staticfiles.urls">django.contrib.staticfiles.urls</a>
  &#8226;   <a href="#django.contrib.staticfiles.utils">django.contrib.staticfiles.utils</a>
  &#8226;   <a href="#django.contrib.staticfiles.views">django.contrib.staticfiles.views</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
  &#8226;   <a href="#start_server.py">start_server.py</a>
  &#8226;   <a href="#whitenoise.middleware">whitenoise.middleware</a>
 
@@ -23858,6 +23886,7 @@ imported by:
  &#8226;   <a href="#django.contrib.staticfiles.management.commands.findstatic">django.contrib.staticfiles.management.commands.findstatic</a>
  &#8226;   <a href="#django.contrib.staticfiles.views">django.contrib.staticfiles.views</a>
  &#8226;   <a href="#django.test.signals">django.test.signals</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
  &#8226;   <a href="#whitenoise.middleware">whitenoise.middleware</a>
 
   </div>
@@ -24058,6 +24087,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#django">django</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
 
   </div>
 
@@ -24106,6 +24136,7 @@ imported by:
     <a href="#django">django</a>
  &#8226;   <a href="#django.contrib.staticfiles.handlers">django.contrib.staticfiles.handlers</a>
  &#8226;   <a href="#django.contrib.staticfiles.urls">django.contrib.staticfiles.urls</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
 
   </div>
 
@@ -26024,6 +26055,7 @@ imported by:
  &#8226;   <a href="#app.management.commands.generate_auth_token">app.management.commands.generate_auth_token</a>
  &#8226;   <a href="#app.management.commands.migrate_users_to_string_ids">app.management.commands.migrate_users_to_string_ids</a>
  &#8226;   <a href="#app.management.commands.run_sync_worker">app.management.commands.run_sync_worker</a>
+ &#8226;   <a href="#app.management.commands.set_email_verified">app.management.commands.set_email_verified</a>
  &#8226;   <a href="#app.management.commands.sync_product_stock">app.management.commands.sync_product_stock</a>
  &#8226;   <a href="#django">django</a>
  &#8226;   <a href="#django.contrib.auth.management.commands.changepassword">django.contrib.auth.management.commands.changepassword</a>
@@ -35974,6 +36006,7 @@ imported by:
  &#8226;   <a href="#django.conf.urls.static">django.conf.urls.static</a>
  &#8226;   <a href="#django.contrib.staticfiles.views">django.contrib.staticfiles.views</a>
  &#8226;   <a href="#django.test.testcases">django.test.testcases</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
 
   </div>
 
@@ -48514,6 +48547,7 @@ imported by:
 imports:
     <a href="#app.database">app.database</a>
  &#8226;   <a href="#datetime">datetime</a>
+ &#8226;   <a href="#decouple">decouple</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#notifications">notifications</a>
  &#8226;   <a href="#notifications.email_service">notifications.email_service</a>
@@ -60650,6 +60684,7 @@ imported by:
  &#8226;   <a href="#pdb">pdb</a>
  &#8226;   <a href="#pkgutil">pkgutil</a>
  &#8226;   <a href="#platform">platform</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
  &#8226;   <a href="#posbackend.wsgi">posbackend.wsgi</a>
  &#8226;   <a href="#posixpath">posixpath</a>
  &#8226;   <a href="#py_compile">py_compile</a>
@@ -74079,6 +74114,7 @@ imported by:
  &#8226;   <a href="#pathlib._abc">pathlib._abc</a>
  &#8226;   <a href="#pathlib._local">pathlib._local</a>
  &#8226;   <a href="#posbackend.settings">posbackend.settings</a>
+ &#8226;   <a href="#posbackend.urls">posbackend.urls</a>
  &#8226;   <a href="#pymongo.asynchronous.topology">pymongo.asynchronous.topology</a>
  &#8226;   <a href="#pymongo.pool_options">pymongo.pool_options</a>
  &#8226;   <a href="#pymongo.synchronous.topology">pymongo.synchronous.topology</a>
@@ -74387,7 +74423,8 @@ imported by:
   <a target="code" href="///C:/Users/ngjam/Desktop/PANN_POS_SYSTEM/backend/posbackend/settings.py" type="text/plain"><tt>posbackend.settings</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#pathlib">pathlib</a>
+    <a href="#decouple">decouple</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#posbackend">posbackend</a>
 
   </div>
@@ -74405,10 +74442,19 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#app.views">app.views</a>
+ &#8226;   <a href="#django.conf">django.conf</a>
+ &#8226;   <a href="#django.conf.urls.static">django.conf.urls.static</a>
  &#8226;   <a href="#django.contrib">django.contrib</a>
  &#8226;   <a href="#django.contrib.admin">django.contrib.admin</a>
+ &#8226;   <a href="#django.contrib.staticfiles">django.contrib.staticfiles</a>
+ &#8226;   <a href="#django.contrib.staticfiles.finders">django.contrib.staticfiles.finders</a>
+ &#8226;   <a href="#django.contrib.staticfiles.urls">django.contrib.staticfiles.urls</a>
+ &#8226;   <a href="#django.contrib.staticfiles.views">django.contrib.staticfiles.views</a>
  &#8226;   <a href="#django.http">django.http</a>
  &#8226;   <a href="#django.urls">django.urls</a>
+ &#8226;   <a href="#django.views.static">django.views.static</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#posbackend">posbackend</a>
 
   </div>

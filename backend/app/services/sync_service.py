@@ -70,7 +70,7 @@ class SyncService:
         1. Sync recent batches bidirectionally (incremental, last 5 min)
         2. Sync recent products from local → cloud (incremental, last 5 min)
         3. Process sync queue (push queued items to cloud)
-        4. Bidirectional sync for customers, categories, promotions
+        4. Bidirectional sync for customers, categories, promotions, online_transactions
         """
         if not db_manager.is_online:
             return
@@ -90,7 +90,7 @@ class SyncService:
             self.process_sync_queue()
             
             # 4. Bidirectional sync for other entities
-            self.sync_bidirectional(['customers', 'categories', 'promotions'])
+            self.sync_bidirectional(['customers', 'categories', 'promotions', 'online_transactions'])
             
         except Exception as e:
             logger.error(f"❌ Background sync error: {e}")
@@ -340,34 +340,120 @@ class SyncService:
         except Exception as e:
             logger.error(f"❌ Bidirectional sync error: {e}")
     
-    def _sync_collection_bidirectional(self, collection_name, local_db, cloud_db):
-        """Sync a single collection bidirectionally"""
-        try:
-            # Get local items modified since last sync
-            # (In a real implementation, you'd track last_sync_time)
-            local_items = local_db[collection_name].find({'sync_logs': {'$exists': False}})
+    def _parse_timestamp(self, document, fallback=None):
+        """
+        Extract a datetime timestamp from a document.
+        
+        Looks for a list of common timestamp fields and gracefully handles
+        values stored as strings.
+        """
+        fallback = fallback or datetime(1970, 1, 1)
+        timestamp_fields = [
+            'last_updated',
+            'updated_at',
+            'date_updated',
+            'order_date',
+            'created_at',
+            'timestamp'
+        ]
+        
+        for field in timestamp_fields:
+            value = document.get(field)
+            if value is None:
+                continue
             
-            synced_count = 0
-            for item in local_items:
-                # Check if item exists in cloud
-                cloud_item = cloud_db[collection_name].find_one({'_id': item['_id']})
+            if isinstance(value, datetime):
+                return value
+            
+            # Handle ISO-formatted strings
+            if isinstance(value, str):
+                try:
+                    return datetime.fromisoformat(value.replace('Z', '+00:00'))
+                except ValueError:
+                    # Try parsing common datetime formats
+                    try:
+                        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    except ValueError:
+                        try:
+                            return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f")
+                        except ValueError:
+                            try:
+                                return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
+                            except ValueError:
+                                continue
+        
+        return fallback
+    
+    def _should_consider_document(self, document, sync_window):
+        """
+        Determine if a document should be considered for sync.
+        
+        We sync documents that:
+          - Have no sync_logs (never synced)
+          - Have an empty sync_logs array
+          - Have been updated within the sync window
+        """
+        if document.get('sync_logs') in (None, []):
+            return True
+        
+        doc_timestamp = self._parse_timestamp(document)
+        return doc_timestamp >= sync_window
+    
+    def _sync_collection_bidirectional(self, collection_name, local_db, cloud_db):
+        """
+        Sync a single collection bidirectionally.
+        
+        Strategy:
+          1. Push local changes/new documents to cloud
+          2. Pull cloud changes/new documents to local
+          3. Resolve conflicts using the most recent timestamp
+        """
+        try:
+            sync_window = datetime.utcnow() - timedelta(minutes=5)
+            
+            # -------------------------------
+            # 1. Local -> Cloud
+            # -------------------------------
+            local_candidates = local_db[collection_name].find({})
+            for local_doc in local_candidates:
+                if not self._should_consider_document(local_doc, sync_window):
+                    continue
                 
-                if cloud_item:
-                    # Conflict resolution: most recent wins
-                    local_time = item.get('last_updated', item.get('date_updated', datetime(1970, 1, 1)))
-                    cloud_time = cloud_item.get('last_updated', cloud_item.get('date_updated', datetime(1970, 1, 1)))
+                doc_id = local_doc.get('_id')
+                if doc_id is None:
+                    continue
+                
+                cloud_doc = cloud_db[collection_name].find_one({'_id': doc_id})
+                if cloud_doc:
+                    local_time = self._parse_timestamp(local_doc)
+                    cloud_time = self._parse_timestamp(cloud_doc)
                     
                     if local_time > cloud_time:
-                        # Local is newer - push to cloud
-                        cloud_db[collection_name].replace_one(
-                            {'_id': item['_id']},
-                            item
-                        )
-                        synced_count += 1
+                        cloud_db[collection_name].replace_one({'_id': doc_id}, local_doc)
                 else:
-                    # New item - insert to cloud
-                    cloud_db[collection_name].insert_one(item)
-                    synced_count += 1
+                    cloud_db[collection_name].insert_one(local_doc)
+            
+            # -------------------------------
+            # 2. Cloud -> Local
+            # -------------------------------
+            cloud_candidates = cloud_db[collection_name].find({})
+            for cloud_doc in cloud_candidates:
+                if not self._should_consider_document(cloud_doc, sync_window):
+                    continue
+                
+                doc_id = cloud_doc.get('_id')
+                if doc_id is None:
+                    continue
+                
+                local_doc = local_db[collection_name].find_one({'_id': doc_id})
+                if local_doc:
+                    local_time = self._parse_timestamp(local_doc)
+                    cloud_time = self._parse_timestamp(cloud_doc)
+                    
+                    if cloud_time > local_time:
+                        local_db[collection_name].replace_one({'_id': doc_id}, cloud_doc)
+                else:
+                    local_db[collection_name].insert_one(cloud_doc)
             
         except Exception as e:
             logger.error(f"❌ Bidirectional sync error for {collection_name}: {e}")
