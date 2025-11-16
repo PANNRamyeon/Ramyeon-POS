@@ -575,7 +575,7 @@ export default {
       breadcrumbs: [],
       
       // Infinite scroll
-      displayedItemsCount: 24,
+      displayedItemsCount: 38,
       itemsPerLoad: 12,
       
       // Custom category creation - will be loaded from localStorage

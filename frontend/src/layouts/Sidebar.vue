@@ -117,6 +117,28 @@
     },
     
     async mounted() {
+      // 1) Prefer the actual current route on first load / refresh
+      this.syncCurrentPageWithRoute(this.$route)
+
+      // 2) If the route is a generic container path ("/" or unknown),
+      //    fall back to the last menu the user explicitly selected.
+      const savedMenu = localStorage.getItem('activeMenu')
+      const validPages = [
+        'dashboard',
+        'new-order',
+        'online-order',
+        'history',
+        'settings',
+        'shift'
+      ]
+      if (
+        savedMenu &&
+        validPages.includes(savedMenu) &&
+        !validPages.includes(this.currentPage)
+      ) {
+        this.currentPage = savedMenu
+      }
+
       // Initial fetch
       await this.fetchPendingOrderCount()
       
@@ -133,7 +155,39 @@
       }
     },
     
+    watch: {
+      // Keep sidebar active state in sync when route changes programmatically
+      $route(to) {
+        this.syncCurrentPageWithRoute(to)
+      }
+    },
+    
     methods: {
+      syncCurrentPageWithRoute(route) {
+        if (!route || !route.path) {
+          this.currentPage = 'dashboard'
+          localStorage.setItem('activeMenu', this.currentPage)
+          return
+        }
+        
+        // Extract the first segment after '/'
+        const path = route.path.startsWith('/') ? route.path.slice(1) : route.path
+        const [segment] = path.split('/')
+        
+        // Only update for known sidebar routes
+        const validPages = [
+          'dashboard',
+          'new-order',
+          'online-order',
+          'history',
+          'settings',
+          'shift'
+        ]
+        
+        this.currentPage = validPages.includes(segment) ? segment : 'dashboard'
+        localStorage.setItem('activeMenu', this.currentPage)
+      },
+      
       async fetchPendingOrderCount() {
         try {
           // Fetch orders with pending/confirmed/processing status
@@ -169,6 +223,7 @@
       
       handleNavigation(page) {
         this.currentPage = page
+        localStorage.setItem('activeMenu', page)
         
         // Refresh count when navigating to online-order page
         if (page === 'online-order') {
