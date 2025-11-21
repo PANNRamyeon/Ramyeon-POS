@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from decouple import config
 from app.database import db_manager
 from notifications.email_service import email_service
+from app.utils.date_time_helper import format_datetime_ph
 
 logger = logging.getLogger(__name__)
 
@@ -22,19 +23,8 @@ class ShiftSummaryService:
         self.shift_collection = self.db.shifts
 
     def _format_datetime(self, dt):
-        if not dt:
-            return 'N/A'
-
-        if isinstance(dt, str):
-            try:
-                dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
-            except ValueError:
-                return dt
-
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-
-        return dt.astimezone(timezone.utc).strftime('%b %d, %Y %I:%M %p %Z')
+        """Format datetime to Philippine Standard Time"""
+        return format_datetime_ph(dt, format_str='%b %d, %Y %I:%M %p PST')
 
     def _format_duration(self, start, end):
         if not start or not end:

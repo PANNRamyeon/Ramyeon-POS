@@ -3,7 +3,7 @@ from decouple import config
 
 # Development settings
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'pos.panntech']
 
 # CORS settings for development (your frontend runs on 5173)
 CORS_ALLOWED_ORIGINS = [
@@ -11,6 +11,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",  # Alternative port
     "http://127.0.0.1:3000",
+    "http://pos.panntech",  # Proxy domain
+    "http://pos.panntech:80",
+    "http://pos.panntech:8080",
 ]
 
 # Allow all origins in development for easier testing

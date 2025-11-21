@@ -17,6 +17,7 @@ a = Analysis(
         ('api', 'api'),
         ('notifications', 'notifications'),
         ('kpi', 'kpi'),
+        ('proxy_server.py', '.'),  # Proxy server script
     ],
     hiddenimports=[
         # Core Django
@@ -49,6 +50,12 @@ a = Analysis(
         'motor',
         'whitenoise',
         'whitenoise.middleware',
+        'whitenoise.storage',
+        'whitenoise.base',
+        'whitenoise.compress',
+        'whitenoise.responders',
+        'whitenoise.media_types',
+        'whitenoise.string_utils',
         
         # Project modules
         'posbackend',

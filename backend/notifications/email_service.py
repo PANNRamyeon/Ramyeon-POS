@@ -67,6 +67,24 @@ class EmailService:
             if plain_text_content:
                 message.plain_text_content = Content("text/plain", plain_text_content)
 
+            # ✅ Add Reply-To header
+            message.reply_to = Email(self.from_email, self.from_name)
+            
+            # ✅ Add categories for SendGrid tracking
+            message.add_category("shift-summary")
+            message.add_category("transactional")
+            
+            # ✅ Add custom headers to improve deliverability
+            message.add_header("X-Mailer", "PANN POS System")
+            message.add_header("X-Priority", "3")  # Normal priority
+            message.add_header("X-MSMail-Priority", "Normal")
+            
+            # ✅ Add List-Unsubscribe header (best practice even for transactional emails)
+            unsubscribe_url = config('EMAIL_UNSUBSCRIBE_URL', default='')
+            if unsubscribe_url:
+                message.add_header("List-Unsubscribe", f"<{unsubscribe_url}>")
+                message.add_header("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
+
             response = self.sg.send(message)
             status_code = response.status_code
 
@@ -123,8 +141,8 @@ class EmailService:
             dict: Result payload from the email send attempt.
         """
         subject = (
-            f"Shift Summary - {shift_data.get('shift_id', '')} "
-            f"- {shift_data.get('cashier_name', 'Unknown')}"
+            f"Daily Shift Report: {shift_data.get('shift_id', '')} - "
+            f"{shift_data.get('cashier_name', 'Unknown')}"
         ).strip()
 
         total_sales = shift_data.get('total_sales', 0)
@@ -150,9 +168,12 @@ class EmailService:
 
         html_content = f"""
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
             <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <title>Shift Summary Report</title>
             <style>
                 body {{
                     font-family: Arial, sans-serif;
@@ -277,6 +298,10 @@ class EmailService:
                 </div>
                 <div class="footer">
                     <p>© 2025 PANN POS System. All rights reserved.</p>
+                    <p style="font-size: 10px; color: #999; margin-top: 10px;">
+                        This is an automated transactional email. 
+                        If you no longer wish to receive these notifications, please contact your system administrator.
+                    </p>
                 </div>
             </div>
         </body>

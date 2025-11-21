@@ -111,6 +111,7 @@
 
 <script>
 import apiService, { api } from '@/services/api.js'
+import { formatDateTime12HourPH, formatDatePH } from '@/utils/dateTimeHelper.js'
 
 export default {
   name: 'ShiftSummary',
@@ -206,29 +207,11 @@ export default {
     },
 
     formatDateTime(dateString) {
-      if (!dateString) return 'N/A'
-      const date = new Date(dateString)
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-      const month = months[date.getMonth()]
-      const day = date.getDate()
-      let hours = date.getHours()
-      const minutes = date.getMinutes()
-      const ampm = hours >= 12 ? 'PM' : 'AM'
-      hours = hours % 12
-      hours = hours ? hours : 12
-      const mins = minutes.toString().padStart(2, '0')
-      return `${month} ${day}, ${hours}:${mins} ${ampm}`
+      return formatDateTime12HourPH(dateString)
     },
 
     formatDate(dateString) {
-      if (!dateString) return 'N/A'
-      const date = new Date(dateString)
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
-      return `${year}-${month}-${day} ${hours}:${minutes}`
+      return formatDatePH(dateString)
     },
 
     printSummary() {

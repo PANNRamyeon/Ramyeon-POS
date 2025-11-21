@@ -256,6 +256,7 @@
 
 <script>
 import apiService, { api } from '@/services/api.js'
+import { formatDateTimeShortPH } from '@/utils/dateTimeHelper.js'
 
 export default {
   name: 'Shift',
@@ -474,14 +475,7 @@ export default {
     },
 
     formatDateTime(dateString) {
-      if (!dateString) return 'N/A'
-      const date = new Date(dateString)
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      return formatDateTimeShortPH(dateString)
     }
   }
 }

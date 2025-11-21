@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from ...database import db_manager
 from ..Backoffice.product_service import ProductService
 from notifications.services import notification_service
@@ -555,6 +555,32 @@ class POSSalesService:
             # Get updated sale record
             sale_record = self.sales_collection.find_one({'_id': sale_id})
             
+            # ✅ Add transaction_date_local (Philippine Time UTC+8) for frontend display
+            if sale_record and sale_record.get('transaction_date'):
+                try:
+                    transaction_date_utc = sale_record.get('transaction_date')
+                    
+                    # Convert from string or naive datetime
+                    if isinstance(transaction_date_utc, str):
+                        transaction_date_utc = datetime.fromisoformat(
+                            transaction_date_utc.replace("Z", "+00:00")
+                        )
+                    elif transaction_date_utc.tzinfo is None:
+                        # Force UTC if missing timezone info
+                        transaction_date_utc = transaction_date_utc.replace(tzinfo=timezone.utc)
+                    
+                    # Convert UTC → Philippine time (+8)
+                    ph_tz = timezone(timedelta(hours=8))
+                    transaction_date_local = transaction_date_utc.astimezone(ph_tz)
+                    
+                    # Add to sale_record for API response
+                    sale_record['transaction_date_local'] = transaction_date_local.isoformat()
+                    
+                except Exception as tz_err:
+                    print(f"⚠️ Timezone conversion error: {tz_err}")
+                    # If conversion fails, use UTC as fallback
+                    sale_record['transaction_date_local'] = sale_record.get('transaction_date')
+            
             return {
                 'success': True,
                 'message': 'Sale created successfully',
@@ -593,6 +619,33 @@ class POSSalesService:
         """Get a POS sale by string ID"""
         try:
             sale = self.sales_collection.find_one({'_id': sale_id})
+            
+            # ✅ Add transaction_date_local (Philippine Time UTC+8) for frontend display
+            if sale and sale.get('transaction_date'):
+                try:
+                    transaction_date_utc = sale.get('transaction_date')
+                    
+                    # Convert from string or naive datetime
+                    if isinstance(transaction_date_utc, str):
+                        transaction_date_utc = datetime.fromisoformat(
+                            transaction_date_utc.replace("Z", "+00:00")
+                        )
+                    elif transaction_date_utc.tzinfo is None:
+                        # Force UTC if missing timezone info
+                        transaction_date_utc = transaction_date_utc.replace(tzinfo=timezone.utc)
+                    
+                    # Convert UTC → Philippine time (+8)
+                    ph_tz = timezone(timedelta(hours=8))
+                    transaction_date_local = transaction_date_utc.astimezone(ph_tz)
+                    
+                    # Add to sale for API response
+                    sale['transaction_date_local'] = transaction_date_local.isoformat()
+                    
+                except Exception as tz_err:
+                    print(f"⚠️ Timezone conversion error: {tz_err}")
+                    # If conversion fails, use UTC as fallback
+                    sale['transaction_date_local'] = sale.get('transaction_date')
+            
             return sale
             
         except Exception as e:
@@ -612,6 +665,27 @@ class POSSalesService:
                 .sort('transaction_date', -1)
                 .limit(limit)
             )
+            
+            # ✅ Add transaction_date_local to each sale
+            ph_tz = timezone(timedelta(hours=8))
+            for sale in sales:
+                if sale.get('transaction_date'):
+                    try:
+                        transaction_date_utc = sale.get('transaction_date')
+                        
+                        # Convert from string or naive datetime
+                        if isinstance(transaction_date_utc, str):
+                            transaction_date_utc = datetime.fromisoformat(
+                                transaction_date_utc.replace("Z", "+00:00")
+                            )
+                        elif transaction_date_utc.tzinfo is None:
+                            transaction_date_utc = transaction_date_utc.replace(tzinfo=timezone.utc)
+                        
+                        # Convert UTC → Philippine time (+8)
+                        transaction_date_local = transaction_date_utc.astimezone(ph_tz)
+                        sale['transaction_date_local'] = transaction_date_local.isoformat()
+                    except Exception:
+                        sale['transaction_date_local'] = sale.get('transaction_date')
             
             return sales
             
@@ -638,6 +712,27 @@ class POSSalesService:
                 .sort('transaction_date', -1)
             )
             
+            # ✅ Add transaction_date_local to each sale
+            ph_tz = timezone(timedelta(hours=8))
+            for sale in sales:
+                if sale.get('transaction_date'):
+                    try:
+                        transaction_date_utc = sale.get('transaction_date')
+                        
+                        # Convert from string or naive datetime
+                        if isinstance(transaction_date_utc, str):
+                            transaction_date_utc = datetime.fromisoformat(
+                                transaction_date_utc.replace("Z", "+00:00")
+                            )
+                        elif transaction_date_utc.tzinfo is None:
+                            transaction_date_utc = transaction_date_utc.replace(tzinfo=timezone.utc)
+                        
+                        # Convert UTC → Philippine time (+8)
+                        transaction_date_local = transaction_date_utc.astimezone(ph_tz)
+                        sale['transaction_date_local'] = transaction_date_local.isoformat()
+                    except Exception:
+                        sale['transaction_date_local'] = sale.get('transaction_date')
+            
             return sales
             
         except Exception as e:
@@ -651,6 +746,27 @@ class POSSalesService:
                 .find({'shift_id': shift_id})
                 .sort('transaction_date', 1)
             )
+            
+            # ✅ Add transaction_date_local to each sale
+            ph_tz = timezone(timedelta(hours=8))
+            for sale in sales:
+                if sale.get('transaction_date'):
+                    try:
+                        transaction_date_utc = sale.get('transaction_date')
+                        
+                        # Convert from string or naive datetime
+                        if isinstance(transaction_date_utc, str):
+                            transaction_date_utc = datetime.fromisoformat(
+                                transaction_date_utc.replace("Z", "+00:00")
+                            )
+                        elif transaction_date_utc.tzinfo is None:
+                            transaction_date_utc = transaction_date_utc.replace(tzinfo=timezone.utc)
+                        
+                        # Convert UTC → Philippine time (+8)
+                        transaction_date_local = transaction_date_utc.astimezone(ph_tz)
+                        sale['transaction_date_local'] = transaction_date_local.isoformat()
+                    except Exception:
+                        sale['transaction_date_local'] = sale.get('transaction_date')
             
             return sales
             

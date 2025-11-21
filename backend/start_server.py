@@ -9,14 +9,51 @@ import subprocess
 import threading
 import webbrowser
 import time
+import socket
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse
+import requests
 
-# Set Django settings module for standalone .exe
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings.standalone')
-
-# Add backend to path
+# Add backend to path FIRST
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
+
+# Explicitly import whitenoise to ensure PyInstaller includes it
+# This MUST be done BEFORE Django settings are loaded
+try:
+    import whitenoise
+    import whitenoise.middleware
+    from whitenoise.middleware import WhiteNoiseMiddleware
+    import whitenoise.storage
+    from whitenoise.storage import CompressedManifestStaticFilesStorage
+    import whitenoise.base
+    import whitenoise.compress
+    import whitenoise.responders
+    import whitenoise.media_types
+    import whitenoise.string_utils
+    # Force import of all whitenoise submodules
+    import pkgutil
+    import whitenoise as wn_pkg
+    if hasattr(wn_pkg, '__path__'):
+        for importer, modname, ispkg in pkgutil.iter_modules(wn_pkg.__path__, wn_pkg.__name__ + "."):
+            try:
+                __import__(modname)
+            except:
+                pass
+    # Store references to prevent garbage collection
+    _whitenoise_refs = [
+        whitenoise, WhiteNoiseMiddleware, CompressedManifestStaticFilesStorage
+    ]
+    print("✓ WhiteNoise imported successfully")
+except ImportError as e:
+    print(f"❌ ERROR: Could not import whitenoise: {e}")
+    print("   This is required for static file serving.")
+    print("   Please ensure whitenoise is installed: pip install whitenoise")
+    sys.exit(1)
+
+# Set Django settings module for standalone .exe (AFTER whitenoise import)
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings.standalone')
 
 def check_mongodb():
     """Check if MongoDB is running"""
@@ -63,7 +100,199 @@ def start_server():
         input("Press Enter to exit...")
         sys.exit(1)
 
-def open_browser():
+def check_hosts_file():
+    """Check if pos.panntech is in hosts file, add if missing"""
+    hosts_path = r'C:\Windows\System32\drivers\etc\hosts'
+    entry = '127.0.0.1    pos.panntech'
+    
+    try:
+        with open(hosts_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        if 'pos.panntech' in content:
+            return True
+        
+        # Try to add entry (will fail if not admin, that's okay)
+        try:
+            with open(hosts_path, 'a', encoding='utf-8') as f:
+                f.write(f'\n{entry}\n')
+            print("✓ Added pos.panntech to hosts file")
+            return True
+        except PermissionError:
+            print("⚠ Could not automatically update hosts file (admin required)")
+            print("  The app will still work, but you may need to manually add:")
+            print(f"  {entry}")
+            print("  to C:\\Windows\\System32\\drivers\\etc\\hosts")
+            return False
+    except Exception as e:
+        print(f"⚠ Could not check hosts file: {e}")
+        return False
+
+def start_proxy_server():
+    """Start the proxy server on port 80 (or 8080 as fallback) in a background thread"""
+    proxy_port = None
+    
+    class ProxyHandler(BaseHTTPRequestHandler):
+        """HTTP Proxy handler that forwards requests to Django"""
+        
+        def do_GET(self):
+            self._proxy_request()
+        
+        def do_POST(self):
+            self._proxy_request()
+        
+        def do_PUT(self):
+            self._proxy_request()
+        
+        def do_DELETE(self):
+            self._proxy_request()
+        
+        def do_PATCH(self):
+            self._proxy_request()
+        
+        def do_OPTIONS(self):
+            self._proxy_request()
+        
+        def _proxy_request(self):
+            """Forward request to Django server"""
+            try:
+                # Build target URL
+                target_url = f'http://127.0.0.1:8000{self.path}'
+                if self.command == 'GET' and self.path == '/':
+                    target_url = 'http://127.0.0.1:8000/'
+                
+                # Prepare headers
+                headers = {}
+                for header, value in self.headers.items():
+                    # Skip hop-by-hop headers
+                    if header.lower() not in ['connection', 'proxy-connection', 'keep-alive', 'transfer-encoding', 'host']:
+                        headers[header] = value
+                
+                # Set Host header for Django
+                headers['Host'] = '127.0.0.1:8000'
+                
+                # Preserve Origin header if present (important for CORS)
+                # If Origin is pos.panntech, keep it so Django can validate CORS
+                if 'Origin' in self.headers:
+                    origin = self.headers['Origin']
+                    # If origin is pos.panntech, preserve it
+                    if 'pos.panntech' in origin:
+                        headers['Origin'] = origin
+                    else:
+                        # Otherwise, set it to pos.panntech to match the proxy domain
+                        headers['Origin'] = f'http://pos.panntech'
+                else:
+                    # Set Origin to pos.panntech if not present
+                    headers['Origin'] = 'http://pos.panntech'
+                
+                # Get request body if present
+                content_length = int(self.headers.get('Content-Length', 0))
+                body = None
+                if content_length > 0:
+                    body = self.rfile.read(content_length)
+                
+                # Forward request using requests library
+                try:
+                    resp = requests.request(
+                        method=self.command,
+                        url=target_url,
+                        headers=headers,
+                        data=body,
+                        timeout=30,
+                        allow_redirects=False
+                    )
+                    
+                    # Send response status
+                    self.send_response(resp.status_code)
+                    
+                    # Send response headers
+                    for header, value in resp.headers.items():
+                        # Skip hop-by-hop headers
+                        if header.lower() not in ['connection', 'transfer-encoding', 'content-encoding']:
+                            self.send_header(header, value)
+                    
+                    self.end_headers()
+                    
+                    # Send response body
+                    self.wfile.write(resp.content)
+                    
+                except requests.exceptions.RequestException as e:
+                    print(f"Proxy error: {e}")
+                    self.send_error(502, f"Bad Gateway: {e}")
+                    
+            except Exception as e:
+                print(f"Proxy handler error: {e}")
+                try:
+                    self.send_error(500, f"Internal Server Error: {e}")
+                except:
+                    pass
+        
+        def log_message(self, format, *args):
+            # Suppress proxy access logs to reduce noise
+            pass
+    
+    def proxy_server_thread(port):
+        """Run proxy server on specified port"""
+        try:
+            server_address = ('127.0.0.1', port)
+            httpd = HTTPServer(server_address, ProxyHandler)
+            httpd.serve_forever()
+        except Exception as e:
+            print(f"Proxy server error on port {port}: {e}")
+    
+    # Try port 80 first (default HTTP, no port in URL)
+    for port in [80, 8080]:
+        try:
+            # Check if port is available
+            test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_sock.settimeout(1)
+            result = test_sock.connect_ex(('127.0.0.1', port))
+            test_sock.close()
+            
+            if result == 0:
+                # Port is in use, assume proxy is already running
+                proxy_port = port
+                break
+            
+            # Try to bind to the port
+            test_bind = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_bind.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                test_bind.bind(('127.0.0.1', port))
+                test_bind.close()
+                proxy_port = port
+                break
+            except OSError:
+                test_bind.close()
+                if port == 80:
+                    # Port 80 failed, try 8080
+                    continue
+                else:
+                    # Both ports failed
+                    break
+        except Exception:
+            if port == 80:
+                continue  # Try 8080
+            break
+    
+    if proxy_port:
+        # Start proxy in background thread
+        proxy_thread = threading.Thread(target=proxy_server_thread, args=(proxy_port,))
+        proxy_thread.daemon = True
+        proxy_thread.start()
+        time.sleep(1)  # Give proxy time to start
+        
+        if proxy_port == 80:
+            print("✓ Proxy server started on port 80 (http://pos.panntech)")
+        else:
+            print(f"✓ Proxy server started on port {proxy_port} (http://pos.panntech:{proxy_port})")
+            print("  Note: Port 80 requires admin privileges. Run as admin for cleaner URL.")
+        return proxy_port
+    else:
+        print("⚠ Could not start proxy server (ports 80 and 8080 unavailable)")
+        return None
+
+def open_browser(proxy_port=None):
     """Wait for server to start then open browser"""
     time.sleep(5)  # Wait for server to start
     try:
@@ -73,19 +302,46 @@ def open_browser():
         print("=" * 60)
         print()
         print("Opening browser...")
-        webbrowser.open('http://localhost:8000')
+        # Use pos.panntech with appropriate port
+        if proxy_port == 80:
+            url = 'http://pos.panntech'
+        elif proxy_port:
+            url = f'http://pos.panntech:{proxy_port}'
+        else:
+            url = 'http://localhost:8000'
+        
+        webbrowser.open(url)
+        print(f"✓ Browser opened at {url}")
         print()
     except Exception as e:
         print(f"Could not open browser: {e}")
         print()
         print("Please open your browser and navigate to:")
-        print("  >>> http://localhost:8000 <<<")
+        if proxy_port == 80:
+            print("  >>> http://pos.panntech <<<")
+        elif proxy_port:
+            print(f"  >>> http://pos.panntech:{proxy_port} <<<")
+        else:
+            print("  >>> http://localhost:8000 <<<")
         print()
 
 def main():
     print("=" * 60)
     print("PANN POS System - Starting...")
     print("=" * 60)
+    print()
+    
+    # Check and update hosts file
+    print("Checking hosts file configuration...")
+    hosts_ok = check_hosts_file()
+    if not hosts_ok:
+        print("⚠ Hosts file not updated. The app will still work at http://localhost:8000")
+        print("  To use pos.panntech, manually add '127.0.0.1    pos.panntech' to hosts file")
+    print()
+    
+    # Start proxy server
+    print("Starting proxy server...")
+    proxy_port = start_proxy_server()
     print()
     
     # Check MongoDB
@@ -139,6 +395,12 @@ def main():
     
     # Start server in a thread to allow browser opening
     print("Starting server on http://localhost:8000")
+    if proxy_port == 80:
+        print("Access the application at: http://pos.panntech")
+    elif proxy_port:
+        print(f"Access the application at: http://pos.panntech:{proxy_port}")
+    else:
+        print("Access the application at: http://localhost:8000")
     print("Press Ctrl+C to stop the server")
     print("=" * 60)
     print()
@@ -147,7 +409,7 @@ def main():
     print()
     
     # Open browser in separate thread (with longer delay to ensure server is ready)
-    browser_thread = threading.Thread(target=open_browser)
+    browser_thread = threading.Thread(target=open_browser, args=(proxy_port,))
     browser_thread.daemon = True
     browser_thread.start()
     

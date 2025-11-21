@@ -107,6 +107,7 @@ import { usePaymongo } from '@/composables/api/usePaymongo'
 import { useCartStore } from '@/stores/cartStores'
 import apiSales from '@/services/apiSales'
 import { useStockCache } from '@/composables/data/useStockCache.js'
+import { formatDateTimeShortPH } from '@/utils/dateTimeHelper.js'
 
 export default {
   name: 'PaymentCallback',
@@ -342,7 +343,7 @@ export default {
       }
       
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://pos.panntech/api/v1'
         const receiptUrl = `${baseUrl}/pos/sales/${this.saleDetails.saleId}/receipt/`
         
         const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600')
@@ -380,15 +381,7 @@ export default {
     },
     
     formatDateTime(dateString) {
-      if (!dateString) return ''
-      const date = new Date(dateString)
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      return formatDateTimeShortPH(dateString)
     }
   }
 }

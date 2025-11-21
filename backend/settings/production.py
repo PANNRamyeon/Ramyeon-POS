@@ -10,6 +10,7 @@ ALLOWED_HOSTS = [
     config('RENDER_EXTERNAL_HOSTNAME', default=''),  # Render provides this automatically
     'localhost',  # For local testing with production settings
     '127.0.0.1',
+    'pos.panntech',  # Proxy domain
 ]
 
 # Add any custom domains you might have
@@ -21,9 +22,14 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Static files directories for serving Vue frontend
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
+# Only add if directory exists to avoid warnings
+static_dir = BASE_DIR / 'static'
+if static_dir.exists():
+    STATICFILES_DIRS = [
+        static_dir,
+    ]
+else:
+    STATICFILES_DIRS = []
 
 # Templates directory for serving Vue SPA
 TEMPLATES = [

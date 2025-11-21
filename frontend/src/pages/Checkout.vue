@@ -259,15 +259,61 @@
           </div>
         </div>
 
-        <!-- Promotion Display -->
-        <div v-if="appliedPromotion" class="mb-4 pb-4 border-bottom-theme">
-          <h3 class="fs-6 fw-semibold mb-3 text-primary">Applied Promotion</h3>
-          <div class="rounded-3 p-3" style="background: linear-gradient(135deg, #FFD700, #FFA500);">
-            <div class="d-flex align-items-center gap-3">
-              <span class="fs-4">🎉</span>
-              <div class="d-flex flex-column flex-fill">
-                <span class="fs-6 fw-semibold text-dark">{{ appliedPromotion.name }}</span>
-                <span class="fs-5 fw-bold text-success">Save ₱{{ formatPrice(promoDiscount) }}</span>
+        <!-- Special Discounts -->
+        <div class="mb-4 pb-4 border-bottom-theme">
+          <h3 class="fs-6 fw-semibold mb-3 text-primary">Special Discounts</h3>
+          <div class="d-flex flex-column gap-2">
+            <!-- Drinks Promo Checkbox -->
+            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+              <input
+                type="checkbox"
+                v-model="isDrinksPromo"
+                :disabled="isProcessing"
+                class="me-3"
+                style="accent-color: var(--primary); width: 18px; height: 18px;"
+              >
+              <span class="fs-6 text-primary">🥤 Drinks Promo</span>
+            </label>
+            
+            <!-- PWD / Senior Citizen Discounts (Mutually Exclusive) -->
+            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+              <input
+                type="radio"
+                name="specialDiscount"
+                value="pwd"
+                v-model="specialDiscountType"
+                :disabled="isProcessing"
+                class="me-3"
+                style="accent-color: var(--primary); width: 18px; height: 18px;"
+              >
+              <span class="fs-6 text-primary">🦽 PWD (20% Discount)</span>
+            </label>
+            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+              <input
+                type="radio"
+                name="specialDiscount"
+                value="senior"
+                v-model="specialDiscountType"
+                :disabled="isProcessing"
+                class="me-3"
+                style="accent-color: var(--primary); width: 18px; height: 18px;"
+              >
+              <span class="fs-6 text-primary">👴 Senior Citizen (20% Discount)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Auto-Applied Promotions Display -->
+        <div v-if="autoAppliedPromotions.length > 0" class="mb-4 pb-4 border-bottom-theme">
+          <h3 class="fs-6 fw-semibold mb-3 text-primary">Applied Promotions</h3>
+          <div v-for="promo in autoAppliedPromotions" :key="promo._id" class="mb-2">
+            <div class="rounded-3 p-3" style="background: linear-gradient(135deg, #FFD700, #FFA500);">
+              <div class="d-flex align-items-center gap-3">
+                <span class="fs-4">🎉</span>
+                <div class="d-flex flex-column flex-fill">
+                  <span class="fs-6 fw-semibold text-dark">{{ promo.name }}</span>
+                  <span class="fs-5 fw-bold text-success">Save ₱{{ formatPrice(promo.discountAmount) }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -280,11 +326,31 @@
             <span class="text-primary">₱{{ formatPrice(cartSubtotal) }}</span>
           </div>
 
-          <div v-if="promoDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
-            <span>{{ appliedPromotion.name }}</span>
-            <span class="fw-semibold">-₱{{ formatPrice(promoDiscount) }}</span>
+          <!-- Auto-applied promotions -->
+          <div v-for="promo in autoAppliedPromotions" :key="promo._id" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
+            <span>{{ promo.name }}</span>
+            <span class="fw-semibold">-₱{{ formatPrice(promo.discountAmount) }}</span>
           </div>
 
+          <!-- Drinks Promo Discount -->
+          <div v-if="drinksPromoDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
+            <span>Drinks Promo</span>
+            <span class="fw-semibold">-₱{{ formatPrice(drinksPromoDiscount) }}</span>
+          </div>
+
+          <!-- PWD Discount -->
+          <div v-if="pwdDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
+            <span>PWD Discount (20%)</span>
+            <span class="fw-semibold">-₱{{ formatPrice(pwdDiscount) }}</span>
+          </div>
+
+          <!-- Senior Citizen Discount -->
+          <div v-if="seniorCitizenDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
+            <span>Senior Citizen Discount (20%)</span>
+            <span class="fw-semibold">-₱{{ formatPrice(seniorCitizenDiscount) }}</span>
+          </div>
+
+          <!-- Points Discount -->
           <div v-if="appliedPointsDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
             <span>Points Discount</span>
             <span class="fw-semibold">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
@@ -583,6 +649,7 @@ import apiSales from '@/services/apiSales'
 import apiProducts from '@/services/apiProducts'
 import { api } from '@/services/api.js'
 import { useStockCache } from '@/composables/data/useStockCache.js'
+import { formatDateTimePH } from '@/utils/dateTimeHelper.js'
 
 export default {
   name: 'Checkout',
@@ -624,7 +691,12 @@ export default {
       appliedPointsDiscount: 0,
       
       // Promotions
-      appliedPromotion: null,
+      autoAppliedPromotions: [], // Auto-detected promotions (like Drinks Promo)
+      availablePromotions: [], // All active promotions
+      
+      // Special Discounts
+      isDrinksPromo: false, // Drinks Promo checkbox
+      specialDiscountType: null, // 'pwd', 'senior', or null (mutually exclusive)
       
       // Payment
       paymentMethod: 'cash', // 'cash', 'gcash', 'paymaya'
@@ -655,86 +727,76 @@ export default {
     },
     
     cartSubtotal() {
-      return this.cartStore.total
+      // Use subtotal (sum of items), not total (which includes tax and discounts)
+      return this.cartStore.subtotal
     },
     
-    promoDiscount() {
-      if (!this.appliedPromotion) {
-        return 0
-      }
+    // Drinks Promo discount (only when checkbox is checked)
+    drinksPromoDiscount() {
+      if (!this.isDrinksPromo) return 0
       
-      const promotion = this.appliedPromotion
+      // Find Drinks Promo from available promotions
+      const drinksPromo = this.availablePromotions.find(p => 
+        p.name.toLowerCase().includes('drinks') || 
+        p.name.toLowerCase().includes('drink')
+      )
       
-      // SAFETY CHECK
-      if (!promotion.discount_config) {
-        return 0
-      }
+      if (!drinksPromo) return 0
       
-      const targetType = promotion.discount_config.target_type
-      const targetIds = promotion.discount_config.target_ids || []
-      
-      let eligibleAmount = 0
-      
-      if (targetType === 'all') {
-        eligibleAmount = this.cartSubtotal
-        
-      } else if (targetType === 'categories') {
-        // Filter cart items by category
-        const eligibleItems = this.cartItems.filter(item => {
-          const product = this.products.find(p => p.id === item.productId)
-          
-          if (!product) {
-            return false
-          }
-          
-          const productCategory = product.category
-          const isEligible = targetIds.includes(productCategory)
-          
-          return isEligible
-        })
-        
-        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-        
-      } else if (targetType === 'products') {
-        // Filter cart items by product ID
-        const eligibleItems = this.cartItems.filter(item => {
-          const isEligible = targetIds.includes(item.productId)
-          
-          return isEligible
-        })
-        
-        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
-      }
-      
-      if (eligibleAmount === 0) {
-        return 0
-      }
-      
-      // Calculate discount
-      let discount = 0
-      
-      if (promotion.type === 'percentage') {
-        discount = eligibleAmount * (promotion.discount_value / 100)
-      } else if (promotion.type === 'fixed') {
-        discount = Math.min(promotion.discount_value, eligibleAmount)
-      }
-      
-      const finalDiscount = Math.round(discount * 100) / 100
-      
-      return finalDiscount
+      // Calculate discount using the same logic as before (only on drinks category items)
+      return this.calculatePromotionDiscount(drinksPromo)
+    },
+    
+    // Total discount from all auto-applied promotions (excluding Drinks Promo)
+    totalPromoDiscount() {
+      return this.autoAppliedPromotions.reduce((sum, promo) => sum + promo.discountAmount, 0)
+    },
+    
+    // Total discount including Drinks Promo
+    totalAllPromoDiscount() {
+      return this.totalPromoDiscount + this.drinksPromoDiscount
+    },
+    
+    // PWD Discount (20% on subtotal after promotions)
+    pwdDiscount() {
+      if (this.specialDiscountType !== 'pwd') return 0
+      const discountableAmount = this.cartSubtotal - this.totalAllPromoDiscount
+      return Math.round(discountableAmount * 0.20 * 100) / 100
+    },
+    
+    // Senior Citizen Discount (20% on subtotal after promotions)
+    seniorCitizenDiscount() {
+      if (this.specialDiscountType !== 'senior') return 0
+      const discountableAmount = this.cartSubtotal - this.totalAllPromoDiscount
+      return Math.round(discountableAmount * 0.20 * 100) / 100
+    },
+    
+    // Helper computed properties for backward compatibility
+    isPWD() {
+      return this.specialDiscountType === 'pwd'
+    },
+    
+    isSeniorCitizen() {
+      return this.specialDiscountType === 'senior'
     },
     
     subtotalAfterPromo() {
-      return Math.max(0, this.cartSubtotal - this.promoDiscount)
+      return Math.max(0, this.cartSubtotal - this.totalAllPromoDiscount)
+    },
+    
+    subtotalAfterAllDiscounts() {
+      // Subtotal after promotions, PWD, and Senior Citizen discounts
+      return Math.max(0, this.subtotalAfterPromo - this.pwdDiscount - this.seniorCitizenDiscount)
     },
     
     taxAmount() {
-      const taxableAmount = this.subtotalAfterPromo - this.appliedPointsDiscount
+      // Tax is calculated on subtotal after all discounts (promotions, PWD, Senior Citizen) but before points
+      const taxableAmount = this.subtotalAfterAllDiscounts - this.appliedPointsDiscount
       return Math.round(taxableAmount * 0.12 * 100) / 100
     },
     
     grandTotal() {
-      return Math.max(0, this.subtotalAfterPromo - this.appliedPointsDiscount + this.taxAmount)
+      return Math.max(0, this.subtotalAfterAllDiscounts - this.appliedPointsDiscount + this.taxAmount)
     },
     
     totalItems() {
@@ -749,7 +811,7 @@ export default {
       const pointsPerPeso = 4
 
       // Calculate subtotal after promotion discounts
-      const subtotalAfterPromo = Math.max(0, this.cartSubtotal - this.promoDiscount)
+      const subtotalAfterPromo = Math.max(0, this.cartSubtotal - this.totalAllPromoDiscount)
 
       // Dynamic cap: max 20% of subtotalAfterPromo
       const maxDiscountAmount = subtotalAfterPromo * 0.20
@@ -813,6 +875,20 @@ export default {
     }
   },
   
+  watch: {
+    // Re-detect promotions when cart items change
+    'cartStore.items': {
+      handler() {
+        if (this.cartItems.length > 0) {
+          this.autoDetectAndApplyPromotions()
+        } else {
+          this.autoAppliedPromotions = []
+        }
+      },
+      deep: true
+    }
+  },
+  
   async mounted() {
     await this.loadCheckoutData()
     await this.validateStock()
@@ -831,42 +907,8 @@ export default {
         // ✅ STEP 1: Load products for promotion calculation
         await this.loadProductsForPromotion()
         
-        // ✅ STEP 2: Load promotion from session
-        const promoData = sessionStorage.getItem('appliedPromotion')
-        
-        if (promoData) {
-          try {
-            const parsedPromo = JSON.parse(promoData)
-            
-            // ✅ FIX: Handle both formats (from NewOrder.vue)
-            const promotion = {
-              _id: parsedPromo.promotion_id || parsedPromo._id,
-              name: parsedPromo.promotion_name || parsedPromo.name,
-              type: parsedPromo.type,
-              discount_value: parsedPromo.discount_value,
-              discount_config: parsedPromo.discount_config
-            }
-            
-            // ✅ Parse discount_config if it's a string
-            if (typeof promotion.discount_config === 'string') {
-              try {
-                promotion.discount_config = JSON.parse(promotion.discount_config)
-              } catch (e) {
-                // Failed to parse discount_config
-              }
-            }
-            
-            // ✅ VERIFY: Ensure all required fields exist
-            if (!promotion._id || !promotion.name || !promotion.type || !promotion.discount_value) {
-              this.appliedPromotion = null
-            } else {
-              this.appliedPromotion = promotion
-            }
-            
-          } catch (error) {
-            this.appliedPromotion = null
-          }
-        }
+        // ✅ STEP 2: Auto-detect and apply eligible promotions
+        await this.autoDetectAndApplyPromotions()
         
         // ✅ STEP 3: Load customer from session
         const customerData = sessionStorage.getItem('checkoutCustomer')
@@ -1105,6 +1147,141 @@ export default {
     },
     
     // ================================================================
+    // AUTO-DETECT PROMOTIONS
+    // ================================================================
+    
+    async autoDetectAndApplyPromotions() {
+      if (this.cartItems.length === 0) {
+        this.autoAppliedPromotions = []
+        return
+      }
+      
+      try {
+        // Fetch active promotions
+        const response = await api.get('/promotions/active/')
+        let allPromotions = []
+        
+        if (response && response.data && response.data.success) {
+          allPromotions = response.data.promotions || []
+        }
+        
+        if (allPromotions.length === 0) {
+          this.autoAppliedPromotions = []
+          return
+        }
+        
+        // Parse discount_config if needed
+        allPromotions = allPromotions.map(promo => {
+          if (typeof promo.discount_config === 'string') {
+            try {
+              promo.discount_config = JSON.parse(promo.discount_config)
+            } catch (e) {
+              promo.discount_config = {}
+            }
+          }
+          if (!promo.discount_config) {
+            promo.discount_config = {}
+          }
+          return promo
+        })
+        
+        // Calculate discount for each promotion and auto-apply if applicable
+        const applicablePromotions = []
+        
+        for (const promo of allPromotions) {
+          // Skip PWD, Senior Citizen, and Drinks Promo - they're handled separately via checkboxes
+          const promoNameLower = promo.name.toLowerCase()
+          if (promoNameLower.includes('pwd') || 
+              promoNameLower.includes('senior') ||
+              promoNameLower.includes('drinks') ||
+              promoNameLower.includes('drink')) {
+            continue
+          }
+          
+          const discount = this.calculatePromotionDiscount(promo)
+          
+          if (discount > 0) {
+            applicablePromotions.push({
+              ...promo,
+              discountAmount: discount
+            })
+          }
+        }
+        
+        // Sort by discount amount (highest first)
+        applicablePromotions.sort((a, b) => b.discountAmount - a.discountAmount)
+        
+        this.autoAppliedPromotions = applicablePromotions
+        this.availablePromotions = allPromotions
+        
+      } catch (error) {
+        console.error('Error auto-detecting promotions:', error)
+        this.autoAppliedPromotions = []
+      }
+    },
+    
+    calculatePromotionDiscount(promotion) {
+      const discountConfig = promotion.discount_config || {}
+      
+      // If discount_config is empty or doesn't have target_type, return 0
+      if (!discountConfig || Object.keys(discountConfig).length === 0 || !discountConfig.target_type) {
+        if (!promotion.target_type) {
+          return 0
+        }
+      }
+      
+      const targetType = promotion.target_type || discountConfig.target_type
+      const targetIds = promotion.target_ids || discountConfig.target_ids || []
+      const targetIdsArray = Array.isArray(targetIds) ? targetIds : []
+      
+      let eligibleAmount = 0
+      
+      if (targetType === 'all') {
+        eligibleAmount = this.cartSubtotal
+      } else if (targetType === 'categories') {
+        const eligibleItems = this.cartItems.filter(item => {
+          let productCategory = item.category || item.category_id
+          
+          if (!productCategory) {
+            const product = this.products.find(p => p.id === item.productId)
+            if (product) {
+              productCategory = product.category_id || product.category
+            }
+          }
+          
+          if (!productCategory) {
+            return false
+          }
+          
+          const productCategoryStr = String(productCategory)
+          const targetIdsStr = targetIdsArray.map(id => String(id))
+          return targetIdsStr.includes(productCategoryStr) || targetIdsArray.includes(productCategory)
+        })
+        
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+      } else if (targetType === 'products') {
+        const eligibleItems = this.cartItems.filter(item => {
+          return targetIdsArray.includes(item.productId)
+        })
+        eligibleAmount = eligibleItems.reduce((sum, item) => sum + item.subtotal, 0)
+      }
+      
+      if (eligibleAmount === 0) {
+        return 0
+      }
+      
+      let discount = 0
+      
+      if (promotion.type === 'percentage') {
+        discount = eligibleAmount * (promotion.discount_value / 100)
+      } else if (promotion.type === 'fixed' || promotion.type === 'fixed_amount') {
+        discount = Math.min(promotion.discount_value, eligibleAmount)
+      }
+      
+      return Math.round(discount * 100) / 100
+    },
+    
+    // ================================================================
     // CART UPDATES
     // ================================================================
     
@@ -1277,10 +1454,14 @@ export default {
           amount: this.grandTotal,
           subtotal: this.cartSubtotal,
           tax: this.taxAmount,
-          promo_discount: this.promoDiscount,
+          promo_discount: this.totalPromoDiscount,
+          pwd_discount: this.pwdDiscount,
+          senior_citizen_discount: this.seniorCitizenDiscount,
           points_discount: this.appliedPointsDiscount,
           cart_items: this.cartStore.items,
-          promotion: this.appliedPromotion,
+          promotions: this.autoAppliedPromotions,
+          is_pwd: this.isPWD,
+          is_senior_citizen: this.isSeniorCitizen,
           customer: this.selectedCustomer,
           points_redeemed: this.pointsRedeemed,
           points_to_earn: this.pointsWillEarn,
@@ -1323,12 +1504,38 @@ export default {
         saleData.loyalty_points_earned = this.pointsWillEarn
       }
       
-      if (this.appliedPromotion) {
-        saleData.promotion_id = this.appliedPromotion._id
-        saleData.promotion_discount = this.promoDiscount
-      } else {
-        saleData.promotion_discount = 0
+      // Auto-applied promotions
+      if (this.autoAppliedPromotions.length > 0) {
+        saleData.promotions = this.autoAppliedPromotions.map(p => ({
+          promotion_id: p._id,
+          promotion_name: p.name,
+          discount_amount: p.discountAmount
+        }))
       }
+      
+      // Drinks Promo (if checked)
+      if (this.isDrinksPromo && this.drinksPromoDiscount > 0) {
+        const drinksPromo = this.availablePromotions.find(p => 
+          p.name.toLowerCase().includes('drinks') || 
+          p.name.toLowerCase().includes('drink')
+        )
+        if (drinksPromo) {
+          if (!saleData.promotions) saleData.promotions = []
+          saleData.promotions.push({
+            promotion_id: drinksPromo._id,
+            promotion_name: drinksPromo.name,
+            discount_amount: this.drinksPromoDiscount
+          })
+        }
+      }
+      
+      saleData.promotion_discount = this.totalAllPromoDiscount
+      
+      // PWD and Senior Citizen discounts
+      saleData.pwd_discount = this.pwdDiscount
+      saleData.senior_citizen_discount = this.seniorCitizenDiscount
+      saleData.is_pwd = this.specialDiscountType === 'pwd'
+      saleData.is_senior_citizen = this.specialDiscountType === 'senior'
       
       if (this.appliedPointsDiscount > 0) {
         saleData.points_discount = this.appliedPointsDiscount
@@ -1336,7 +1543,7 @@ export default {
         saleData.points_discount = 0
       }
       
-      saleData.discount = this.promoDiscount + this.appliedPointsDiscount
+      saleData.discount = this.totalAllPromoDiscount + this.pwdDiscount + this.seniorCitizenDiscount + this.appliedPointsDiscount
       saleData.payment_method = paymentMethod
       saleData.payment_details = paymentDetails
       
@@ -1402,7 +1609,7 @@ export default {
     
      async printReceipt() {
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://pos.panntech/api/v1'
         const receiptUrl = `${baseUrl}/pos/sales/${this.completedSale.saleId}/receipt/`
         
         const printWindow = window.open(receiptUrl, '_blank', 'width=800,height=600')
@@ -1483,26 +1690,7 @@ export default {
     },
     
     formatDateTime(dateString) {
-      if (!dateString) return ''
-      const source = new Date(dateString)
-      try {
-        const datePart = source.toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-          timeZone: 'Asia/Manila'
-        })
-        // Use 24-hour time like currentDateTime() from your snippet, forced to PH time
-        const timePart = source.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-          timeZone: 'Asia/Manila'
-        })
-        return `${datePart} ${timePart}`
-      } catch (error) {
-        return source.toString()
-      }
+      return formatDateTimePH(dateString, { hour12: false })
     }
   }
 }

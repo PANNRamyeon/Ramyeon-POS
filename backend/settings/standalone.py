@@ -17,7 +17,19 @@ CSRF_COOKIE_SECURE = False
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Add more hosts for local access
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '::1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '::1', 'pos.panntech']
+
+# CORS settings for standalone .exe (allow requests from proxy domain)
+CORS_ALLOWED_ORIGINS = [
+    "http://pos.panntech",
+    "http://pos.panntech:80",
+    "http://pos.panntech:8080",
+    "http://localhost:5173",  # Vite dev server (if needed)
+    "http://127.0.0.1:5173",
+]
+
+# Allow credentials for CORS
+CORS_ALLOW_CREDENTIALS = True
 
 # Override production database settings for standalone
 # Keep using local MongoDB
@@ -49,9 +61,28 @@ if hasattr(sys, '_MEIPASS'):
         },
     ]
     
-    STATICFILES_DIRS = [
-        BASE_DIR / 'static',
-    ]
+    # Only add STATICFILES_DIRS if the directory exists
+    static_dir = BASE_DIR / 'static'
+    if static_dir.exists():
+        STATICFILES_DIRS = [
+            static_dir,
+        ]
+    else:
+        STATICFILES_DIRS = []
+    
+    # Ensure STATIC_ROOT exists for PyInstaller
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+    
+    # Create staticfiles directory if it doesn't exist (for WhiteNoise)
+    if not STATIC_ROOT.exists():
+        try:
+            STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass  # If we can't create it, WhiteNoise will handle it gracefully
+    
+    # For standalone builds, use simpler WhiteNoise storage that doesn't require pre-collected files
+    # WhiteNoise will serve files directly from STATICFILES_DIRS
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Additional standalone-specific settings
 USE_TZ = True

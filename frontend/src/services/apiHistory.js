@@ -21,7 +21,7 @@ class HistoryAPIService {
       id: transaction._id,
       itemCount: transaction.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
       status: this.formatStatus(transaction.status),
-      date: transaction.transaction_date || transaction.created_at,
+      date: transaction.transaction_date_local || transaction.transaction_date || transaction.created_at,
       paymentMethod: this.formatPaymentMethod(transaction.payment_method),
       saleType: 'POS',
       source: 'POS',
@@ -316,7 +316,26 @@ class HistoryAPIService {
     const headers = ['Transaction ID', 'Date', 'Type', 'Status', 'Payment Method', 'Items', 'Total'];
     const rows = transactions.map(txn => [
       txn.id,
-      new Date(txn.date).toLocaleString(),
+      (() => {
+        try {
+          const date = new Date(txn.date)
+          const datePart = date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            timeZone: 'Asia/Manila'
+          })
+          const timePart = date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Manila'
+          })
+          return `${datePart} ${timePart}`
+        } catch {
+          return txn.date || 'N/A'
+        }
+      })(),
       txn.saleType,
       txn.status,
       txn.paymentMethod,

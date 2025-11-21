@@ -553,6 +553,7 @@
 
 <script>
 import historyAPIService from '@/services/apiHistory.js';
+import { formatDateTime12HourPH } from '@/utils/dateTimeHelper.js';
 
 export default {
   name: 'History',
@@ -705,14 +706,7 @@ export default {
     },
 
     formatDate(dateString) {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      return formatDateTime12HourPH(dateString)
     },
 
     formatCurrency(value) {

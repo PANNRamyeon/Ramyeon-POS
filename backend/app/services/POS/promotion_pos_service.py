@@ -152,8 +152,14 @@ class PromotionService:
         """Determine which cart items qualify for promotion"""
         eligible = []
         
-        target_type = promotion['target_type']
-        target_ids = promotion.get('target_ids', [])
+        # Support both top-level and discount_config structure
+        discount_config = promotion.get('discount_config', {})
+        target_type = promotion.get('target_type') or discount_config.get('target_type', 'all')
+        target_ids = promotion.get('target_ids', []) or discount_config.get('target_ids', [])
+        
+        # Ensure target_ids is a list
+        if not isinstance(target_ids, list):
+            target_ids = []
         
         for item in cart_items:
             product = self.product_service.get_product_by_id(item['product_id'])
@@ -170,7 +176,12 @@ class PromotionService:
             elif target_type == 'categories':
                 # Check if product's category matches
                 product_category = product_data.get('category_id')
-                is_eligible = product_category in target_ids
+                # Handle both string and list comparisons
+                if product_category:
+                    # Convert to string for comparison if needed
+                    product_category_str = str(product_category)
+                    target_ids_str = [str(tid) for tid in target_ids]
+                    is_eligible = product_category_str in target_ids_str or product_category in target_ids
             
             if is_eligible:
                 eligible.append({

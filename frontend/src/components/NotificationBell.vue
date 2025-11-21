@@ -140,7 +140,7 @@ export default {
     async fetchNotifications() {
       this.loading = true
       try {
-        const response = await fetch('http://localhost:8000/api/v1/notifications/recent', {
+        const response = await fetch('http://pos.panntech/api/v1/notifications/recent', {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -204,7 +204,7 @@ export default {
 
       try {
         const response = await fetch(
-          `http://localhost:8000/api/notifications/${notificationId}/mark-read/`,
+          `http://pos.panntech/api/notifications/${notificationId}/mark-read/`,
           {
             method: 'PATCH',
             headers: {
