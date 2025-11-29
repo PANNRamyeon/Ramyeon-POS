@@ -44,7 +44,8 @@
               type="date"
               class="form-control input-theme"
               v-model="filters.dateTo"
-              @change="applyFilters"
+              :min="filters.dateFrom || undefined"
+              @change="validateDateRange"
             />
           </div>
 
@@ -492,14 +493,14 @@
               
               <div class="mb-3">
                 <label class="form-label">
-                  {{ voidingOrder.saleType === 'POS' ? 'Manager ID' : 'User ID' }} 
+                  {{ voidingOrder.saleType === 'POS' ? 'Manager Username or Email' : 'User ID' }} 
                   <span class="text-danger">*</span>
                 </label>
                 <input 
                   type="text" 
-                  class="form-control" 
+                  class="form-control input-theme" 
                   v-model="voidForm.managerId"
-                  :placeholder="voidingOrder.saleType === 'POS' ? 'Enter manager ID' : 'Enter your user ID'"
+                  :placeholder="voidingOrder.saleType === 'POS' ? 'Enter manager username or email' : 'Enter your user ID'"
                   required
                 />
               </div>
@@ -510,7 +511,7 @@
                   <span class="text-danger">*</span>
                 </label>
                 <textarea 
-                  class="form-control" 
+                  class="form-control input-theme" 
                   rows="3"
                   v-model="voidForm.reason"
                   :placeholder="`Enter reason for ${voidingOrder.saleType === 'POS' ? 'voiding this sale' : 'cancelling this order'}`"
@@ -571,7 +572,6 @@ export default {
       filters: {
         dateFrom: null,
         dateTo: null,
-        status: null,
         status: '',
         paymentMethod: '',
         search: null,
@@ -668,12 +668,23 @@ export default {
       }, 500)
     },
 
+    validateDateRange() {
+      if (this.filters.dateFrom && this.filters.dateTo) {
+        if (this.filters.dateTo < this.filters.dateFrom) {
+          alert('To Date cannot be before From Date. Please select a valid date range.')
+          this.filters.dateTo = this.filters.dateFrom
+          return
+        }
+      }
+      this.applyFilters()
+    },
+
     async clearFilters() {
       this.filters = {
         dateFrom: null,
         dateTo: null,
-        status: null,
-        paymentMethod: null,
+        status: '',
+        paymentMethod: '',
         search: null,
         source: ''
       }

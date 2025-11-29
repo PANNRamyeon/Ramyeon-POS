@@ -264,12 +264,14 @@ class UserService:
             raise Exception(f"Error getting user by username: {str(e)}")
 
     def get_user_by_email(self, email, include_deleted=False):
-        """Get user by email - needed for login"""
+        """Get user by email - needed for login (case-insensitive)"""
         try:
             if not email:
                 return None
             
-            query = {'email': email}
+            # Case-insensitive email lookup
+            email_lower = email.strip().lower()
+            query = {'email': {'$regex': f'^{email_lower}$', '$options': 'i'}}
             if not include_deleted:
                 query['isDeleted'] = {'$ne': True}
 

@@ -397,13 +397,10 @@ export default {
     async confirmPayment() {
       if (!this.selectedOrder) return
 
-      const reference = prompt('Enter PayMongo payment reference ID:')
-      if (!reference) return
-
       try {
         await apiOnlineOrders.confirmPayment(
           this.selectedOrder._id,
-          reference,
+          null, // No PayMongo reference needed
           this.currentUser.id
         )
         

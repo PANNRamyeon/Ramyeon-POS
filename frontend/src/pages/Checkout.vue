@@ -275,30 +275,16 @@
               <span class="fs-6 text-primary">🥤 Drinks Promo</span>
             </label>
             
-            <!-- PWD / Senior Citizen Discounts (Mutually Exclusive) -->
+            <!-- PWD / Senior Citizen Discount (Single Checkbox) -->
             <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
               <input
-                type="radio"
-                name="specialDiscount"
-                value="pwd"
-                v-model="specialDiscountType"
+                type="checkbox"
+                v-model="isSpecialDiscount"
                 :disabled="isProcessing"
                 class="me-3"
                 style="accent-color: var(--primary); width: 18px; height: 18px;"
               >
-              <span class="fs-6 text-primary">🦽 PWD (20% Discount)</span>
-            </label>
-            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
-              <input
-                type="radio"
-                name="specialDiscount"
-                value="senior"
-                v-model="specialDiscountType"
-                :disabled="isProcessing"
-                class="me-3"
-                style="accent-color: var(--primary); width: 18px; height: 18px;"
-              >
-              <span class="fs-6 text-primary">👴 Senior Citizen (20% Discount)</span>
+              <span class="fs-6 text-primary">🦽👴 PWD / Senior Citizen (20% Discount)</span>
             </label>
           </div>
         </div>
@@ -338,16 +324,10 @@
             <span class="fw-semibold">-₱{{ formatPrice(drinksPromoDiscount) }}</span>
           </div>
 
-          <!-- PWD Discount -->
-          <div v-if="pwdDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
-            <span>PWD Discount (20%)</span>
-            <span class="fw-semibold">-₱{{ formatPrice(pwdDiscount) }}</span>
-          </div>
-
-          <!-- Senior Citizen Discount -->
-          <div v-if="seniorCitizenDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
-            <span>Senior Citizen Discount (20%)</span>
-            <span class="fw-semibold">-₱{{ formatPrice(seniorCitizenDiscount) }}</span>
+          <!-- PWD / Senior Citizen Discount -->
+          <div v-if="specialDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
+            <span>PWD / Senior Citizen Discount (20%)</span>
+            <span class="fw-semibold">-₱{{ formatPrice(specialDiscount) }}</span>
           </div>
 
           <!-- Points Discount -->
@@ -696,7 +676,7 @@ export default {
       
       // Special Discounts
       isDrinksPromo: false, // Drinks Promo checkbox
-      specialDiscountType: null, // 'pwd', 'senior', or null (mutually exclusive)
+      isSpecialDiscount: false, // PWD / Senior Citizen discount checkbox
       
       // Payment
       paymentMethod: 'cash', // 'cash', 'gcash', 'paymaya'
@@ -757,27 +737,29 @@ export default {
       return this.totalPromoDiscount + this.drinksPromoDiscount
     },
     
-    // PWD Discount (20% on subtotal after promotions)
-    pwdDiscount() {
-      if (this.specialDiscountType !== 'pwd') return 0
+    // PWD / Senior Citizen Discount (20% on subtotal after promotions)
+    specialDiscount() {
+      if (!this.isSpecialDiscount) return 0
       const discountableAmount = this.cartSubtotal - this.totalAllPromoDiscount
       return Math.round(discountableAmount * 0.20 * 100) / 100
     },
     
-    // Senior Citizen Discount (20% on subtotal after promotions)
+    // Backward compatibility - combine into one discount
+    pwdDiscount() {
+      return this.specialDiscount
+    },
+    
     seniorCitizenDiscount() {
-      if (this.specialDiscountType !== 'senior') return 0
-      const discountableAmount = this.cartSubtotal - this.totalAllPromoDiscount
-      return Math.round(discountableAmount * 0.20 * 100) / 100
+      return this.specialDiscount
     },
     
     // Helper computed properties for backward compatibility
     isPWD() {
-      return this.specialDiscountType === 'pwd'
+      return this.isSpecialDiscount
     },
     
     isSeniorCitizen() {
-      return this.specialDiscountType === 'senior'
+      return this.isSpecialDiscount
     },
     
     subtotalAfterPromo() {
@@ -785,8 +767,8 @@ export default {
     },
     
     subtotalAfterAllDiscounts() {
-      // Subtotal after promotions, PWD, and Senior Citizen discounts
-      return Math.max(0, this.subtotalAfterPromo - this.pwdDiscount - this.seniorCitizenDiscount)
+      // Subtotal after promotions and special discount (PWD/Senior Citizen)
+      return Math.max(0, this.subtotalAfterPromo - this.specialDiscount)
     },
     
     taxAmount() {
@@ -1046,6 +1028,7 @@ export default {
       this.pointsMode = 'earn'
       this.removePointsDiscount()
     },
+    
     
     setPointsMode(mode) {
       this.pointsMode = mode
@@ -1460,8 +1443,8 @@ export default {
           points_discount: this.appliedPointsDiscount,
           cart_items: this.cartStore.items,
           promotions: this.autoAppliedPromotions,
-          is_pwd: this.isPWD,
-          is_senior_citizen: this.isSeniorCitizen,
+          is_pwd: this.isSpecialDiscount,
+          is_senior_citizen: this.isSpecialDiscount,
           customer: this.selectedCustomer,
           points_redeemed: this.pointsRedeemed,
           points_to_earn: this.pointsWillEarn,
@@ -1534,8 +1517,8 @@ export default {
       // PWD and Senior Citizen discounts
       saleData.pwd_discount = this.pwdDiscount
       saleData.senior_citizen_discount = this.seniorCitizenDiscount
-      saleData.is_pwd = this.specialDiscountType === 'pwd'
-      saleData.is_senior_citizen = this.specialDiscountType === 'senior'
+      saleData.is_pwd = this.isSpecialDiscount
+      saleData.is_senior_citizen = this.isSpecialDiscount
       
       if (this.appliedPointsDiscount > 0) {
         saleData.points_discount = this.appliedPointsDiscount

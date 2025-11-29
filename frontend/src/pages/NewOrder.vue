@@ -656,9 +656,9 @@ export default {
       return this.cartStore.items
     },
     
-    // Cart subtotal
+    // Cart subtotal (without tax)
     cartSubtotal() {
-      return this.cartStore.total
+      return this.cartStore.subtotal
     },
     
     // Total items from store

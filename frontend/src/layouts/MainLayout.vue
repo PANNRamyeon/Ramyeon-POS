@@ -272,12 +272,14 @@ export default {
   position: sticky;
   top: 0;
   z-index: 999;
-  background: white;
+  background-color: var(--surface-primary);
+  border-bottom: 1px solid var(--border-primary);
   height: 70px;
   padding: 0 1.5rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .header-content {
@@ -299,6 +301,8 @@ export default {
   font-weight: 500;
   letter-spacing: 0.025em;
   line-height: 1.2;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
 }
 
 .content-header h1 {
@@ -313,9 +317,10 @@ export default {
   overflow: hidden;
   width: 100%;
   min-width: 0;
-  background-color: #f8f9fa;
+  background-color: var(--surface-secondary);
   display: flex;
   flex-direction: column;
+  transition: background-color 0.3s ease;
 }
 
 /* ✅ NEW: Modal Styles */
@@ -326,6 +331,7 @@ export default {
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -334,36 +340,41 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-primary);
   border-radius: 1rem;
   max-width: 500px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-lg);
   animation: slideUp 0.3s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .modal-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-secondary);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background-color: var(--surface-secondary);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 1.5rem;
   font-weight: 600;
+  transition: color 0.3s ease;
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 2rem;
-  color: #6c757d;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -376,8 +387,8 @@ export default {
 }
 
 .close-btn:hover:not(:disabled) {
-  background: #f8f9fa;
-  color: #495057;
+  background-color: var(--state-hover);
+  color: var(--text-primary);
 }
 
 .close-btn:disabled {
@@ -387,12 +398,16 @@ export default {
 
 .modal-body {
   padding: 1.5rem;
+  background-color: var(--surface-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .text-muted {
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-size: 0.875rem;
   line-height: 1.5;
+  transition: color 0.3s ease;
 }
 
 .mb-3 {
@@ -400,10 +415,12 @@ export default {
 }
 
 .shift-info {
-  background: #f8f9fa;
+  background-color: var(--surface-tertiary);
+  border: 1px solid var(--border-secondary);
   border-radius: 0.5rem;
   padding: 1rem;
   margin-bottom: 1.5rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .info-row {
@@ -414,16 +431,18 @@ export default {
 }
 
 .info-row:not(:last-child) {
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .info-row span {
-  color: #6c757d;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .info-row strong {
-  color: #1f2937;
+  color: var(--text-primary);
   font-weight: 600;
+  transition: color 0.3s ease;
 }
 
 .form-group {
@@ -434,8 +453,9 @@ export default {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 0.875rem;
+  transition: color 0.3s ease;
 }
 
 .input-with-currency {
@@ -449,28 +469,31 @@ export default {
   left: 1rem;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-secondary);
   pointer-events: none;
+  transition: color 0.3s ease;
 }
 
 .form-input {
   width: 100%;
   padding: 0.875rem 1rem 0.875rem 2.5rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--input-border);
   border-radius: 0.5rem;
   font-size: 1.125rem;
   font-weight: 600;
+  background-color: var(--input-bg);
+  color: var(--input-text);
   transition: all 0.2s ease;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 3px rgba(115, 146, 226, 0.1);
 }
 
 .form-input:disabled {
-  background-color: #f9fafb;
+  background-color: var(--surface-tertiary);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -478,15 +501,16 @@ export default {
 .helper-text {
   display: block;
   margin-top: 0.5rem;
-  color: #6c757d;
+  color: var(--text-tertiary);
   font-size: 0.75rem;
   font-style: italic;
+  transition: color 0.3s ease;
 }
 
 .error-message {
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
+  background-color: var(--status-error-bg);
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
   padding: 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
@@ -494,11 +518,12 @@ export default {
 
 .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--border-secondary);
   display: flex;
   gap: 1rem;
-  background: #f8f9fa;
+  background-color: var(--surface-secondary);
   border-radius: 0 0 1rem 1rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .btn-confirm,
@@ -518,13 +543,13 @@ export default {
 }
 
 .btn-confirm {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--text-inverse);
 }
 
 .btn-confirm:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn-confirm:disabled {
@@ -534,12 +559,14 @@ export default {
 }
 
 .btn-cancel {
-  background: #e5e7eb;
-  color: #374151;
+  background-color: var(--surface-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
 }
 
 .btn-cancel:hover:not(:disabled) {
-  background: #d1d5db;
+  background-color: var(--state-hover);
+  border-color: var(--border-accent);
 }
 
 .btn-cancel:disabled {
@@ -619,12 +646,13 @@ export default {
 }
 
 .summary-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--text-inverse);
+  transition: background 0.3s ease;
 }
 
 .summary-header h3 {
-  color: white;
+  color: var(--text-inverse);
 }
 
 .summary-subtitle {
@@ -643,10 +671,11 @@ export default {
   gap: 0.5rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid var(--border-secondary);
+  transition: color 0.3s ease, border-color 0.3s ease;
 }
 
 .summary-grid {
@@ -656,47 +685,51 @@ export default {
 }
 
 .summary-card {
-  background: #f9fafb;
+  background-color: var(--surface-tertiary);
   padding: 1rem;
   border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-secondary);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .summary-card.highlight-card {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde047 100%);
-  border-color: #fbbf24;
+  background: linear-gradient(135deg, var(--status-warning-bg) 0%, rgba(251, 191, 36, 0.3) 100%);
+  border-color: var(--status-warning);
 }
 
 .summary-card.stat-card {
-  background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, var(--status-info-bg) 0%, rgba(115, 146, 226, 0.3) 100%);
+  border-color: var(--status-info);
 }
 
 .card-label {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
+  transition: color 0.3s ease;
 }
 
 .card-value {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
 }
 
 .card-value.large {
   font-size: 1.5rem;
-  color: #1e40af;
+  color: var(--primary);
 }
 
 .reconciliation-table {
-  background: #f9fafb;
+  background-color: var(--surface-tertiary);
   border-radius: 0.5rem;
   padding: 1rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-secondary);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .recon-row {
@@ -704,37 +737,39 @@ export default {
   justify-content: space-between;
   padding: 0.75rem 0;
   font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .recon-row:not(:last-child) {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-secondary);
 }
 
 .recon-row.divider {
-  border-top: 2px solid #d1d5db;
+  border-top: 2px solid var(--border-primary);
   padding-top: 1rem;
   margin-top: 0.5rem;
 }
 
 .recon-row.highlight {
-  background: #eff6ff;
+  background-color: var(--state-selected);
   padding: 0.75rem 1rem;
   margin: 0.5rem -1rem;
   border-radius: 0.375rem;
 }
 
 .recon-row.variance-over {
-  color: #059669;
+  color: var(--status-success);
   font-weight: 600;
 }
 
 .recon-row.variance-short {
-  color: #dc2626;
+  color: var(--status-error);
   font-weight: 600;
 }
 
 .recon-row.variance-exact {
-  color: #059669;
+  color: var(--status-success);
   font-weight: 600;
 }
 
@@ -763,21 +798,21 @@ export default {
 }
 
 .alert-success {
-  background: #d1fae5;
-  border: 1px solid #4ea87a;
-  color: #065f46;
+  background-color: var(--status-success-bg);
+  border: 1px solid var(--status-success);
+  color: var(--status-success);
 }
 
 .alert-warning {
-  background: #fef3c7;
-  border: 1px solid #fbbf24;
-  color: #92400e;
+  background-color: var(--status-warning-bg);
+  border: 1px solid var(--status-warning);
+  color: var(--status-warning);
 }
 
 .alert-danger {
-  background: #fecaca;
-  border: 1px solid #dc2626;
-  color: #991b1b;
+  background-color: var(--status-error-bg);
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
 }
 
 .btn-confirm.full-width {
@@ -785,7 +820,7 @@ export default {
 }
 
 .text-success {
-  color: #059669;
+  color: var(--status-success);
 }
 
 @media (max-width: 480px) {

@@ -71,9 +71,10 @@ class AuthService:
         print(f"💰 Opening Cash: {opening_cash}")
         
         try:
-            # Find user by email
-            print(f"🔍 Looking up user by email: {email}")
-            user = self.user_collection.find_one({"email": email})
+            # Find user by email (case-insensitive)
+            email_lower = email.strip().lower() if email else ""
+            print(f"🔍 Looking up user by email (case-insensitive): {email} -> {email_lower}")
+            user = self.user_collection.find_one({"email": {"$regex": f"^{email_lower}$", "$options": "i"}})
             
             if not user:
                 print(f"❌ User not found with email: {email}")
