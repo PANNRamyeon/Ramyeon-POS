@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import bcrypt
+import random
+import logging
 from ...database import db_manager
 
 # JWT settings
@@ -8,6 +10,9 @@ SECRET_KEY = "your-secret-key-here-change-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 10000
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+
+logger = logging.getLogger(__name__)
 
 class AuthService:
     def __init__(self):
@@ -375,3 +380,17 @@ class AuthService:
             }
         except JWTError:
             raise Exception("Invalid refresh token")
+    
+    def get_verified_admins(self):
+        """Get all verified admin users (role='admin', status='active', and email_verified=True)"""
+        try:
+            admins = list(self.user_collection.find({
+                "role": {"$regex": "^admin$", "$options": "i"},
+                "status": "active",
+                "isDeleted": {"$ne": True},
+                "email_verified": True
+            }))
+            return admins
+        except Exception as e:
+            logger.error(f"Error getting verified admins: {e}")
+            return []

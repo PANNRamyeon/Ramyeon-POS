@@ -17,15 +17,23 @@ REM Step 2: Check if Inno Setup is installed
 echo.
 echo Checking for Inno Setup...
 set INNOSETUP_PATH=
-if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
+if exist "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" (
+    set INNOSETUP_PATH=%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe
+) else if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
     set INNOSETUP_PATH=C:\Program Files (x86)\Inno Setup 6\ISCC.exe
 ) else if exist "C:\Program Files\Inno Setup 6\ISCC.exe" (
     set INNOSETUP_PATH=C:\Program Files\Inno Setup 6\ISCC.exe
+) else if exist "C:\Program Files (x86)\Inno Setup 5\ISCC.exe" (
+    set INNOSETUP_PATH=C:\Program Files (x86)\Inno Setup 5\ISCC.exe
+) else if exist "C:\Program Files\Inno Setup 5\ISCC.exe" (
+    set INNOSETUP_PATH=C:\Program Files\Inno Setup 5\ISCC.exe
 ) else (
     echo WARNING: Inno Setup not found!
     echo.
     echo Please install Inno Setup 6 to create Windows installer:
     echo https://jrsoftware.org/isdl.php
+    echo.
+    echo After installation, run this script again.
     echo.
     echo Executable is ready at: backend\dist\PANN_POS_System.exe
     pause
