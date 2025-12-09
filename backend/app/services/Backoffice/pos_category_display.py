@@ -447,8 +447,10 @@ class POSCategoryService:
             raise Exception(f"Error fetching products by category: {str(e)}")
 
     def _calculate_batch_stock(self, product_id):
-        """Calculate total available stock from active batches"""
+        """Calculate total available stock from active, non-expired batches"""
         try:
+            from datetime import datetime
+            
             # Get all active batches
             batches = list(self.batches_collection.find({
                 'product_id': product_id,
@@ -456,10 +458,38 @@ class POSCategoryService:
                 'quantity_remaining': {'$gt': 0}
             }))
             
-            total_stock = 0
+            # Filter out expired batches
+            now = datetime.utcnow()
+            valid_batches = []
             for batch in batches:
-                batch_qty = batch.get('quantity_remaining', 0)
-                total_stock += batch_qty
+                expiry_date = batch.get('expiry_date')
+                if expiry_date is None:
+                    # No expiry date means not expired
+                    valid_batches.append(batch)
+                else:
+                    # Handle both datetime objects and strings
+                    if isinstance(expiry_date, str):
+                        try:
+                            expiry_date = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
+                        except (ValueError, AttributeError):
+                            # Invalid date format, assume not expired
+                            valid_batches.append(batch)
+                            continue
+                    
+                    # Compare dates (ignore time)
+                    expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+                    now_date_only = now.date() if hasattr(now, 'date') else now
+                    
+                    if isinstance(expiry_date_only, datetime):
+                        expiry_date_only = expiry_date_only.date()
+                    if isinstance(now_date_only, datetime):
+                        now_date_only = now_date_only.date()
+                    
+                    # Only include if not expired
+                    if expiry_date_only >= now_date_only:
+                        valid_batches.append(batch)
+            
+            total_stock = sum(batch.get('quantity_remaining', 0) for batch in valid_batches)
             
             return total_stock
             
@@ -470,6 +500,7 @@ class POSCategoryService:
     def _get_batch_details(self, product_id):
         """
         Get batch details for a product (for display/debugging)
+        Excludes expired batches from stock calculation
         
         Returns:
             {
@@ -479,18 +510,51 @@ class POSCategoryService:
             }
         """
         try:
+            from datetime import datetime
+            
             batches = list(self.batches_collection.find({
                 'product_id': product_id,
                 'status': 'active',
                 'quantity_remaining': {'$gt': 0}
             }).sort('expiry_date', 1))
             
-            total_stock = sum(b.get('quantity_remaining', 0) for b in batches)
-            oldest_expiry = batches[0].get('expiry_date') if batches else None
+            # Filter out expired batches
+            now = datetime.utcnow()
+            valid_batches = []
+            for batch in batches:
+                expiry_date = batch.get('expiry_date')
+                if expiry_date is None:
+                    # No expiry date means not expired
+                    valid_batches.append(batch)
+                else:
+                    # Handle both datetime objects and strings
+                    if isinstance(expiry_date, str):
+                        try:
+                            expiry_date = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
+                        except (ValueError, AttributeError):
+                            # Invalid date format, assume not expired
+                            valid_batches.append(batch)
+                            continue
+                    
+                    # Compare dates (ignore time)
+                    expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+                    now_date_only = now.date() if hasattr(now, 'date') else now
+                    
+                    if isinstance(expiry_date_only, datetime):
+                        expiry_date_only = expiry_date_only.date()
+                    if isinstance(now_date_only, datetime):
+                        now_date_only = now_date_only.date()
+                    
+                    # Only include if not expired
+                    if expiry_date_only >= now_date_only:
+                        valid_batches.append(batch)
+            
+            total_stock = sum(b.get('quantity_remaining', 0) for b in valid_batches)
+            oldest_expiry = valid_batches[0].get('expiry_date') if valid_batches else None
             
             return {
                 'total_stock': total_stock,
-                'batches_count': len(batches),
+                'batches_count': len(valid_batches),
                 'oldest_expiry': oldest_expiry
             }
             

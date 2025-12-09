@@ -109,17 +109,17 @@
           <div class="location-row">
             <MapPin class="location-icon text-secondary" :size="20" />
             <div class="location-text">
-              <p class="community text-primary">{{ selectedOrder.customer.community }}</p>
-              <p class="address text-secondary">{{ selectedOrder.customer.address }}</p>
+              <p v-if="selectedOrder.customer.address" class="address text-secondary">{{ selectedOrder.customer.address }}</p>
+              <p v-else class="address text-secondary">No address specified</p>
             </div>
           </div>
 
-          <div class="phone-row">
+          <div class="phone-row" v-if="selectedOrder.customer.phone">
             <span class="text-primary">{{ selectedOrder.customer.phone }}</span>
           </div>
 
           <div class="notes-row">
-            <p class="text-secondary"><strong>Notes:</strong> {{ selectedOrder.notes }}</p>
+            <p class="text-secondary"><strong>Notes:</strong> {{ selectedOrder.notes || 'No notes' }}</p>
           </div>
         </div>
 
@@ -284,6 +284,18 @@ export default {
     },
 
     transformOrder(apiOrder) {
+      // Extract delivery address - structure: { address: string, type: string }
+      const deliveryAddress = apiOrder.delivery_address || {}
+      
+      // Get the address directly from delivery_address.address
+      const fullAddress = deliveryAddress.address || ''
+      
+      // Extract phone from order level (customer_phone)
+      const phone = apiOrder.customer_phone || ''
+      
+      // Extract notes from order level
+      const notes = apiOrder.notes || 'No notes'
+      
       return {
         ...apiOrder,
         id: apiOrder._id,
@@ -293,11 +305,11 @@ export default {
         cashReceived: apiOrder.payment_status === 'paid',
         items: apiOrder.items,
         customer: {
-          community: apiOrder.delivery_address.barangay || 'Not specified',
-          address: `${apiOrder.delivery_address.street}, ${apiOrder.delivery_address.city}`,
-          phone: apiOrder.delivery_address.recipient_phone || apiOrder.customer_phone
+          community: fullAddress, // Use address as community/barangay
+          address: fullAddress,   // Use address directly
+          phone: phone
         },
-        notes: apiOrder.delivery_address.delivery_notes || apiOrder.notes || 'No notes'
+        notes: notes
       }
     },
 
@@ -324,6 +336,12 @@ export default {
 
     selectOrder(order) {
       this.selectedOrder = JSON.parse(JSON.stringify(order))
+      // Debug: Log selected order to see what data we have
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Selected order:', this.selectedOrder)
+        console.log('Customer data:', this.selectedOrder.customer)
+        console.log('Delivery address in original:', order.delivery_address || 'Not found')
+      }
     },
 
     getBadgeClass(status) {

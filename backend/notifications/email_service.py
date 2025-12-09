@@ -75,17 +75,15 @@ class EmailService:
             message.add_category("transactional")
             
             # ✅ Add custom headers to improve deliverability
-            # Note: SendGrid Mail object uses header property, not add_header method
-            from sendgrid.helpers.mail import Header
-            message.header = Header("X-Mailer", "PANN POS System")
-            message.header = Header("X-Priority", "3")  # Normal priority
-            message.header = Header("X-MSMail-Priority", "Normal")
+            message.add_header("X-Mailer", "PANN POS System")
+            message.add_header("X-Priority", "3")  # Normal priority
+            message.add_header("X-MSMail-Priority", "Normal")
             
             # ✅ Add List-Unsubscribe header (best practice even for transactional emails)
             unsubscribe_url = config('EMAIL_UNSUBSCRIBE_URL', default='')
             if unsubscribe_url:
-                message.header = Header("List-Unsubscribe", f"<{unsubscribe_url}>")
-                message.header = Header("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
+                message.add_header("List-Unsubscribe", f"<{unsubscribe_url}>")
+                message.add_header("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
 
             response = self.sg.send(message)
             status_code = response.status_code

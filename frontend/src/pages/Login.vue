@@ -5,7 +5,7 @@
         <!-- Left Side - Logo Section -->
         <div class="logo-section">
           <div class="logo-placeholder">
-              <img src="../assets/Logo_1.png" alt="PANN Logo" class="logo-image" />
+              <img src="../assets/Logo_2.png" alt="PANN Logo" class="logo-image" />
           </div>
           <h2 class="brand-title">POS System</h2>
           <p class="brand-subtitle">Point of Sale Management</p>
@@ -61,6 +61,12 @@
               </button>
             </form>
 
+            <!-- Additional Options -->
+            <div class="form-footer">
+              <a href="#" class="forgot-password" @click.prevent="handleForgotPassword">
+                Forgot Password?
+              </a>
+            </div>
 
           </div>
         </div>
@@ -109,7 +115,6 @@
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -131,7 +136,7 @@ export default {
       showLogoutModal: false,
       closingCash: 0,
       logoutLoading: false,
-      logoutError: null,
+      logoutError: null
     }
   },
   methods: {
@@ -303,6 +308,9 @@ export default {
       }
     },
 
+    handleForgotPassword() {
+      alert('Please contact your administrator to reset your password.')
+    },
 
     isAuthenticated() {
       const token = localStorage.getItem('authToken')
@@ -596,6 +604,18 @@ export default {
   margin-top: 1.5rem;
 }
 
+.forgot-password {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.forgot-password:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
 
 /* Animation */
 @keyframes fadeIn {

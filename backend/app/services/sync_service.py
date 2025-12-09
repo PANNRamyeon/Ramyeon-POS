@@ -68,7 +68,7 @@ class SyncService:
         
         Operations:
         1. Sync recent batches bidirectionally (incremental, last 5 min)
-        2. Sync recent products from local → cloud (incremental, last 5 min)
+        2. Sync ALL products bidirectionally (checks all, syncs mismatches)
         3. Process sync queue (push queued items to cloud)
         4. Bidirectional sync for customers, categories, promotions, online_transactions
         """
@@ -83,8 +83,8 @@ class SyncService:
             # 1. Sync batches bidirectionally (admin creates in cloud, POS creates in local)
             self.mirror_batches_from_local()
             
-            # 2. Mirror products from local to cloud (local is primary in offline mode)
-            self.mirror_products_from_local()
+            # 2. Sync products bidirectionally (checks all products for mismatches)
+            self.sync_products_bidirectional()
             
             # 3. Process sync queue
             self.process_sync_queue()
@@ -95,34 +95,84 @@ class SyncService:
         except Exception as e:
             logger.error(f"❌ Background sync error: {e}")
     
-    def mirror_products_from_local(self):
+    def sync_products_bidirectional(self):
         """
-        Push all products from local to cloud (for stock updates).
-        Uses incremental sync: only syncs products modified in the last 5 minutes.
+        Bidirectional product sync - checks ALL products for mismatches.
+        Runs every 30 seconds as part of background sync.
+        Uses timestamp-based conflict resolution (latest wins).
         """
         try:
             local_db, cloud_db = self.get_databases()
             if cloud_db is None:
                 return
             
-            # Get products modified in last 5 minutes (for incremental sync)
-            five_min_ago = datetime.utcnow() - timedelta(minutes=5)
-            recent_products = local_db.products.find({
-                'updated_at': {'$gte': five_min_ago}
-            })
+            # Find all product mismatches
+            local_products = list(local_db.products.find({}))
+            cloud_products = list(cloud_db.products.find({}))
             
-            mirrored_count = 0
-            for product in recent_products:
-                # Replace cloud product with local version (upsert)
-                result = cloud_db.products.replace_one(
-                    {'_id': product['_id']},
-                    product,
-                    upsert=True
-                )
-                mirrored_count += 1
+            local_dict = {p['_id']: p for p in local_products}
+            cloud_dict = {p['_id']: p for p in cloud_products}
+            
+            all_product_ids = set(local_dict.keys()) | set(cloud_dict.keys())
+            
+            synced_count = 0
+            
+            for product_id in all_product_ids:
+                local_prod = local_dict.get(product_id)
+                cloud_prod = cloud_dict.get(product_id)
+                
+                try:
+                    if local_prod and cloud_prod:
+                        # Both exist - check for mismatch
+                        local_stock = local_prod.get('total_stock', 0)
+                        cloud_stock = cloud_prod.get('total_stock', 0)
+                        
+                        if local_stock != cloud_stock:
+                            # Stock mismatch - use timestamp to resolve
+                            local_time = self._parse_timestamp(local_prod)
+                            cloud_time = self._parse_timestamp(cloud_prod)
+                            
+                            if local_time >= cloud_time:
+                                # Local is newer or same - push to cloud
+                                cloud_db.products.replace_one(
+                                    {'_id': product_id},
+                                    local_prod
+                                )
+                                synced_count += 1
+                            else:
+                                # Cloud is newer - pull to local
+                                local_db.products.replace_one(
+                                    {'_id': product_id},
+                                    cloud_prod
+                                )
+                                synced_count += 1
+                    
+                    elif cloud_prod:
+                        # Cloud-only - pull to local
+                        local_db.products.insert_one(cloud_prod)
+                        synced_count += 1
+                    
+                    elif local_prod:
+                        # Local-only - push to cloud
+                        cloud_db.products.insert_one(local_prod)
+                        synced_count += 1
+                
+                except Exception as e:
+                    logger.error(f"❌ Failed to sync product {product_id}: {e}")
+            
+            if synced_count > 0:
+                logger.info(f"✓ Bidirectional product sync: {synced_count} products synced")
             
         except Exception as e:
-            logger.error(f"❌ Product sync error: {e}")
+            logger.error(f"❌ Bidirectional product sync error: {e}")
+    
+    def mirror_products_from_local(self):
+        """
+        DEPRECATED: Replaced by sync_products_bidirectional()
+        Kept for backward compatibility.
+        """
+        # This method is no longer used but kept to avoid breaking existing code
+        pass
     
     def mirror_batches_from_local(self):
         """
@@ -233,12 +283,40 @@ class SyncService:
         time2 = batch2.get('updated_at', datetime(1970, 1, 1))
         latest_time = time2 if time2 > time1 else time1
         
+        # Check if batches are expired based on expiry_date
+        def is_expired(batch):
+            """Check if batch is expired"""
+            expiry_date = batch.get('expiry_date')
+            if expiry_date is None:
+                return False
+            
+            # Handle both datetime objects and strings
+            if isinstance(expiry_date, str):
+                try:
+                    expiry_date = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    return False
+            
+            # Compare with current date (UTC)
+            now = datetime.utcnow()
+            expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+            now_date_only = now.date() if hasattr(now, 'date') else now
+            
+            if isinstance(expiry_date_only, datetime):
+                expiry_date_only = expiry_date_only.date()
+            if isinstance(now_date_only, datetime):
+                now_date_only = now_date_only.date()
+            
+            return expiry_date_only < now_date_only
+        
         # Status priority: expired > depleted > active
-        # If either batch is expired, keep it expired
+        # Check both status field and actual expiry date
         status1 = batch1.get('status', 'active')
         status2 = batch2.get('status', 'active')
+        expired1 = status1 == 'expired' or is_expired(batch1)
+        expired2 = status2 == 'expired' or is_expired(batch2)
         
-        if status1 == 'expired' or status2 == 'expired':
+        if expired1 or expired2:
             merged_status = 'expired'
         elif recalculated_remaining == 0:
             merged_status = 'depleted'
@@ -748,6 +826,327 @@ class SyncService:
             print(f"[BACKFILL] Error during backfill: {e}")
             return {'synced': 0, 'failed': 0, 'total': 0, 'error': str(e)}
 
+    def smart_sync_products_startup(self):
+        """
+        Smart sync for startup: Only sync products with mismatches.
+        Uses timestamp-based conflict resolution (latest wins).
+        
+        Returns:
+            dict: Summary of sync results
+        """
+        try:
+            local_db, cloud_db = self.get_databases()
+            if cloud_db is None:
+                return {
+                    'total_synced': 0,
+                    'pushed_to_cloud': 0,
+                    'pulled_to_local': 0,
+                    'failed': 0,
+                    'error': 'Cloud database not available'
+                }
+            
+            # Find mismatches
+            mismatches = self._find_product_mismatches_startup(local_db, cloud_db)
+            
+            total_mismatches = (
+                len(mismatches['stock_mismatches']) +
+                len(mismatches['cloud_only']) +
+                len(mismatches['local_only'])
+            )
+            
+            if total_mismatches == 0:
+                return {
+                    'total_synced': 0,
+                    'pushed_to_cloud': 0,
+                    'pulled_to_local': 0,
+                    'failed': 0
+                }
+            
+            # Create sync plan
+            sync_plan = self._create_sync_plan_startup(mismatches, local_db, cloud_db)
+            
+            # Execute sync
+            results = self._execute_sync_startup(sync_plan, local_db, cloud_db)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"❌ Smart sync startup error: {e}")
+            return {
+                'total_synced': 0,
+                'pushed_to_cloud': 0,
+                'pulled_to_local': 0,
+                'failed': 0,
+                'error': str(e)
+            }
+    
+    def _find_product_mismatches_startup(self, local_db, cloud_db):
+        """Find product mismatches for startup sync"""
+        local_products = list(local_db.products.find({}))
+        cloud_products = list(cloud_db.products.find({}))
+        
+        local_dict = {p['_id']: p for p in local_products}
+        cloud_dict = {p['_id']: p for p in cloud_products}
+        
+        all_product_ids = set(local_dict.keys()) | set(cloud_dict.keys())
+        
+        mismatches = {
+            'stock_mismatches': [],
+            'cloud_only': [],
+            'local_only': []
+        }
+        
+        for prod_id in all_product_ids:
+            local_prod = local_dict.get(prod_id)
+            cloud_prod = cloud_dict.get(prod_id)
+            
+            if local_prod and cloud_prod:
+                local_stock = local_prod.get('total_stock', 0)
+                cloud_stock = cloud_prod.get('total_stock', 0)
+                
+                if local_stock != cloud_stock:
+                    mismatches['stock_mismatches'].append({
+                        'product_id': prod_id,
+                        'local_product': local_prod,
+                        'cloud_product': cloud_prod
+                    })
+            elif cloud_prod:
+                mismatches['cloud_only'].append({
+                    'product_id': prod_id,
+                    'cloud_product': cloud_prod
+                })
+            elif local_prod:
+                mismatches['local_only'].append({
+                    'product_id': prod_id,
+                    'local_product': local_prod
+                })
+        
+        return mismatches
+    
+    def _create_sync_plan_startup(self, mismatches, local_db, cloud_db):
+        """Create sync plan with timestamp-based conflict resolution"""
+        sync_plan = {
+            'push_to_cloud': [],
+            'pull_to_local': []
+        }
+        
+        # Handle stock mismatches
+        for mismatch in mismatches['stock_mismatches']:
+            local_prod = mismatch['local_product']
+            cloud_prod = mismatch['cloud_product']
+            
+            local_time = self._parse_timestamp(local_prod)
+            cloud_time = self._parse_timestamp(cloud_prod)
+            
+            if local_time >= cloud_time:
+                # Local is newer or same - push to cloud (local is source of truth)
+                sync_plan['push_to_cloud'].append(mismatch['product_id'])
+            else:
+                # Cloud is newer - pull to local
+                sync_plan['pull_to_local'].append(mismatch['product_id'])
+        
+        # Handle cloud-only products (pull to local)
+        for item in mismatches['cloud_only']:
+            sync_plan['pull_to_local'].append(item['product_id'])
+        
+        # Handle local-only products (push to cloud)
+        for item in mismatches['local_only']:
+            sync_plan['push_to_cloud'].append(item['product_id'])
+        
+        return sync_plan
+    
+    def _execute_sync_startup(self, sync_plan, local_db, cloud_db):
+        """Execute the sync plan"""
+        results = {
+            'total_synced': 0,
+            'pushed_to_cloud': 0,
+            'pulled_to_local': 0,
+            'failed': 0
+        }
+        
+        # Push to cloud
+        for product_id in sync_plan['push_to_cloud']:
+            try:
+                local_prod = local_db.products.find_one({'_id': product_id})
+                if local_prod:
+                    cloud_db.products.replace_one(
+                        {'_id': product_id},
+                        local_prod,
+                        upsert=True
+                    )
+                    self.add_sync_log_to_document(
+                        'products', product_id, 'synced', 'cloud',
+                        {'action': 'smart_sync_startup'}
+                    )
+                    results['pushed_to_cloud'] += 1
+                    results['total_synced'] += 1
+            except Exception as e:
+                logger.error(f"Failed to push {product_id}: {e}")
+                results['failed'] += 1
+        
+        # Pull to local
+        for product_id in sync_plan['pull_to_local']:
+            try:
+                cloud_prod = cloud_db.products.find_one({'_id': product_id})
+                if cloud_prod:
+                    local_db.products.replace_one(
+                        {'_id': product_id},
+                        cloud_prod,
+                        upsert=True
+                    )
+                    self.add_sync_log_to_document(
+                        'products', product_id, 'synced', 'local',
+                        {'action': 'smart_sync_startup'}
+                    )
+                    results['pulled_to_local'] += 1
+                    results['total_synced'] += 1
+            except Exception as e:
+                logger.error(f"Failed to pull {product_id}: {e}")
+                results['failed'] += 1
+        
+        return results
+    
+    def smart_sync_batches_startup(self):
+        """
+        Smart sync for batches on startup: Sync all batches bidirectionally.
+        Uses merge logic for conflicts to prevent data loss.
+        
+        Returns:
+            dict: Summary of sync results
+        """
+        try:
+            local_db, cloud_db = self.get_databases()
+            if cloud_db is None:
+                return {
+                    'total_synced': 0,
+                    'pushed_to_cloud': 0,
+                    'pulled_to_local': 0,
+                    'merged': 0,
+                    'failed': 0,
+                    'error': 'Cloud database not available'
+                }
+            
+            # Get ALL batches from both databases (not just recent ones)
+            local_batches = list(local_db.batches.find({}))
+            cloud_batches = list(cloud_db.batches.find({}))
+            
+            local_dict = {b['_id']: b for b in local_batches}
+            cloud_dict = {b['_id']: b for b in cloud_batches}
+            
+            all_batch_ids = set(local_dict.keys()) | set(cloud_dict.keys())
+            
+            results = {
+                'total_synced': 0,
+                'pushed_to_cloud': 0,
+                'pulled_to_local': 0,
+                'merged': 0,
+                'failed': 0
+            }
+            
+            # Helper function to check if batch is expired
+            def is_batch_expired(batch):
+                """Check if batch is expired based on expiry_date"""
+                expiry_date = batch.get('expiry_date')
+                if expiry_date is None:
+                    return False
+                
+                # Handle both datetime objects and strings
+                if isinstance(expiry_date, str):
+                    try:
+                        expiry_date = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
+                    except (ValueError, AttributeError):
+                        return False
+                
+                # Compare with current date (UTC)
+                now = datetime.utcnow()
+                expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+                now_date_only = now.date() if hasattr(now, 'date') else now
+                
+                if isinstance(expiry_date_only, datetime):
+                    expiry_date_only = expiry_date_only.date()
+                if isinstance(now_date_only, datetime):
+                    now_date_only = now_date_only.date()
+                
+                return expiry_date_only < now_date_only
+            
+            # Sync each batch
+            for batch_id in all_batch_ids:
+                try:
+                    local_batch = local_dict.get(batch_id)
+                    cloud_batch = cloud_dict.get(batch_id)
+                    
+                    # Update status to 'expired' if batch is actually expired
+                    if local_batch and is_batch_expired(local_batch) and local_batch.get('status') != 'expired':
+                        local_batch['status'] = 'expired'
+                        local_db.batches.update_one({'_id': batch_id}, {'$set': {'status': 'expired'}})
+                    
+                    if cloud_batch and is_batch_expired(cloud_batch) and cloud_batch.get('status') != 'expired':
+                        cloud_batch['status'] = 'expired'
+                        cloud_db.batches.update_one({'_id': batch_id}, {'$set': {'status': 'expired'}})
+                    
+                    if local_batch and cloud_batch:
+                        # Both exist - merge to prevent data loss
+                        merged_batch = self._merge_batches(local_batch, cloud_batch)
+                        
+                        # Update both databases with merged batch
+                        local_db.batches.replace_one({'_id': batch_id}, merged_batch)
+                        cloud_db.batches.replace_one({'_id': batch_id}, merged_batch)
+                        
+                        results['merged'] += 1
+                        results['total_synced'] += 1
+                        
+                    elif local_batch:
+                        # Local-only - push to cloud
+                        cloud_db.batches.replace_one(
+                            {'_id': batch_id},
+                            local_batch,
+                            upsert=True
+                        )
+                        results['pushed_to_cloud'] += 1
+                        results['total_synced'] += 1
+                        
+                    elif cloud_batch:
+                        # Cloud-only - pull to local
+                        local_db.batches.replace_one(
+                            {'_id': batch_id},
+                            cloud_batch,
+                            upsert=True
+                        )
+                        results['pulled_to_local'] += 1
+                        results['total_synced'] += 1
+                        
+                except Exception as e:
+                    logger.error(f"Failed to sync batch {batch_id}: {e}")
+                    results['failed'] += 1
+            
+            if results['total_synced'] > 0:
+                logger.info(f"✓ Startup batch sync: {results['total_synced']} batches synced "
+                          f"(pushed: {results['pushed_to_cloud']}, "
+                          f"pulled: {results['pulled_to_local']}, "
+                          f"merged: {results['merged']})")
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"❌ Smart batch sync startup error: {e}")
+            return {
+                'total_synced': 0,
+                'pushed_to_cloud': 0,
+                'pulled_to_local': 0,
+                'merged': 0,
+                'failed': 0,
+                'error': str(e)
+            }
+
 # Singleton instance
 sync_service = SyncService()
+
+# Export the startup function for easy import
+def smart_sync_products_startup():
+    """Wrapper function for startup smart sync"""
+    return sync_service.smart_sync_products_startup()
+
+def smart_sync_batches_startup():
+    """Wrapper function for startup batch sync"""
+    return sync_service.smart_sync_batches_startup()
 

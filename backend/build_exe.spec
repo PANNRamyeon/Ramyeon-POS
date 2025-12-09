@@ -110,6 +110,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='Logo_1.ico',  # Icon for the executable
 )
 
 

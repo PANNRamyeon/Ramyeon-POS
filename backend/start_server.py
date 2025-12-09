@@ -388,7 +388,65 @@ def main():
             else:
                 print("⚠ Cannot pull initial data - offline (will sync when online)")
         else:
-            print("Local database has data - skipping initial pull")
+            print("Local database has data - checking for mismatches...")
+            
+            # Smart sync: Find and sync only mismatched products and batches
+            if db_manager.is_online:
+                print("Running smart sync to fix any mismatches...")
+                try:
+                    from app.services.sync_service import smart_sync_products_startup, smart_sync_batches_startup
+                    
+                    # Sync products
+                    product_result = smart_sync_products_startup()
+                    
+                    # Sync batches (critical for accurate stock levels)
+                    batch_result = smart_sync_batches_startup()
+                    
+                    # Update product stocks after batch sync (to reflect expired batch changes)
+                    try:
+                        from app.services.POS.batch_service import BatchService
+                        batch_service = BatchService()
+                        
+                        # Get all products and update their stock
+                        products = list(batch_service.products_collection.find({'isDeleted': {'$ne': True}}))
+                        stock_updated_count = 0
+                        for product in products:
+                            old_stock = product.get('total_stock', 0)
+                            batch_service.update_product_total_stock(product['_id'], verbose=False)
+                            updated_product = batch_service.products_collection.find_one({'_id': product['_id']})
+                            new_stock = updated_product.get('total_stock', 0) if updated_product else old_stock
+                            if old_stock != new_stock:
+                                stock_updated_count += 1
+                        
+                        if stock_updated_count > 0:
+                            print(f"  • Product stocks updated: {stock_updated_count} products")
+                    except Exception as e:
+                        print(f"  ⚠ Could not update product stocks: {e}")
+                    
+                    total_synced = product_result['total_synced'] + batch_result['total_synced']
+                    
+                    if total_synced > 0:
+                        print(f"✓ Smart sync complete:")
+                        if product_result['total_synced'] > 0:
+                            print(f"  • Products: {product_result['total_synced']} synced")
+                            print(f"    - Pushed to cloud: {product_result['pushed_to_cloud']}")
+                            print(f"    - Pulled to local: {product_result['pulled_to_local']}")
+                        if batch_result['total_synced'] > 0:
+                            print(f"  • Batches: {batch_result['total_synced']} synced")
+                            print(f"    - Pushed to cloud: {batch_result['pushed_to_cloud']}")
+                            print(f"    - Pulled to local: {batch_result['pulled_to_local']}")
+                            print(f"    - Merged: {batch_result['merged']}")
+                        if product_result['failed'] > 0 or batch_result['failed'] > 0:
+                            print(f"  ⚠ Failed: {product_result['failed'] + batch_result['failed']}")
+                    else:
+                        print("✓ No mismatches found - everything in sync")
+                        
+                except Exception as e:
+                    print(f"⚠ Smart sync failed: {e}")
+                    print("  System will continue, but data may be out of sync")
+            else:
+                print("⚠ Offline - skipping mismatch check (will sync when online)")
+                
     except Exception as e:
         print(f"WARNING: Could not check/pull initial data: {e}")
     print()

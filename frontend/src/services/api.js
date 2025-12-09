@@ -230,7 +230,6 @@ class ApiService {
     }
   }
 
-
   // USER METHODS
   async getUsers() {
     try {

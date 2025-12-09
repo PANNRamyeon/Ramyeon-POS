@@ -16,6 +16,45 @@ class BatchService:
         self.batches_collection = self.db.batches  # ✅ Note: batches_collection with 's'
         self.products_collection = self.db.products
     
+    def _is_batch_expired(self, batch):
+        """
+        Check if a batch is expired based on expiry_date
+        
+        Args:
+            batch: Batch document
+            
+        Returns:
+            bool: True if batch is expired, False otherwise
+        """
+        try:
+            expiry_date = batch.get('expiry_date')
+            if expiry_date is None:
+                return False  # No expiry date means not expired
+            
+            # Handle both datetime objects and strings
+            if isinstance(expiry_date, str):
+                try:
+                    expiry_date = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    return False  # Invalid date format, assume not expired
+            
+            # Compare with current date (UTC)
+            now = datetime.utcnow()
+            # Only compare date part (ignore time)
+            expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+            now_date_only = now.date() if hasattr(now, 'date') else now
+            
+            if isinstance(expiry_date_only, datetime):
+                expiry_date_only = expiry_date_only.date()
+            if isinstance(now_date_only, datetime):
+                now_date_only = now_date_only.date()
+            
+            return expiry_date_only < now_date_only
+            
+        except Exception as e:
+            logger.warning(f"Error checking batch expiration: {e}")
+            return False  # On error, assume not expired to be safe
+    
     # ================================================================
     # FIFO STOCK DEDUCTION (Main POS Function)
     # ================================================================
@@ -54,13 +93,16 @@ class BatchService:
                 'quantity_remaining': {'$gt': 0}
             }).sort('expiry_date', 1))
             
+            # Filter out expired batches (don't use expired stock)
+            batches = [batch for batch in batches if not self._is_batch_expired(batch)]
+            
             if not batches:
-                raise ValueError(f"No active batches available for product {product_id}")
+                raise ValueError(f"No active, non-expired batches available for product {product_id}")
             
             # Calculate total available stock
             total_available = sum(batch['quantity_remaining'] for batch in batches)
             
-            print(f"📦 Found {len(batches)} active batches")
+            print(f"📦 Found {len(batches)} active, non-expired batches")
             print(f"   Total available: {total_available}")
             print(f"   Requested: {quantity_needed}\n")
             
@@ -172,8 +214,11 @@ class BatchService:
                 'quantity_remaining': {'$gt': 0}
             }))
             
-            # Calculate total from ACTIVE batches only
-            total_remaining = sum(batch.get('quantity_remaining', 0) for batch in active_batches)
+            # Filter out expired batches
+            valid_batches = [batch for batch in active_batches if not self._is_batch_expired(batch)]
+            
+            # Calculate total from VALID (active + not expired) batches only
+            total_remaining = sum(batch.get('quantity_remaining', 0) for batch in valid_batches)
             
             # Calculate breakdown from ALL batches for verbose display
             batch_breakdown = {
@@ -191,13 +236,16 @@ class BatchService:
             if verbose:
                 product = self.products_collection.find_one({'_id': product_id})
                 product_name = product.get('product_name', 'Unknown') if product else 'Unknown'
+                expired_count = len([b for b in active_batches if self._is_batch_expired(b)])
                 print(f"\n📊 Updating stock for: {product_name} ({product_id})")
                 print(f"   Total batches: {len(all_batches)}")
-                print(f"   Active (counted): {len(active_batches)} batches")
+                print(f"   Active batches: {len(active_batches)}")
+                print(f"   Expired batches (excluded): {expired_count}")
+                print(f"   Valid batches (counted): {len(valid_batches)}")
                 print(f"   Pending (not counted): {batch_breakdown.get('pending', 0)}")
                 print(f"   Depleted (not counted): {batch_breakdown.get('depleted', 0)}")
                 print(f"   Expired (not counted): {batch_breakdown.get('expired', 0)}")
-                print(f"   TOTAL STOCK (active only): {total_remaining}")
+                print(f"   TOTAL STOCK (valid only): {total_remaining}")
             
             # Get current product stock for comparison
             product = self.products_collection.find_one({'_id': product_id})
@@ -249,11 +297,12 @@ class BatchService:
     def check_batch_availability(self, product_id, quantity_needed):
         """
         Check if sufficient stock is available in batches
+        Excludes expired batches from stock calculation
         
         Args:
             product_id: Product ID
             quantity_needed: Quantity to check
-        
+            
         Returns:
             dict: {
                 'available': bool,
@@ -262,19 +311,22 @@ class BatchService:
             }
         """
         try:
-            # ✅ FIXED: Changed batch_collection to batches_collection
+            # Get active batches with stock > 0
             batches = list(self.batches_collection.find({
                 'product_id': product_id,
                 'status': 'active',
                 'quantity_remaining': {'$gt': 0}
             }))
             
-            total_stock = sum(batch['quantity_remaining'] for batch in batches)
+            # Filter out expired batches
+            valid_batches = [batch for batch in batches if not self._is_batch_expired(batch)]
+            
+            total_stock = sum(batch['quantity_remaining'] for batch in valid_batches)
             
             return {
                 'available': total_stock >= quantity_needed,
                 'total_stock': total_stock,
-                'batches_count': len(batches)
+                'batches_count': len(valid_batches)
             }
             
         except Exception as e:

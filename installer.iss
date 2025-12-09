@@ -17,6 +17,7 @@ SolidCompression=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
+SetupIconFile=backend\Logo_1.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -28,13 +29,14 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 [Files]
 Source: "backend\dist\PANN_POS_System.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "backend\.env"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsneveruninstall
+Source: "backend\Logo_1.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; Include any additional files needed
 
 [Icons]
-Name: "{group}\PANN POS System"; Filename: "{app}\PANN_POS_System.exe"
+Name: "{group}\PANN POS System"; Filename: "{app}\PANN_POS_System.exe"; IconFilename: "{app}\Logo_1.ico"
 Name: "{group}\{cm:UninstallProgram,PANN POS System}"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\PANN POS System"; Filename: "{app}\PANN_POS_System.exe"; Tasks: desktopicon
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\PANN POS System"; Filename: "{app}\PANN_POS_System.exe"; Tasks: quicklaunchicon
+Name: "{userdesktop}\PANN POS System"; Filename: "{app}\PANN_POS_System.exe"; IconFilename: "{app}\Logo_1.ico"; Tasks: desktopicon
+Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\PANN POS System"; Filename: "{app}\PANN_POS_System.exe"; IconFilename: "{app}\Logo_1.ico"; Tasks: quicklaunchicon
 
 [Run]
 Filename: "{app}\PANN_POS_System.exe"; Description: "{cm:LaunchProgram,PANN POS System}"; Flags: nowait postinstall skipifsilent

@@ -444,8 +444,6 @@ import { useCartStore } from '@/stores/cartStores'
 import categoriesAPI from '@/services/apiCategory.js'
 import productsAPI from '@/services/apiProducts.js'
 import apiService, { api } from '@/services/api.js'
-import { useLocalStorage } from '@/composables/data/useLocalStorage.js'
-import { useCache } from '@/composables/data/useCache.js'
 import { useStockCache } from '@/composables/data/useStockCache.js'
 import { useBarcode } from '@/composables/useBarcode.js'
 import { RefreshCw } from 'lucide-vue-next'
@@ -522,17 +520,6 @@ export default {
         { name: 'ShoppingBag' },
         { name: 'Utensils' }
       ],
-
-      // Caching utilities
-      cacheTTLms: 24 * 60 * 60 * 1000, // 24 hours for localStorage
-      memCacheTTLms: 30 * 60 * 1000, // 30 minutes for in-memory cache
-      storage: null,
-      memCache: null,
-      
-      // Stock refresh
-      stockRefreshInterval: null,
-      stockRefreshIntervalMs: 5 * 60 * 1000, // 5 minutes
-      isRefreshingStock: false,
       
       // Barcode scanning
       manualBarcodeInput: '',
@@ -559,38 +546,13 @@ export default {
       }
     } catch (_) {}
     
-    // initialize caches
-    const ls = useLocalStorage()
-    this.storage = ls.withPrefix('newOrder')
-    this.memCache = useCache({ maxEntries: 300 })
-    
     // Load custom categories and products from localStorage
     this.loadCustomCategories()
     this.loadCustomCategoryProducts()
     this.loadIdCounters()
     
-    // Hydrate from localStorage immediately to avoid spinner on revisit
-    try {
-      const cachedCategories = this.storage.getItem('categories', null)
-      if (Array.isArray(cachedCategories) && cachedCategories.length > 0) {
-        this.backendCategories = cachedCategories
-        const lastActive = this.storage.getItem('lastActiveCategory', null)
-        const fallbackCat = cachedCategories[0]?.id
-        const catId = cachedCategories.find(c => c.id === lastActive) ? lastActive : fallbackCat
-        if (catId) {
-          this.activeCategory = catId
-          const cachedProducts = this.storage.getItem(`products:${catId}:__all__`, null)
-          if (Array.isArray(cachedProducts)) {
-            this.products = cachedProducts
-          }
-        }
-      }
-    } catch (_) {}
     await this.initializeSession()
     await this.loadCategories()
-    
-    // Set up periodic stock refresh (skip immediate auto-refresh if returning from checkout)
-    this.startStockRefresh(shouldRefreshStock !== 'true')
     
     // Start barcode scanner automatically
     this.startBarcodeScanner()
@@ -600,13 +562,16 @@ export default {
       this.addToCart(product)
     }
     
-    // If returning from checkout, perform targeted refresh when possible, fallback to full refresh
+    // If returning from checkout, refresh specific products
     if (shouldRefreshStock === 'true') {
       try {
         if (targetedProductIds.length > 0) {
           await this.refreshSpecificStockLevels(targetedProductIds)
         } else {
-          await this.refreshStockLevels()
+          // Reload current category
+          if (this.activeCategory) {
+            await this.loadProductsForCategory(this.activeCategory, this.currentSubcategory?.name)
+          }
         }
       } finally {
         try { sessionStorage.removeItem('refreshProductIds') } catch (_) {}
@@ -615,12 +580,6 @@ export default {
   },
 
   beforeUnmount() {
-    // Clean up stock refresh interval
-    if (this.stockRefreshInterval) {
-      clearInterval(this.stockRefreshInterval)
-      this.stockRefreshInterval = null
-    }
-    
     // Stop barcode scanner
     this.barcodeScanner.stopScanning()
   },
@@ -800,161 +759,43 @@ export default {
     // STOCK REFRESH
     // ================================================================
     
-    startStockRefresh(refreshImmediately = true) {
-      if (refreshImmediately) {
-        this.refreshStockLevels()
-      }
-      this.stockRefreshInterval = setInterval(() => {
-        this.refreshStockLevels()
-      }, this.stockRefreshIntervalMs)
-    },
-    
     async manualStockRefresh() {
-      if (this.isRefreshingStock) return
-      
       try {
         this.isRefreshingStock = true
         
-        // Clear cache for current category to force fresh data
-        if (this.activeCategory) {
-          const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
-          this.storage?.removeItem(cacheKey)
-          this.memCache?.delete(cacheKey)
-        }
+        // Trigger startup sync (same as server startup)
+        const syncAPI = await import('../services/apiSync.js')
+        const result = await syncAPI.default.triggerStartupSync()
         
-        // Force reload current category products with fresh data
-        if (this.activeCategory) {
-          await this.loadProducts(this.activeCategory, this.currentSubcategory?.name)
+        if (result.success) {
+          // Reload current category products with fresh data
+          if (this.activeCategory) {
+            await this.loadProductsForCategory(this.activeCategory, this.currentSubcategory?.name)
+          }
+          
+          // Show success message
+          const totalSynced = (result.data?.products?.total_synced || 0) + (result.data?.batches?.total_synced || 0)
+          const stockUpdates = result.data?.stock_updates || 0
+          
+          if (totalSynced > 0 || stockUpdates > 0) {
+            console.log(`✓ Sync complete: ${totalSynced} items synced, ${stockUpdates} products updated`)
+          }
         }
-        
       } catch (error) {
-        alert('Failed to refresh stock levels. Please try again.')
+        console.error('Stock refresh error:', error)
+        // Still try to reload products even if sync fails
+        if (this.activeCategory) {
+          try {
+            await this.loadProductsForCategory(this.activeCategory, this.currentSubcategory?.name)
+          } catch (e) {
+            alert('Failed to refresh stock levels. Please try again.')
+          }
+        }
       } finally {
         this.isRefreshingStock = false
       }
     },
     
-    async refreshStockLevels() {
-      try {
-        // Initialize stockUpdates at the beginning
-        let stockUpdates = {}
-        
-        // Get all unique product IDs currently in cache
-        const productIdsToRefresh = new Set()
-        
-        // Add products from current view
-        this.products.forEach(p => productIdsToRefresh.add(p.id))
-        
-        // Add products from custom categories
-        Object.values(this.customCategoryProducts).forEach(products => {
-          products.forEach(p => {
-            // Use originalId for custom category products
-            if (p.originalId) productIdsToRefresh.add(p.originalId)
-            else productIdsToRefresh.add(p.id)
-          })
-        })
-        
-        if (productIdsToRefresh.size === 0) {
-          return
-        }
-        
-        // Fetch fresh stock data in batch
-        const productIds = Array.from(productIdsToRefresh)
-        
-        try {
-          const freshProducts = await productsAPI.getProductsBatch(productIds)
-          
-          if (!Array.isArray(freshProducts) || freshProducts.length === 0) {
-            return
-          }
-          
-          // Build a map of productId -> fresh stock (use total_stock if available, otherwise null)
-          stockUpdates = {}
-          freshProducts.forEach(product => {
-            // Use total_stock if available, otherwise fallback to batch_stock
-            const stockValue = (product.total_stock !== undefined && product.total_stock !== null)
-              ? product.total_stock
-              : (product.batch_stock !== undefined && product.batch_stock !== null)
-              ? product.batch_stock
-              : null
-            
-            if (product.id) {
-              stockUpdates[product.id] = stockValue
-            }
-          })
-          
-          // Update all cache entries with fresh stock
-          const allKeys = []
-          try {
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i)
-              if (key && key.startsWith('newOrder_products:')) {
-                allKeys.push(key)
-              }
-            }
-          } catch (error) {
-            // Error reading localStorage keys
-          }
-          
-          let updatedCount = 0
-          allKeys.forEach(fullKey => {
-            try {
-              const key = fullKey.replace('newOrder_', '')
-              const cached = this.storage?.getItem(key, null)
-              
-              if (!Array.isArray(cached)) return
-              
-              let wasUpdated = false
-              const updated = cached.map(product => {
-                const newStock = stockUpdates[product.id]
-                
-                if (newStock !== null && newStock !== (product.total_stock || product.stock)) {
-                  wasUpdated = true
-                  return {
-                    ...product,
-                    stock: newStock,
-                    total_stock: newStock
-                  }
-                }
-                
-                return product
-              })
-              
-              if (wasUpdated) {
-                this.storage?.setItem(key, updated, this.cacheTTLms)
-                this.memCache?.set(key, updated, this.memCacheTTLms)
-                updatedCount++
-              }
-              
-            } catch (error) {
-              // Error updating cache key
-            }
-          })
-          
-          
-          
-        } catch (error) {
-          return
-        }
-        
-        // Update custom category products with fresh stock data
-        this.updateCustomCategoryProductsStock(stockUpdates)
-        
-        // Reload current view to show updated stock
-        if (this.activeCategory) {
-          const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
-          const refreshedProducts = this.storage?.getItem(cacheKey, null)
-          if (Array.isArray(refreshedProducts)) {
-            this.products = refreshedProducts
-          }
-        }
-        
-      } catch (error) {
-        // Don't throw - this is a background operation
-      }
-    },
-    
-    // Targeted stock refresh for specific product IDs
     async refreshSpecificStockLevels(productIds) {
       try {
         const uniqueIds = Array.from(new Set((productIds || []).filter(Boolean)))
@@ -968,14 +809,10 @@ export default {
           return
         }
         
-        // Build updates map (use total_stock if available, otherwise null)
+        // Build updates map
         const stockUpdates = {}
         freshProducts.forEach(product => {
-          const stockValue = (product.total_stock !== undefined && product.total_stock !== null)
-            ? product.total_stock
-            : (product.batch_stock !== undefined && product.batch_stock !== null)
-            ? product.batch_stock
-            : null
+          const stockValue = product.total_stock !== undefined ? product.total_stock : product.batch_stock
           if (product.id) {
             stockUpdates[product.id] = stockValue
           }
@@ -983,98 +820,15 @@ export default {
         
         // Update current in-memory view (products)
         if (Array.isArray(this.products) && this.products.length > 0) {
-          let changed = false
-          const updated = this.products.map(p => {
+          this.products = this.products.map(p => {
             const newStock = stockUpdates[p.id]
-            if (newStock !== null && newStock !== (p.total_stock || p.stock)) {
-              changed = true
-              return { ...p, stock: newStock, total_stock: newStock }
-            }
-            return p
+            return newStock !== undefined ? { ...p, stock: newStock, total_stock: newStock } : p
           })
-          if (changed) {
-            this.products = updated
-          }
         }
         
         // Update custom category products with fresh stock data
         this.updateCustomCategoryProductsStock(stockUpdates)
         
-        // Update localStorage-backed caches for any categories that include these products
-        const allKeys = []
-        try {
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i)
-            if (key && key.startsWith('newOrder_products:')) {
-              allKeys.push(key)
-            }
-          }
-        } catch (error) {
-          // Error reading localStorage keys
-        }
-        
-        let updatedCount = 0
-        allKeys.forEach(fullKey => {
-          try {
-            const key = fullKey.replace('newOrder_', '')
-            const cached = this.storage?.getItem(key, null)
-            if (!Array.isArray(cached)) return
-            let wasUpdated = false
-            const updated = cached.map(product => {
-              const newStock = stockUpdates[product.id]
-              if (newStock !== undefined && newStock !== product.stock) {
-                wasUpdated = true
-                return { ...product, stock: newStock }
-              }
-              return product
-            })
-            if (wasUpdated) {
-              this.storage?.setItem(key, updated, this.cacheTTLms)
-              this.memCache?.set(key, updated, this.memCacheTTLms)
-              updatedCount++
-            }
-          } catch (error) {
-            // Error updating cache key
-          }
-        })
-        
-        
-        // Update custom category items in-memory if they reference affected products
-        try {
-          Object.keys(this.customCategoryProducts || {}).forEach(catId => {
-            const items = this.customCategoryProducts[catId]
-            if (!Array.isArray(items) || items.length === 0) return
-            let changed = false
-            const updated = items.map(item => {
-              const baseId = item.originalId || item.id
-              const newStock = stockUpdates[baseId]
-              if (newStock !== undefined && newStock !== item.stock) {
-                changed = true
-                return { ...item, stock: newStock }
-              }
-              return item
-            })
-            if (changed) {
-              this.customCategoryProducts[catId] = updated
-            }
-          })
-        } catch (error) {
-          // Error updating custom category items
-        }
-        
-        // If current view is activeCategory, try to re-hydrate from cache to ensure consistency
-        if (this.activeCategory) {
-          const cacheKey = `products:${this.activeCategory}:${this.currentSubcategory?.name || '__all__'}`
-          const refreshedProducts = this.storage?.getItem(cacheKey, null)
-          if (Array.isArray(refreshedProducts)) {
-            // Merge in-memory updates with cache to avoid flicker
-            const merged = refreshedProducts.map(prod => {
-              const newStock = stockUpdates[prod.id]
-              return newStock !== undefined ? { ...prod, stock: newStock } : prod
-            })
-            this.products = merged
-          }
-        }
       } catch (error) {
         // Targeted stock refresh failed
       }
@@ -1121,16 +875,16 @@ export default {
         this.productsLoading = true
         
         // Load from ALL available source categories (excluding current active category)
-        // This will use cache first, then localStorage, then API
+        // Fetch products directly from API
         const productPromises = this.availableSourceCategories.map(category => {
-          return this.getProductsCached(category.id)
+          return productsAPI.getProductsByCategory(category.id)
         })
         
         // Wait for all requests to complete
         const allCategoryProducts = await Promise.all(productPromises)
         
-        // Flatten all products into a single array
-        this.allProducts = allCategoryProducts.flat()
+        // Flatten all products into a single array and filter valid entries
+        this.allProducts = allCategoryProducts.flat().filter(p => p && typeof p === 'object')
         
       } catch (error) {
         this.error = error.message
@@ -1145,15 +899,9 @@ export default {
         if (this.backendCategories.length === 0) this.loading = true
         this.error = null
         
-        // Try cache first
-        const cached = this.getCategoriesCached()
-        if (cached) {
-          this.backendCategories = cached
-        } else {
-          const fresh = await categoriesAPI.getActiveCategories()
-          this.backendCategories = Array.isArray(fresh) ? fresh : []
-          this.setCategoriesCache(this.backendCategories)
-        }
+        // Fetch categories directly from API
+        const categories = await categoriesAPI.getActiveCategories()
+        this.backendCategories = Array.isArray(categories) ? categories : []
         
         if (this.backendCategories.length > 0 && !this.activeCategory) {
           this.activeCategory = this.backendCategories[0].id
@@ -1173,8 +921,6 @@ export default {
       this.categorySearch = ''
       this.breadcrumbs = []
       this.currentSubcategory = null
-      // Persist last active category (24 hours)
-      try { this.storage?.setItem('lastActiveCategory', categoryId, this.cacheTTLms) } catch (_) {}
       
       const category = this.categories.find(cat => cat.id === categoryId)
       
@@ -1186,14 +932,13 @@ export default {
       } else {
         this.viewMode = 'products'
         if (!category.isCustom) {
-          // Show cached products immediately if any
-          const cachedProducts = this.storage?.getItem(`products:${categoryId}:__all__`, null)
-          if (Array.isArray(cachedProducts)) {
-            this.products = cachedProducts
-          }
-          await this.loadProducts(categoryId)
+          await this.loadProductsForCategory(categoryId)
         }
       }
+    },
+
+    async loadProductsForCategory(categoryId, subcategoryName = null) {
+      await this.loadProducts(categoryId, subcategoryName)
     },
 
     async loadProducts(categoryId, subcategoryName = null) {
@@ -1205,18 +950,10 @@ export default {
           return
         }
         
-        // Try immediate cached read (no spinner, no network)
-        const cacheKey = `products:${categoryId}:${subcategoryName || '__all__'}`
-        const lsHit = this.storage?.getItem(cacheKey, null)
-        if (Array.isArray(lsHit)) {
-          this.products = lsHit
-          return
-        }
-        
-        // No cache: show loader and fetch
+        // Fetch products directly from API
         this.productsLoading = true
-        const products = await this.getProductsCached(categoryId, subcategoryName)
-        this.products = products
+        const products = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
+        this.products = Array.isArray(products) ? products : []
         
       } catch (error) {
         this.error = error.message
@@ -1226,40 +963,6 @@ export default {
       }
     },
 
-    // Cached fetchers
-    getCategoriesCached() {
-      // in-memory first
-      const k = 'categories'
-      const memHit = this.memCache?.get(k, null)
-      if (memHit) return memHit
-      // localStorage next
-      const lsHit = this.storage?.getItem(k, null)
-      if (lsHit) {
-        this.memCache?.set(k, lsHit, this.memCacheTTLms)
-        return lsHit
-      }
-      return null
-    },
-    setCategoriesCache(categories) {
-      const k = 'categories'
-      this.memCache?.set(k, categories, this.memCacheTTLms)
-      this.storage?.setItem(k, categories, this.cacheTTLms)
-    },
-    async getProductsCached(categoryId, subcategoryName = null) {
-      const key = `products:${categoryId}:${subcategoryName || '__all__'}`
-      const memHit = this.memCache?.get(key, null)
-      if (memHit) return memHit
-      const lsHit = this.storage?.getItem(key, null)
-      if (lsHit) {
-        this.memCache?.set(key, lsHit, this.memCacheTTLms)
-        return lsHit
-      }
-      const fresh = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
-      const normalized = Array.isArray(fresh) ? fresh : []
-      this.memCache?.set(key, normalized, this.memCacheTTLms)
-      this.storage?.setItem(key, normalized, this.cacheTTLms)
-      return normalized
-    },
 
     generateSubcategoryImage(subcategoryName) {
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(subcategoryName)}&size=200&background=A07BE3&color=fff`
@@ -1639,10 +1342,7 @@ export default {
     
     saveCustomCategories() {
       try {
-        // Use direct localStorage (no expiration) for permanent favorites/custom categories
         localStorage.setItem('customCategories', JSON.stringify(this.customCategories))
-        // Also update memory cache for immediate use
-        this.memCache?.set('customCategories', this.customCategories, this.memCacheTTLms)
       } catch (error) {
         console.error('Failed to save custom categories:', error)
       }
@@ -1650,31 +1350,12 @@ export default {
     
     loadCustomCategories() {
       try {
-        // Try memory cache first
-        const memHit = this.memCache?.get('customCategories', null)
-        if (memHit) {
-          this.customCategories = memHit
-          return
-        }
-        
-        // Load from localStorage directly (permanent storage, no expiration)
         const stored = localStorage.getItem('customCategories')
         if (stored) {
           const parsed = JSON.parse(stored)
           if (Array.isArray(parsed)) {
             this.customCategories = parsed
-            // Update memory cache for faster access
-            this.memCache?.set('customCategories', parsed, this.memCacheTTLms)
-            return
           }
-        }
-        
-        // Fallback: Try old storage format (for migration)
-        const oldStored = this.storage?.getItem('customCategories', null)
-        if (Array.isArray(oldStored)) {
-          this.customCategories = oldStored
-          // Migrate to new permanent format
-          this.saveCustomCategories()
         }
       } catch (error) {
         console.error('Failed to load custom categories:', error)
@@ -1683,10 +1364,7 @@ export default {
     
     saveCustomCategoryProducts() {
       try {
-        // Use direct localStorage (no expiration) for permanent favorites/custom category products
         localStorage.setItem('customCategoryProducts', JSON.stringify(this.customCategoryProducts))
-        // Also update memory cache for immediate use
-        this.memCache?.set('customCategoryProducts', this.customCategoryProducts, this.memCacheTTLms)
       } catch (error) {
         console.error('Failed to save custom category products:', error)
       }
@@ -1694,31 +1372,12 @@ export default {
     
     loadCustomCategoryProducts() {
       try {
-        // Try memory cache first
-        const memHit = this.memCache?.get('customCategoryProducts', null)
-        if (memHit) {
-          this.customCategoryProducts = memHit
-          return
-        }
-        
-        // Load from localStorage directly (permanent storage, no expiration)
         const stored = localStorage.getItem('customCategoryProducts')
         if (stored) {
           const parsed = JSON.parse(stored)
           if (parsed && typeof parsed === 'object') {
             this.customCategoryProducts = parsed
-            // Update memory cache for faster access
-            this.memCache?.set('customCategoryProducts', parsed, this.memCacheTTLms)
-            return
           }
-        }
-        
-        // Fallback: Try old storage format (for migration)
-        const oldStored = this.storage?.getItem('customCategoryProducts', null)
-        if (oldStored && typeof oldStored === 'object') {
-          this.customCategoryProducts = oldStored
-          // Migrate to new permanent format
-          this.saveCustomCategoryProducts()
         }
       } catch (error) {
         console.error('Failed to load custom category products:', error)
@@ -1754,12 +1413,10 @@ export default {
           }
         }
         
-        // Fallback: Try old storage format (for migration)
+        // Default values if not found
         if (!savedCategoryId || !savedProductId) {
-          const oldCategoryId = this.storage?.getItem('nextCategoryId', null)
-          const oldProductId = this.storage?.getItem('nextProductId', null)
-          
-          if (oldCategoryId && typeof oldCategoryId === 'number' && oldCategoryId > this.nextCategoryId) {
+          // Use defaults
+          if (this.nextCategoryId < 100) {
             this.nextCategoryId = oldCategoryId
             this.saveIdCounters() // Migrate to new format
           }

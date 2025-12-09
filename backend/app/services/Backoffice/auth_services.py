@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import bcrypt
-import random
-import logging
 from ...database import db_manager
 
 # JWT settings
@@ -10,9 +8,6 @@ SECRET_KEY = "your-secret-key-here-change-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 10000
 REFRESH_TOKEN_EXPIRE_DAYS = 7
-
-
-logger = logging.getLogger(__name__)
 
 class AuthService:
     def __init__(self):
@@ -76,10 +71,9 @@ class AuthService:
         print(f"💰 Opening Cash: {opening_cash}")
         
         try:
-            # Find user by email (case-insensitive)
-            email_lower = email.strip().lower() if email else ""
-            print(f"🔍 Looking up user by email (case-insensitive): {email} -> {email_lower}")
-            user = self.user_collection.find_one({"email": {"$regex": f"^{email_lower}$", "$options": "i"}})
+            # Find user by email
+            print(f"🔍 Looking up user by email: {email}")
+            user = self.user_collection.find_one({"email": email})
             
             if not user:
                 print(f"❌ User not found with email: {email}")
@@ -380,17 +374,3 @@ class AuthService:
             }
         except JWTError:
             raise Exception("Invalid refresh token")
-    
-    def get_verified_admins(self):
-        """Get all verified admin users (role='admin', status='active', and email_verified=True)"""
-        try:
-            admins = list(self.user_collection.find({
-                "role": {"$regex": "^admin$", "$options": "i"},
-                "status": "active",
-                "isDeleted": {"$ne": True},
-                "email_verified": True
-            }))
-            return admins
-        except Exception as e:
-            logger.error(f"Error getting verified admins: {e}")
-            return []

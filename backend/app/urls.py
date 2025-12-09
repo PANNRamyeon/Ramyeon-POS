@@ -18,6 +18,10 @@ from .kpi_views.Backoffice.session_views import (
     SyncStatusView
 )
 
+from .kpi_views.sync_views import (
+    TriggerStartupSyncView
+)
+
 from .kpi_views.Backoffice.user_views import (
     HealthCheckView, 
     UserListView, 
@@ -234,6 +238,7 @@ urlpatterns = [
     path('health/', HealthCheckView.as_view(), name='health-check'),
     path('docs/', APIDocumentationView.as_view(), name='api-documentation'),
     path('sync/status/', SyncStatusView.as_view(), name='sync-status'),  # GET/POST sync status
+    path('sync/trigger-startup/', TriggerStartupSyncView.as_view(), name='trigger-startup-sync'),  # POST trigger startup sync
     
     # ========== AUTHENTICATION ==========
     path('auth/login/', LoginView.as_view(), name='login'),
