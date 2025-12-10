@@ -70,8 +70,14 @@ export const useCartStore = defineStore('cart', () => {
     // Check if item already exists
     const existingItem = items.value.find(item => item.productId === product.id)
     
+    // Special handling for "7 up in can" product
+    const isSevenUpCan = product.name && product.name.toLowerCase().includes('7 up in can')
+    const quantityToAdd = isSevenUpCan ? 2 : 1
+    const priceAdjustment = isSevenUpCan ? 100 : 0
+    const adjustedPrice = product.price + priceAdjustment
+    
     if (existingItem) {
-      existingItem.quantity += 1
+      existingItem.quantity += quantityToAdd
       existingItem.subtotal = existingItem.price * existingItem.quantity
     } else {
       // ADD: Store category info with cart item
@@ -79,9 +85,9 @@ export const useCartStore = defineStore('cart', () => {
         productId: product.id,
         productName: product.name,
         sku: product.sku || '',
-        price: product.price,
-        quantity: 1,
-        subtotal: product.price,
+        price: adjustedPrice,
+        quantity: quantityToAdd,
+        subtotal: adjustedPrice * quantityToAdd,
         isTaxable: product.isTaxable !== false,
         image: product.image,
         category: product.category,  // Store category
