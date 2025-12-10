@@ -74,13 +74,17 @@ export const useCartStore = defineStore('cart', () => {
     const adjustedPrice = product.price + priceAdjustment
     
     // Debug logging
+    console.log('📦 Adding to cart:', {
+      productId: product.id,
+      productName: product.name,
+      isSevenUpCan: isSevenUpCan,
+      originalPrice: product.price,
+      adjustedPrice: adjustedPrice,
+      quantityToAdd: quantityToAdd
+    })
+    
     if (isSevenUpCan) {
-      console.log('🥤 7UP CAN DETECTED (PROD-00225):', {
-        productName: product.name,
-        originalPrice: product.price,
-        adjustedPrice: adjustedPrice,
-        quantityToAdd: quantityToAdd
-      })
+      console.log('🥤 ✅ 7UP CAN SPECIAL HANDLING ACTIVATED!')
     }
     
     // Check if item already exists

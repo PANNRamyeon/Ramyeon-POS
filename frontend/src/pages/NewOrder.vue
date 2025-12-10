@@ -1177,6 +1177,14 @@ export default {
         const productPrice = product.selling_price || product.price
         const productStock = product.total_stock || product.stock
         
+        // Debug: Check if this is PROD-00225
+        if (productId === 'PROD-00225') {
+          console.log('🔍 DEBUG: Adding PROD-00225 to cart')
+          console.log('   Product ID:', productId)
+          console.log('   Product Name:', productName)
+          console.log('   Product Price:', productPrice)
+        }
+        
         if (!productId || !productName || !productPrice) {
           // console.error('❌ Invalid product data:', product)
           throw new Error('Invalid product data')
@@ -1199,6 +1207,11 @@ export default {
           sku: product.SKU || product.sku || '',
           barcode: product.barcode || '',
           isTaxable: product.is_taxable !== false
+        }
+        
+        // Debug: Log cart item before adding to store
+        if (productId === 'PROD-00225') {
+          console.log('   Cart Item:', cartItem)
         }
         
         this.cartStore.addItem(cartItem)
