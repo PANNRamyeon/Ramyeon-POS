@@ -258,9 +258,12 @@ class CartService:
             # ✅ Get product from cache (fast)
             product = self._get_product_cached(product_id)
             
-            # Special handling for "7 up in can" product
-            is_seven_up_can = '7 up in can' in product['product_name'].lower()
+            # Special handling for specific product ID "PROD-00225" (7 up in can)
+            is_seven_up_can = product_id == 'PROD-00225'
             if is_seven_up_can:
+                print(f"🥤 7UP CAN DETECTED (PROD-00225): {product['product_name']}")
+                print(f"   Original quantity: {quantity} -> Adjusted: {quantity * 2}")
+                print(f"   Original price: {product['selling_price']} -> Adjusted: {product['selling_price'] + 100}")
                 quantity = quantity * 2  # Add 2x the quantity
                 price_adjustment = 100
             else:

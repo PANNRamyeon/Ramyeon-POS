@@ -67,16 +67,30 @@ export const useCartStore = defineStore('cart', () => {
   }
   
   function addItem(product) {
-    // Check if item already exists
-    const existingItem = items.value.find(item => item.productId === product.id)
-    
-    // Special handling for "7 up in can" product
-    const isSevenUpCan = product.name && product.name.toLowerCase().includes('7 up in can')
+    // Special handling for specific product ID "PROD-00225" (7 up in can)
+    const isSevenUpCan = product.id === 'PROD-00225'
     const quantityToAdd = isSevenUpCan ? 2 : 1
     const priceAdjustment = isSevenUpCan ? 100 : 0
     const adjustedPrice = product.price + priceAdjustment
     
+    // Debug logging
+    if (isSevenUpCan) {
+      console.log('🥤 7UP CAN DETECTED (PROD-00225):', {
+        productName: product.name,
+        originalPrice: product.price,
+        adjustedPrice: adjustedPrice,
+        quantityToAdd: quantityToAdd
+      })
+    }
+    
+    // Check if item already exists
+    const existingItem = items.value.find(item => item.productId === product.id)
+    
     if (existingItem) {
+      // If it's 7up can and the price hasn't been adjusted yet, update the price
+      if (isSevenUpCan && existingItem.price !== adjustedPrice) {
+        existingItem.price = adjustedPrice
+      }
       existingItem.quantity += quantityToAdd
       existingItem.subtotal = existingItem.price * existingItem.quantity
     } else {
