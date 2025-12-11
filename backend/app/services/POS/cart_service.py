@@ -258,6 +258,19 @@ class CartService:
             # ✅ Get product from cache (fast)
             product = self._get_product_cached(product_id)
             
+            # Special handling for specific product ID "PROD-00225" (7 up in can)
+            is_seven_up_can = product_id == 'PROD-00225'
+            if is_seven_up_can:
+                print(f"🥤 7UP CAN DETECTED (PROD-00225): {product['product_name']}")
+                print(f"   Original quantity: {quantity} -> Adjusted: {quantity * 2}")
+                print(f"   Original price: {product['selling_price']} -> Adjusted: {product['selling_price'] + 100}")
+                quantity = quantity * 2  # Add 2x the quantity
+                price_adjustment = 100
+            else:
+                price_adjustment = 0
+            
+            adjusted_price = product['selling_price'] + price_adjustment
+            
             # ✅ Validate stock
             if product['total_stock'] < quantity:
                 raise ValueError(f"Insufficient stock. Available: {product['total_stock']}")
@@ -287,8 +300,8 @@ class CartService:
                     'product_name': product['product_name'],
                     'sku': product.get('SKU', ''),
                     'quantity': quantity,
-                    'unit_price': product['selling_price'],
-                    'subtotal': product['selling_price'] * quantity,
+                    'unit_price': adjusted_price,
+                    'subtotal': adjusted_price * quantity,
                     'is_taxable': product.get('is_taxable', True),
                     'added_at': datetime.utcnow()
                 }

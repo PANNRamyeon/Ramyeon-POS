@@ -67,11 +67,35 @@ export const useCartStore = defineStore('cart', () => {
   }
   
   function addItem(product) {
+    // Special handling for specific product ID "PROD-00225" (7 up in can)
+    const isSevenUpCan = product.id === 'PROD-00225'
+    const quantityToAdd = isSevenUpCan ? 2 : 1
+    const priceAdjustment = isSevenUpCan ? 100 : 0
+    const adjustedPrice = product.price + priceAdjustment
+    
+    // Debug logging
+    console.log('📦 Adding to cart:', {
+      productId: product.id,
+      productName: product.name,
+      isSevenUpCan: isSevenUpCan,
+      originalPrice: product.price,
+      adjustedPrice: adjustedPrice,
+      quantityToAdd: quantityToAdd
+    })
+    
+    if (isSevenUpCan) {
+      console.log('🥤 ✅ 7UP CAN SPECIAL HANDLING ACTIVATED!')
+    }
+    
     // Check if item already exists
     const existingItem = items.value.find(item => item.productId === product.id)
     
     if (existingItem) {
-      existingItem.quantity += 1
+      // If it's 7up can and the price hasn't been adjusted yet, update the price
+      if (isSevenUpCan && existingItem.price !== adjustedPrice) {
+        existingItem.price = adjustedPrice
+      }
+      existingItem.quantity += quantityToAdd
       existingItem.subtotal = existingItem.price * existingItem.quantity
     } else {
       // ADD: Store category info with cart item
@@ -79,9 +103,9 @@ export const useCartStore = defineStore('cart', () => {
         productId: product.id,
         productName: product.name,
         sku: product.sku || '',
-        price: product.price,
-        quantity: 1,
-        subtotal: product.price,
+        price: adjustedPrice,
+        quantity: quantityToAdd,
+        subtotal: adjustedPrice * quantityToAdd,
         isTaxable: product.isTaxable !== false,
         image: product.image,
         category: product.category,  // Store category
