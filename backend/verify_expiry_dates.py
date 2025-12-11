@@ -90,3 +90,4 @@ print(f"Expected stock (valid batches): {total_valid}")
 print(f"Difference: {total_valid - (product.get('total_stock', 0) if product else 0)}")
 
 
+
