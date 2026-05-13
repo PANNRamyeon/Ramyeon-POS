@@ -7,9 +7,6 @@
         </div>
       </div>
 
-      <!-- Sync Status Indicator -->
-      <SyncStatusIndicator />
-
       <!-- Navigation Menu -->
       <nav class="nav-menu">
         <!-- New Order -->
@@ -95,73 +92,34 @@
   </template>
 
   <script>
-  import onlineOrdersAPI from '@/services/apiOnlineOrder.js'
-  import { api } from '@/services/api.js'
-  import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
+  // Online orders import removed — TODO: re-enable when DynamoDB endpoint is stable
 
   export default {
     name: 'Sidebar',
-    components: {
-      SyncStatusIndicator
-    },
+
     data() {
       return {
         currentPage: 'dashboard',
         pendingCount: 0,
-        _pendingPoller: null,
-        _originalTitle: document.title,
-        _originalFaviconHref: null,
-        pendingOrderCount: 0,
-        refreshInterval: null
       }
     },
-    
-    async mounted() {
-      // 1) Prefer the actual current route on first load / refresh
-      this.syncCurrentPageWithRoute(this.$route)
 
-      // 2) If the route is a generic container path ("/" or unknown),
-      //    fall back to the last menu the user explicitly selected.
-      const savedMenu = localStorage.getItem('activeMenu')
-      const validPages = [
-        'dashboard',
-        'new-order',
-        'online-order',
-        'history',
-        'settings',
-        'shift'
-      ]
-      if (
-        savedMenu &&
-        validPages.includes(savedMenu) &&
-        !validPages.includes(this.currentPage)
-      ) {
-        this.currentPage = savedMenu
-      }
-
-      // Initial fetch
-      await this.fetchPendingOrderCount()
-      
-      // ✅ Auto-refresh every 30 seconds
-      this.refreshInterval = setInterval(() => {
-        this.fetchPendingOrderCount()
-      }, 30000) // 30 seconds
-    },
-    
-    beforeUnmount() {
-      // ✅ Clean up interval when component is destroyed
-      if (this.refreshInterval) {
-        clearInterval(this.refreshInterval)
-      }
-    },
-    
     watch: {
-      // Keep sidebar active state in sync when route changes programmatically
       $route(to) {
         this.syncCurrentPageWithRoute(to)
       }
     },
-    
+
+    mounted() {
+      this.syncCurrentPageWithRoute(this.$route)
+
+      const savedMenu = localStorage.getItem('activeMenu')
+      const validPages = ['dashboard', 'new-order', 'online-order', 'history', 'settings', 'shift']
+      if (savedMenu && validPages.includes(savedMenu) && !validPages.includes(this.currentPage)) {
+        this.currentPage = savedMenu
+      }
+    },
+
     methods: {
       syncCurrentPageWithRoute(route) {
         if (!route || !route.path) {
@@ -169,191 +127,22 @@
           localStorage.setItem('activeMenu', this.currentPage)
           return
         }
-        
-        // Extract the first segment after '/'
         const path = route.path.startsWith('/') ? route.path.slice(1) : route.path
         const [segment] = path.split('/')
-        
-        // Only update for known sidebar routes
-        const validPages = [
-          'dashboard',
-          'new-order',
-          'online-order',
-          'history',
-          'settings',
-          'shift'
-        ]
-        
+        const validPages = ['dashboard', 'new-order', 'online-order', 'history', 'settings', 'shift']
         this.currentPage = validPages.includes(segment) ? segment : 'dashboard'
         localStorage.setItem('activeMenu', this.currentPage)
       },
-      
-      async fetchPendingOrderCount() {
-        try {
-          // Fetch orders with pending/confirmed/processing status
-          const response = await api.get('/online/orders/', {
-            params: {
-              limit: 1000 // Get all orders (or use pagination)
-            }
-          })
-          
-          // Extract orders from response
-          let orders = []
-          if (response.data.success && response.data.data?.orders) {
-            orders = response.data.data.orders
-          } else if (response.data.orders) {
-            orders = response.data.orders
-          } else if (Array.isArray(response.data)) {
-            orders = response.data
-          }
-          
-          // Count orders that are not completed or cancelled
-          const pendingStatuses = ['pending', 'confirmed', 'processing', 'on_the_way']
-          const pendingOrders = orders.filter(order => 
-            pendingStatuses.includes(order.order_status?.toLowerCase())
-          )
-          
-          this.pendingOrderCount = pendingOrders.length
-          
-        } catch (error) {
-          // Don't show error to user, just silently fail
-          this.pendingOrderCount = 0
-        }
-      },
-      
+
       handleNavigation(page) {
         this.currentPage = page
         localStorage.setItem('activeMenu', page)
-        
-        // Refresh count when navigating to online-order page
-        if (page === 'online-order') {
-          this.fetchPendingOrderCount()
-        }
-        
         this.$emit('menu-changed', page)
       },
 
       handleLogout() {
         this.$emit('logout')
       },
-
-      async fetchPendingCount() {
-        try {
-          const data = await onlineOrdersAPI.getAllOrders({ status: 'pending' })
-          let count = 0
-          let branch = 'none'
-          if (Array.isArray(data)) {
-            count = data.length
-            branch = 'array'
-          } else if (Array.isArray(data?.results)) {
-            count = data.results.length
-            branch = 'results[]'
-          } else if (typeof data?.count === 'number') {
-            count = data.count
-            branch = 'count'
-          } else if (Array.isArray(data?.orders)) {
-            count = data.orders.length
-            branch = 'orders[]'
-          }
-          this.pendingCount = count
-          this.updateAppBadge(count)
-        } catch (e) {
-          // Failed to fetch pending orders count
-        }
-      },
-
-      updateAppBadge(count) {
-        const capped = count > 99 ? 99 : count
-        // 1) Try App Badging API (PWA-capable browsers)
-        if (navigator && 'setAppBadge' in navigator) {
-          if (capped > 0) {
-            navigator.setAppBadge(capped).catch(() => {})
-          } else {
-            navigator.clearAppBadge && navigator.clearAppBadge().catch(() => {})
-          }
-        }
-        // 2) Update document title as fallback
-        if (capped > 0) {
-          document.title = `(${capped}) ${this._originalTitle}`
-        } else {
-          document.title = this._originalTitle
-        }
-        // 3) Favicon badge fallback
-        this.updateFaviconBadge(capped)
-      },
-
-      updateFaviconBadge(count) {
-        // find current favicon
-        const linkEl = document.querySelector('link[rel="icon"]') || document.createElement('link')
-        if (!this._originalFaviconHref) {
-          this._originalFaviconHref = linkEl.href || '/favicon.ico'
-        }
-        if (count <= 0) {
-          if (linkEl) {
-            linkEl.rel = 'icon'
-            linkEl.href = this._originalFaviconHref
-            document.head.appendChild(linkEl)
-          }
-          return
-        }
-        const img = document.createElement('img')
-        img.crossOrigin = 'anonymous'
-        img.onload = () => {
-          const size = 64
-          const canvas = document.createElement('canvas')
-          canvas.width = size
-          canvas.height = size
-          const ctx = canvas.getContext('2d')
-          ctx.clearRect(0, 0, size, size)
-          // draw base icon
-          ctx.drawImage(img, 0, 0, size, size)
-          // draw badge
-          const badgeSize = 28
-          const x = size - badgeSize
-          const y = 0
-          ctx.fillStyle = '#e11d48' // rose-600 like
-          ctx.beginPath()
-          ctx.arc(x + badgeSize/2, y + badgeSize/2, badgeSize/2, 0, Math.PI * 2)
-          ctx.fill()
-          // text
-          ctx.fillStyle = '#fff'
-          ctx.font = 'bold 18px sans-serif'
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'middle'
-          const label = count > 99 ? '99+' : String(count)
-          ctx.fillText(label, x + badgeSize/2, y + badgeSize/2 + 1)
-          // apply
-          const url = canvas.toDataURL('image/png')
-          linkEl.rel = 'icon'
-          linkEl.href = url
-          document.head.appendChild(linkEl)
-        }
-        img.src = this._originalFaviconHref || '/favicon.ico'
-      }
-    },
-    mounted() {
-      this.fetchPendingCount()
-      this._pendingPoller = setInterval(this.fetchPendingCount, 15000)
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') this.fetchPendingCount()
-      })
-    },
-    beforeUnmount() {
-      if (this._pendingPoller) clearInterval(this._pendingPoller)
-      // reset badge/title/favicon
-      if (navigator && 'clearAppBadge' in navigator) {
-        navigator.clearAppBadge().catch(() => {})
-      }
-      document.title = this._originalTitle
-      const linkEl = document.querySelector('link[rel="icon"]')
-      if (linkEl && this._originalFaviconHref) {
-        linkEl.href = this._originalFaviconHref
-      }
-      
-      // ✅ Method to manually refresh (can be called from parent)
-      refreshNotifications() 
-        this.fetchPendingOrderCount()
-      
     }
   }
   </script>

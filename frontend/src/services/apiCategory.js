@@ -17,20 +17,20 @@ class CategoryAPIService {
 
   async getActiveCategories() {
     try {
-      const response = await api.get('/category/display/');
+      const response = await api.get('/admin/categories/?active_only=true');
       const data = this.handleResponse(response);
-      
+
       return this.transformCategories(data.categories);
     } catch (error) {
       this.handleError(error);
     }
   }
-  
+
   async getCategories() {
     try {
-      const response = await api.get('/category/');
+      const response = await api.get('/admin/categories/');
       const data = this.handleResponse(response);
-      
+
       return this.transformCategories(data.categories);
     } catch (error) {
       this.handleError(error);
@@ -44,22 +44,24 @@ class CategoryAPIService {
 
     return categories
       .filter(category => category.status === 'active' && !category.isDeleted)
-      .map(category => ({
-        id: category._id,
-        name: category.category_name,
-        description: category.description,
-        icon: this.mapCategoryIcon(category.category_name),
-        image: category.image_url || null,
-        isCustom: false,
-        hasSubcategories: this.hasValidSubcategories(category.sub_categories),
-        subcategories: this.transformSubcategories(category.sub_categories || []),
-        // Sales data (if available)
-        totalSales: category.total_sales || 0,
-        totalQuantity: category.total_quantity || 0,
-        subcategoryCount: category.subcategory_count || 0,
-        // Raw data for reference
-        rawData: category
-      }));
+      .map(category => {
+        // Back office returns category_id; old backend returned _id
+        const id = category.category_id || category._id
+        return {
+          id,
+          name: category.category_name,
+          description: category.description,
+          icon: this.mapCategoryIcon(category.category_name),
+          image: category.image_url || null,
+          isCustom: false,
+          hasSubcategories: this.hasValidSubcategories(category.sub_categories),
+          subcategories: this.transformSubcategories(category.sub_categories || []),
+          totalSales: category.total_sales || 0,
+          totalQuantity: category.total_quantity || 0,
+          subcategoryCount: category.subcategory_count || 0,
+          rawData: category
+        }
+      });
   }
 
   // Transform subcategories
@@ -69,13 +71,13 @@ class CategoryAPIService {
     }
 
     return subcategories
-      .filter(sub => sub.name !== "None" && sub.products?.length > 0)
+      // Back office doesn't embed products in subcategories — filter only by name
+      .filter(sub => sub.name && sub.name !== 'None' && sub.status !== 'deleted')
       .map(sub => ({
-        id: this.generateSubcategoryId(sub.name),
+        id: sub.subcategory_id || this.generateSubcategoryId(sub.name),
         name: sub.name,
         products: sub.products || [],
-        productCount: sub.products?.length || 0,
-        // Sales data (if available)
+        productCount: sub.product_count || sub.products?.length || 0,
         quantitySold: sub.quantity_sold || 0,
         totalSales: sub.total_sales || 0
       }));
@@ -84,10 +86,7 @@ class CategoryAPIService {
   // Check if category has valid subcategories
   hasValidSubcategories(subcategories) {
     if (!Array.isArray(subcategories)) return false;
-    
-    return subcategories.some(sub => 
-      sub.name !== "None" && sub.products?.length > 0
-    );
+    return subcategories.some(sub => sub.name && sub.name !== 'None' && sub.status !== 'deleted');
   }
 
   // Generate consistent subcategory ID

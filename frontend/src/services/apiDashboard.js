@@ -1,81 +1,25 @@
 import { api } from './api.js';
 
 class DashboardAPIService {
-  // Helper method to handle responses
   handleResponse(response) {
     return response.data;
   }
 
-  // Helper method to handle errors
   handleError(error) {
-    const message = error.response?.data?.error || 
-                   error.response?.data?.message || 
-                   error.message || 
+    const message = error.response?.data?.error ||
+                   error.response?.data?.message ||
+                   error.message ||
                    'An unexpected error occurred';
     throw new Error(message);
   }
 
   // ================================================================
-  // 1. DAILY TOP PRODUCTS
-  // ================================================================
-
-  async getDailyTopProducts(date = null, limit = 10) {
-    try {
-      const params = { limit };
-      if (date) {
-        params.date = date;
-      }
-
-      const response = await api.get('/pos/daily-top-products/', { params });
-      return this.handleResponse(response);
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
-
-  // ================================================================
-  // 2. TOTAL ORDERS AND REVENUE
-  // ================================================================
-
-  async getTotalOrdersRevenue(startDate = null, endDate = null) {
-    try {
-      const params = {};
-      if (startDate) {
-        params.start_date = startDate;
-      }
-      if (endDate) {
-        params.end_date = endDate;
-      }
-
-      const response = await api.get('/pos/total-orders-revenue/', { params });
-      return this.handleResponse(response);
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
-
-  // ================================================================
-  // 3. CATEGORY STATISTICS
-  // ================================================================
-
-  async getCategoryStatistics(period = 'week') {
-    try {
-      const response = await api.get('/pos/category-statistics/', {
-        params: { period }
-      });
-      return this.handleResponse(response);
-    } catch (error) {
-      this.handleError(error);
-    }
-  }
-
-  // ================================================================
-  // 4. DASHBOARD DATA (Comprehensive)
+  // DASHBOARD (comprehensive)
   // ================================================================
 
   async getDashboardData() {
     try {
-      const response = await api.get('/pos/dashboard/');
+      const response = await api.get('/pos/reports/dashboard/');
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -83,15 +27,69 @@ class DashboardAPIService {
   }
 
   // ================================================================
-  // 5. CUSTOM RANGE ANALYTICS
+  // SALES SUMMARY (replaces daily-top-products, total-orders-revenue)
+  // ================================================================
+
+  async getSalesSummary(period = 'today') {
+    try {
+      const response = await api.get('/pos/reports/summary/', { params: { period } });
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  async getDailyTopProducts(date = null, limit = 10) {
+    try {
+      // Map to sales summary — top products not a dedicated endpoint; use summary
+      const params = { period: 'today', limit };
+      if (date) params.date = date;
+      const response = await api.get('/pos/reports/summary/', { params });
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  async getTotalOrdersRevenue(startDate = null, endDate = null) {
+    try {
+      const params = { period: 'today' };
+      if (startDate && endDate) {
+        params.period = 'custom';
+        params.start_date = startDate;
+        params.end_date = endDate;
+      }
+      const response = await api.get('/pos/reports/summary/', { params });
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  // ================================================================
+  // CATEGORY STATISTICS
+  // ================================================================
+
+  async getCategoryStatistics(period = 'week') {
+    try {
+      const response = await api.get('/admin/reports/top-categories/');
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
+
+  // ================================================================
+  // CUSTOM RANGE / PERIOD
   // ================================================================
 
   async getCustomRangeAnalytics(startDate, endDate) {
     try {
-      const response = await api.get('/pos/custom-range/', {
+      const response = await api.get('/pos/reports/by-period/', {
         params: {
           start_date: startDate,
-          end_date: endDate
+          end_date: endDate,
+          period: 'daily'
         }
       });
       return this.handleResponse(response);
@@ -101,28 +99,37 @@ class DashboardAPIService {
   }
 
   // ================================================================
-  // 6. REAL-TIME SALES DATA
+  // REAL-TIME / COMPARISON
   // ================================================================
 
   async getRealTimeSalesData() {
     try {
-      const response = await api.get('/pos/real-time-sales/');
+      const response = await api.get('/pos/reports/summary/', { params: { period: 'today' } });
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
     }
   }
 
-  // ================================================================
-  // 7. PRODUCT PERFORMANCE
-  // ================================================================
+  async getSalesComparison(period = 'week') {
+    try {
+      const response = await api.get('/pos/reports/comparison/', { params: { period } });
+      return this.handleResponse(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
 
   async getProductPerformance(productId, days = 30) {
     try {
-      const response = await api.get('/pos/product-performance/', {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - days);
+      const response = await api.get('/pos/reports/by-period/', {
         params: {
-          product_id: productId,
-          days: days
+          start_date: start.toISOString(),
+          end_date: end.toISOString(),
+          period: 'daily'
         }
       });
       return this.handleResponse(response);
@@ -132,21 +139,20 @@ class DashboardAPIService {
   }
 
   // ================================================================
-  // 8. BATCH OPERATIONS (Multiple endpoints in one call)
+  // BATCH SNAPSHOT
   // ================================================================
 
   async getCompleteDashboardSnapshot() {
     try {
-      // Get multiple data points in parallel for better performance
-      const [dashboardData, realTimeData, categoryStats] = await Promise.all([
+      const [dashboardData, salesSummary, categoryStats] = await Promise.all([
         this.getDashboardData(),
-        this.getRealTimeSalesData(),
+        this.getSalesSummary('today'),
         this.getCategoryStatistics('week')
       ]);
 
       return {
         dashboard: dashboardData,
-        realTime: realTimeData,
+        realTime: salesSummary,
         categories: categoryStats,
         timestamp: new Date().toISOString()
       };
@@ -156,20 +162,17 @@ class DashboardAPIService {
   }
 
   // ================================================================
-  // 9. UTILITY METHODS
+  // UTILITY
   // ================================================================
 
-  // Format date for API (YYYY-MM-DD)
   formatDate(date) {
     return date.toISOString().split('T')[0];
   }
 
-  // Format datetime for API (ISO string)
   formatDateTime(date) {
     return date.toISOString();
   }
 
-  // Get date range for common periods
   getDateRange(period) {
     const now = new Date();
     const start = new Date();
@@ -177,41 +180,24 @@ class DashboardAPIService {
     switch (period) {
       case 'today':
         start.setHours(0, 0, 0, 0);
-        return {
-          start: this.formatDateTime(start),
-          end: this.formatDateTime(now)
-        };
+        return { start: this.formatDateTime(start), end: this.formatDateTime(now) };
       case 'yesterday':
         start.setDate(now.getDate() - 1);
         start.setHours(0, 0, 0, 0);
         const yesterdayEnd = new Date(start);
         yesterdayEnd.setHours(23, 59, 59, 999);
-        return {
-          start: this.formatDateTime(start),
-          end: this.formatDateTime(yesterdayEnd)
-        };
+        return { start: this.formatDateTime(start), end: this.formatDateTime(yesterdayEnd) };
       case 'week':
         start.setDate(now.getDate() - 7);
-        return {
-          start: this.formatDateTime(start),
-          end: this.formatDateTime(now)
-        };
+        return { start: this.formatDateTime(start), end: this.formatDateTime(now) };
       case 'month':
         start.setMonth(now.getMonth() - 1);
-        return {
-          start: this.formatDateTime(start),
-          end: this.formatDateTime(now)
-        };
+        return { start: this.formatDateTime(start), end: this.formatDateTime(now) };
       default:
-        return {
-          start: this.formatDateTime(start),
-          end: this.formatDateTime(now)
-        };
+        return { start: this.formatDateTime(start), end: this.formatDateTime(now) };
     }
   }
 }
 
-// Create and export singleton instance
 const dashboardAPIService = new DashboardAPIService();
-
 export default dashboardAPIService;

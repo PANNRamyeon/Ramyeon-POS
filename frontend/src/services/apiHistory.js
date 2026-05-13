@@ -223,18 +223,18 @@ class HistoryAPIService {
    */
   async fetchOnlineOrders(params = {}) {
     const queryParams = new URLSearchParams({
-      limit: 1000, // Fetch large amount for client-side pagination
+      limit: 1000,
       ...(params.dateFrom && { start_date: params.dateFrom }),
       ...(params.dateTo && { end_date: params.dateTo }),
       ...(params.status && { status: params.status })
-      // payment_method filter is not supported in backend online list; filter client-side
     });
 
-    const response = await api.get(`/online/orders/?${queryParams}`);
+    const response = await api.get(`/pos/orders/online/?${queryParams}`);
     const data = this.handleResponse(response);
 
-    const ordersData = data.data?.orders || [];
-    return Array.isArray(ordersData) 
+    // Back office returns orders directly or wrapped in data/orders
+    const ordersData = data.data?.orders || data.orders || data.data || (Array.isArray(data) ? data : []);
+    return Array.isArray(ordersData)
       ? ordersData.map(o => this.transformOnlineOrder(o))
       : [];
   }
@@ -251,9 +251,9 @@ class HistoryAPIService {
         return this.transformPOSTransaction(data.data);
       } catch (posError) {
         // If POS fails, try Online
-        const response = await api.get(`/online/orders/${saleId}/`);
+        const response = await api.get(`/pos/orders/online/${saleId}/`);
         const data = this.handleResponse(response);
-        return this.transformOnlineOrder(data.data.order);
+        return this.transformOnlineOrder(data.data?.order || data.data || data);
       }
     } catch (error) {
       this.handleError(error);
@@ -261,16 +261,14 @@ class HistoryAPIService {
   }
 
   /**
-   * Get daily sales summary (POS only for now)
+   * Get daily sales summary
    */
   async getDailySummary(date, cashierId = null) {
     try {
-      const params = new URLSearchParams({
-        date: date,
-        ...(cashierId && { cashier_id: cashierId })
-      });
+      const params = new URLSearchParams({ period: 'today' });
+      if (cashierId) params.append('cashier_id', cashierId);
 
-      const response = await api.get(`/pos/sales/daily-summary/?${params}`);
+      const response = await api.get(`/pos/reports/summary/?${params}`);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -367,7 +365,7 @@ class HistoryAPIService {
    */
   async cancelOnlineOrder(orderId, cancellationReason, cancelledBy) {
     try {
-      const response = await api.post(`/online/orders/${orderId}/cancel/`, {
+      const response = await api.post(`/pos/orders/${orderId}/cancel/`, {
         cancellation_reason: cancellationReason,
         cancelled_by: cancelledBy
       });

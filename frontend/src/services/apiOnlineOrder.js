@@ -4,32 +4,27 @@ export default {
   // ================================================================
   // ORDER RETRIEVAL
   // ================================================================
-  
-  /**
-   * Get all orders with optional filters
-   */
+
   async getAllOrders(filters = {}) {
     try {
       const params = new URLSearchParams()
-      
+
       if (filters.status) params.append('status', filters.status)
       if (filters.payment_status) params.append('payment_status', filters.payment_status)
       if (filters.customer_id) params.append('customer_id', filters.customer_id)
-      
-      const response = await api.get(`/online/orders/?${params.toString()}`)
+
+      // 10s timeout — backend returns empty list within 8s if DynamoDB is slow
+      const response = await api.get(`/pos/orders/online/?${params.toString()}`, { timeout: 10000 })
       return response.data
     } catch (error) {
       console.error('Error fetching orders:', error)
-      throw error
+      return []
     }
   },
 
-  /**
-   * Get single order by ID
-   */
   async getOrder(orderId) {
     try {
-      const response = await api.get(`/online/orders/${orderId}/`)
+      const response = await api.get(`/pos/orders/online/${orderId}/`)
       return response.data
     } catch (error) {
       console.error('Error fetching order:', error)
@@ -41,15 +36,12 @@ export default {
   // ORDER ACTIONS (Staff)
   // ================================================================
 
-  /**
-   * Update order status
-   */
   async updateOrderStatus(orderId, newStatus, updatedBy, notes = '') {
     try {
-      const response = await api.patch(
-        `/online/orders/${orderId}/status/`,
+      const response = await api.post(
+        `/pos/orders/${orderId}/status/`,
         {
-          new_status: newStatus,
+          status: newStatus,
           updated_by: updatedBy,
           notes: notes
         }
@@ -61,13 +53,10 @@ export default {
     }
   },
 
-  /**
-   * Confirm payment (for PayMongo orders)
-   */
   async confirmPayment(orderId, paymentReference, confirmedBy) {
     try {
-      const response = await api.patch(
-        `/online/orders/${orderId}/payment/`,
+      const response = await api.post(
+        `/pos/orders/${orderId}/payment/`,
         {
           payment_status: 'paid',
           payment_reference: paymentReference,
@@ -81,13 +70,10 @@ export default {
     }
   },
 
-  /**
-   * Mark order as ready for delivery
-   */
   async markReadyForDelivery(orderId, preparedBy, deliveryNotes = '') {
     try {
       const response = await api.post(
-        `/online/orders/${orderId}/ready-for-delivery/`,
+        `/pos/orders/${orderId}/ready/`,
         {
           prepared_by: preparedBy,
           delivery_notes: deliveryNotes
@@ -100,13 +86,10 @@ export default {
     }
   },
 
-  /**
-   * Complete order (mark as delivered)
-   */
   async completeOrder(orderId, completedBy, deliveryPerson = null) {
     try {
       const response = await api.post(
-        `/online/orders/${orderId}/complete/`,
+        `/pos/orders/${orderId}/complete/`,
         {
           completed_by: completedBy,
           delivery_person: deliveryPerson
@@ -119,13 +102,10 @@ export default {
     }
   },
 
-  /**
-   * Cancel order
-   */
   async cancelOrder(orderId, cancellationReason, cancelledBy) {
     try {
       const response = await api.post(
-        `/online/orders/${orderId}/cancel/`,
+        `/pos/orders/${orderId}/cancel/`,
         {
           cancellation_reason: cancellationReason,
           cancelled_by: cancelledBy
@@ -137,4 +117,4 @@ export default {
       throw error
     }
   }
-}   
+}

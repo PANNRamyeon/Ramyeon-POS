@@ -21,14 +21,6 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Add timestamp to prevent caching issues
-    if (config.method === 'get') {
-      config.params = {
-        ...config.params,
-        _t: Date.now()
-      };
-    }
-    
     return config;
   },
   (error) => {
@@ -53,7 +45,7 @@ api.interceptors.response.use(
         // Attempt to refresh token
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
-          const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh/`, {
+          const response = await axios.post(`${import.meta.env.VITE_API_URL}/pos/auth/refresh/`, {
             refresh_token: refreshToken
           });
           
@@ -79,22 +71,6 @@ api.interceptors.response.use(
     // Handle network errors
     if (!error.response) {
       console.error('Network error:', error.message);
-      
-      // Check if it's an offline scenario
-      if (!navigator.onLine || error.code === 'ECONNABORTED') {
-        // Import and use offline manager
-        import('./offlineManager.js').then(({ default: offlineManager }) => {
-          offlineManager.queueRequest(originalRequest)
-        }).catch(err => {
-          console.error('Failed to queue offline request:', err)
-        })
-        
-        return Promise.reject({
-          message: 'No internet connection. Request will be synced when online.',
-          offline: true,
-          originalRequest: originalRequest
-        });
-      }
     }
     
     // Handle other error status codes
@@ -146,7 +122,7 @@ class ApiService {
         opening_cash: parseFloat(opening_cash) || 0  // ✅ Ensure it's a number
       };
       
-      const response = await api.post('/auth/login/', payload);
+      const response = await api.post('/pos/auth/login/', payload);
       
       return this.handleResponse(response);
     } catch (error) {
@@ -161,7 +137,7 @@ class ApiService {
         await this.closeShift(activeShiftId, closingCash);
       }
 
-      const response = await api.post('/auth/logout/', {
+      const response = await api.post('/pos/auth/logout/', {
         closing_cash: closingCash
       });
 
@@ -183,7 +159,7 @@ class ApiService {
 
   async logoutSession() {
     try {
-      const response = await api.post('/auth/logout/', {
+      const response = await api.post('/pos/auth/logout/', {
         closing_cash: 0
       });
 
@@ -205,7 +181,7 @@ class ApiService {
 
   async refreshToken(refreshToken) {
     try {
-      const response = await api.post('/auth/refresh/', { refresh_token: refreshToken });
+      const response = await api.post('/pos/auth/refresh/', { refresh_token: refreshToken });
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -214,7 +190,7 @@ class ApiService {
 
   async getCurrentUser() {
     try {
-      const response = await api.get('/auth/me/');
+      const response = await api.get('/pos/auth/me/');
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -223,7 +199,7 @@ class ApiService {
 
   async verifyToken(token) {
     try {
-      const response = await api.post('/auth/verify-token/', { token });
+      const response = await api.post('/pos/auth/verify/', { token });
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -233,7 +209,7 @@ class ApiService {
   // USER METHODS
   async getUsers() {
     try {
-      const response = await api.get('/users/');
+      const response = await api.get('/admin/users/');
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -242,7 +218,7 @@ class ApiService {
 
   async getUser(userId) {
     try {
-      const response = await api.get(`/users/${userId}/`);
+      const response = await api.get(`/admin/users/${userId}/`);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -251,7 +227,7 @@ class ApiService {
 
   async createUser(userData) {
     try {
-      const response = await api.post('/users/', userData);
+      const response = await api.post('/admin/users/', userData);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -260,7 +236,7 @@ class ApiService {
 
   async updateUser(userId, userData) {
     try {
-      const response = await api.put(`/users/${userId}/`, userData);
+      const response = await api.put(`/admin/users/${userId}/`, userData);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -269,7 +245,7 @@ class ApiService {
 
   async deleteUser(userId) {
     try {
-      const response = await api.delete(`/users/${userId}/`);
+      const response = await api.delete(`/admin/users/${userId}/`);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -278,7 +254,7 @@ class ApiService {
 
   async getUserByEmail(email) {
     try {
-      const response = await api.get(`/users/email/${email}/`);
+      const response = await api.get(`/admin/users/search/by-email/${email}/`);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -287,7 +263,7 @@ class ApiService {
 
   async getUserByUsername(username) {
     try {
-      const response = await api.get(`/users/username/${username}/`);
+      const response = await api.get(`/admin/users/search/by-username/${username}/`);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -297,19 +273,16 @@ class ApiService {
   // CUSTOMER METHODS
   async getCustomers() {
     try {
-      console.log('Making API call to get customers...');
-      const response = await api.get('/customers/');
-      console.log('Customers API response:', response);
+      const response = await api.get('/admin/customers/');
       return this.handleResponse(response);
     } catch (error) {
-      console.error('Error in getCustomers:', error);
       this.handleError(error);
     }
   }
 
   async getCustomer(customerId) {
     try {
-      const response = await api.get(`/customers/${customerId}/`);
+      const response = await api.get(`/admin/customers/${customerId}/`);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -318,7 +291,7 @@ class ApiService {
 
   async createCustomer(customerData) {
     try {
-      const response = await api.post('/customers/', customerData);
+      const response = await api.post('/admin/customers/register/', customerData);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -327,7 +300,7 @@ class ApiService {
 
   async updateCustomer(customerId, customerData) {
     try {
-      const response = await api.put(`/customers/${customerId}/`, customerData);
+      const response = await api.put(`/admin/customers/${customerId}/`, customerData);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -336,7 +309,7 @@ class ApiService {
 
   async deleteCustomer(customerId) {
     try {
-      const response = await api.delete(`/customers/${customerId}/`);
+      const response = await api.delete(`/admin/customers/${customerId}/`);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -346,7 +319,7 @@ class ApiService {
   // SESSION METHODS
   async getActiveSessions() {
     try {
-      const response = await api.get('/sessions/active/');
+      const response = await api.get('/admin/sessions/active/');
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -355,7 +328,7 @@ class ApiService {
 
   async getUserSessions(userId) {
     try {
-      const response = await api.get(`/sessions/user/${userId}/`);
+      const response = await api.get(`/admin/sessions/user/${userId}/`);
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -364,7 +337,7 @@ class ApiService {
 
   async getSessionStatistics() {
     try {
-      const response = await api.get('/sessions/statistics/');
+      const response = await api.get('/admin/sessions/statistics/');
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -373,7 +346,7 @@ class ApiService {
 
   async getSessionLogs() {
     try {
-      const response = await api.get('/session-logs/');
+      const response = await api.get('/admin/sessions/combined-logs/');
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);
@@ -392,7 +365,7 @@ class ApiService {
 
   async healthCheck() {
     try {
-      const response = await api.get('/health/');
+      const response = await api.get('/pos/health/');
       return this.handleResponse(response);
     } catch (error) {
       this.handleError(error);

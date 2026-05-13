@@ -153,12 +153,12 @@ class SalesAPIService {
    */
   async getDailySummary(date, cashierId = null) {
     try {
-      const params = new URLSearchParams({ date });
+      const params = new URLSearchParams({ period: 'today' });
       if (cashierId) params.append('cashier_id', cashierId);
-      
-      const response = await api.get(`/pos/sales/daily-summary/?${params.toString()}`);
+
+      const response = await api.get(`/pos/reports/summary/?${params.toString()}`);
       return this.extractData(response, 'Get daily summary');
-      
+
     } catch (error) {
       throw new Error(error.response?.data?.message || error.message);
     }

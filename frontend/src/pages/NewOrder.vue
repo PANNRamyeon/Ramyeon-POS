@@ -6,14 +6,15 @@
         <!-- Header Section -->
         <div class="no-header header-theme">
           <div class="category-search surface-primary border-bottom-theme transition-theme">
-            <input 
-              type="text" 
-              v-model="categorySearch" 
-              placeholder="Search products..." 
+            <input
+              type="text"
+              v-model="categorySearch"
+              placeholder="Search products or scan barcode..."
               class="search-input input-complete focus-ring-theme"
+              @keyup.enter="handleSearchEnter"
             />
-            <button 
-              class="refresh-stock-btn btn-complete focus-ring-theme" 
+            <button
+              class="refresh-stock-btn btn-complete focus-ring-theme"
               @click="manualStockRefresh"
               :disabled="isRefreshingStock"
               title="Refresh stock levels"
@@ -22,7 +23,44 @@
               <span v-if="!isRefreshingStock">Refresh</span>
               <span v-else>Refreshing...</span>
             </button>
-            
+
+            <template v-if="isCustomCategory">
+              <button
+                class="edit-order-btn btn-complete focus-ring-theme"
+                @click="openProductSelectorModal"
+                title="Add products to this page"
+              >
+                <Plus :size="18" />
+                <span>Add Products</span>
+              </button>
+              <button
+                v-if="!editMode"
+                class="edit-order-btn btn-complete focus-ring-theme"
+                @click="toggleEditMode"
+                title="Reorder products"
+              >
+                <GripVertical :size="18" />
+                <span>Edit Page</span>
+              </button>
+              <template v-else>
+                <button
+                  class="delete-page-btn focus-ring-theme"
+                  @click="deleteCategory(activeCategory)"
+                  title="Delete this page"
+                >
+                  <Trash2 :size="18" />
+                  <span>Delete Page</span>
+                </button>
+                <button
+                  class="done-btn focus-ring-theme"
+                  @click="toggleEditMode"
+                  title="Exit edit mode"
+                >
+                  <span>Done</span>
+                </button>
+              </template>
+            </template>
+
           </div>
           
           <!-- Categories -->
@@ -37,13 +75,6 @@
                   <component :is="category.icon" />
                 </div>
                 <span class="cat-label">{{ category.name }}</span>
-                <button 
-                  v-if="category.isCustom"
-                  class="delete-category-btn btn-complete"
-                  @click.stop="deleteCategory(category.id)"
-                  title="Delete Page">
-                  <X :size="12" />
-                </button>
               </div>
               
               <!-- Add Page Button -->
@@ -69,30 +100,6 @@
           </button>
         </div>
 
-        <!-- Manual Barcode Input (Always Available) -->
-        <div class="manual-barcode-input-section surface-secondary border-bottom-theme transition-theme">
-          <div class="barcode-input-container">
-            <label class="barcode-label">Manual Barcode Entry:</label>
-            <div class="barcode-input-group">
-              <input 
-                type="text" 
-                v-model="manualBarcodeInput"
-                placeholder="Enter barcode manually or scan with barcode scanner..."
-                class="barcode-input input-complete focus-ring-theme"
-                @keyup.enter="processManualBarcode"
-                ref="barcodeInput"
-              />
-              <button 
-                class="process-barcode-btn btn-primary btn-complete"
-                @click="processManualBarcode"
-                :disabled="!manualBarcodeInput.trim() || barcodeScanner.isProcessing"
-              >
-                Add Product
-              </button>
-            </div>
-          </div>
-        </div>
-        
 
         <!-- Loading State -->
         <div v-if="loading || productsLoading" class="loading-state text-secondary">
@@ -106,35 +113,44 @@
           <button class="btn-primary btn-complete" @click="retryLoad">Retry</button>
         </div>
 
-        <!-- Products Grid with Infinite Scroll -->
-        <div v-else class="products-grid" @scroll="handleProductsScroll">
-          <div 
-            v-for="product in paginatedProducts" 
+        <!-- Products Grid -->
+        <div v-else :class="['products-grid', { 'custom-page': isCustomCategory && !categorySearch.trim(), 'edit-mode': editMode }]">
+          <div
+            v-for="(product, index) in paginatedProducts"
             :key="product.id"
-            :class="['product-card card-complete hover-lift transition-theme', { 'sold-out': !product.isSubcategory && (product.total_stock === null || product.total_stock <= 0) }]"
-            @click="handleProductClick(product)">
-            <!-- Sold Out Overlay -->
-            <div v-if="!product.isSubcategory && (product.total_stock === null || product.total_stock <= 0)" class="sold-out-overlay">
-              <div class="sold-out-badge">SOLD OUT</div>
-              
-              <!-- Hover Tooltip for Sold Out Products -->
-              <div class="sold-out-tooltip">
-                <div class="tooltip-content">
-                  <div class="tooltip-header">
-                    <h4 class="tooltip-title">{{ product.name }}</h4>
-                    <div class="tooltip-price">₱{{ formatPrice(product.price) }}</div>
-                  </div>
-                  <div class="tooltip-details">
-                    <div class="tooltip-stock">
-                      <span class="stock-label">Stock:</span>
-                      <span class="stock-value">{{ product.total_stock || 0 }}</span>
-                    </div>
-                    <div class="tooltip-description">
-                      <small>This item is currently out of stock</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            :class="[
+              'product-card transition-theme',
+              product.isBlank ? 'blank-slot' : 'card-complete',
+              { 'hover-lift': !editMode && !product.isBlank },
+              { 'sold-out': !editMode && !product.isBlank && !product.isSubcategory && (product.total_stock === null || product.total_stock <= 0) },
+              { 'dragging': editMode && draggedIndex === index },
+              { 'drag-over': editMode && dragOverIndex === index && draggedIndex !== index }
+            ]"
+            :draggable="editMode && isCustomCategory"
+            @click="editMode ? null : handleProductClick(product)"
+            @dragstart="editMode && dragStart($event, index)"
+            @dragover="editMode && dragOver($event, index)"
+            @drop="editMode && drop($event, index)"
+            @dragend="dragEnd">
+
+            <!-- BLANK SLOT -->
+            <template v-if="product.isBlank">
+              <div class="blank-slot-inner" />
+            </template>
+
+            <!-- PRODUCT content -->
+            <template v-else>
+
+            <!-- Drag handle (edit mode only) -->
+            <div v-if="editMode && isCustomCategory" class="drag-handle">
+              <GripVertical :size="20" />
+            </div>
+
+            <!-- Sold Out ribbon -->
+            <div
+              v-if="!editMode && !product.isSubcategory && (product.total_stock === null || product.total_stock <= 0)"
+              class="sold-out-ribbon">
+              Sold Out
             </div>
             
             <div class="product-image">
@@ -149,7 +165,7 @@
             <div class="product-info">
               <h3 class="product-name">{{ product.name }}</h3>
               <p v-if="!product.isSubcategory" class="product-description">
-                Stock: {{ product.stock || 0 }}
+                Stock: {{ product.total_stock ?? 0 }}
               </p>
               <div v-if="!product.isSubcategory" class="product-price text-accent">
                 ₱{{ formatPrice(product.price) }}
@@ -158,31 +174,18 @@
                 <ChevronRight :size="16" /> View Items
               </div>
             </div>
-            <button 
-              v-if="!product.isSubcategory && isCustomCategory" 
-              class="delete-product-btn btn-complete" 
-              @click.stop="removeFromCategory(product.id)" 
+            <button
+              v-if="!editMode && !product.isSubcategory && isCustomCategory"
+              class="delete-product-btn btn-complete"
+              @click.stop="removeFromCategory(product.id)"
               title="Remove from page">
               <X :size="14" />
             </button>
+
+            </template>
           </div>
+
           
-          <!-- Add Products Option (Custom Categories Only) -->
-          <div 
-            v-if="viewMode === 'products' && isCustomCategory && customCategoryItems.length < 8"
-            class="product-card add-item-card card-complete hover-lift"
-            @click="openProductSelectorModal()">
-            <div class="add-item-content">
-              <ShoppingBag :size="32" />
-              <p>Add Products</p>
-              <small>{{ allAvailableProductsCount }} available</small>
-            </div>
-          </div>
-          
-          <!-- Loading More Indicator -->
-          <div v-if="hasMoreItems && paginatedProducts.length > 0" class="load-more-indicator text-secondary">
-            <p>Scroll for more...</p>
-          </div>
         </div>
       </div>
     </div>
@@ -246,81 +249,113 @@
             <X :size="20" />
           </button>
         </div>
-        <div class="modal-body">
-          <!-- Category Tabs -->
-          <div class="product-selector-tabs">
-            <button 
-              v-for="category in availableSourceCategories" 
-              :key="category.id"
-              :class="['tab-btn nav-link-theme hover-surface', { active: selectedSourceCategory === category.id }]"
-              @click="selectedSourceCategory = category.id">
-              {{ category.name }} ({{ productCountsByCategory[category.id] || 0 }})
-            </button>
-          </div>
-          
-          <!-- Search -->
-          <div class="product-search">
-            <input 
-              type="text" 
-              v-model="productSearchQuery" 
-              placeholder="Search products..."
-              class="search-input input-complete focus-ring-theme"
-            />
-          </div>
-          
-          <!-- Loading State -->
-          <div v-if="productsLoading" class="loading-state text-secondary">
-            <p>Loading products...</p>
-          </div>
-          
-          <!-- Product Selection Grid -->
-          <div v-else class="product-selection-grid">
-            <div 
-              v-for="product in availableProductsForSelection" 
-              :key="product.id"
-              :class="['selectable-product', { 
-                selected: selectedProducts.includes(product.id),
-                'already-added': isProductAlreadyInCategory(product.id)
-              }]"
-              @click="toggleProductSelection(product)">
-              <div class="product-image-small">
-                <img 
-                  :src="product.image" 
-                  :alt="product.name" 
-                  loading="lazy"
-                  @error="handleImageError($event, product)"
-                />
-              </div>
-              <div class="product-details">
-                <h4>{{ product.name }}</h4>
-                <p>₱{{ formatPrice(product.price) }}</p>
-                <small v-if="isProductAlreadyInCategory(product.id)" class="already-added-text">
-                  Already added
-                </small>
-              </div>
-              <div class="selection-indicator">
-                <div v-if="selectedProducts.includes(product.id)" class="checkmark">
-                  ✓
+        <div class="modal-body selector-modal-body">
+
+          <!-- Left: Browse -->
+          <div class="selector-left">
+            <!-- Category Tabs -->
+            <div class="product-selector-tabs">
+              <button
+                v-for="category in availableSourceCategories"
+                :key="category.id"
+                :class="['tab-btn nav-link-theme hover-surface', { active: selectedSourceCategory === category.id }]"
+                @click="selectedSourceCategory = category.id; productSearchQuery = ''">
+                {{ category.name }} ({{ productCountsByCategory[category.id] || 0 }})
+              </button>
+            </div>
+
+            <!-- Search -->
+            <div class="product-search">
+              <input
+                type="text"
+                v-model="productSearchQuery"
+                placeholder="Search all products..."
+                class="search-input input-complete focus-ring-theme"
+              />
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="productsLoading" class="loading-state text-secondary">
+              <p>Loading products...</p>
+            </div>
+
+            <!-- Product Selection Grid -->
+            <div v-else class="product-selection-grid">
+              <div
+                v-for="product in availableProductsForSelection"
+                :key="product.id"
+                :class="['selectable-product', {
+                  selected: selectedProducts.includes(product.id),
+                  'already-added': isProductAlreadyInCategory(product.id)
+                }]"
+                @click="toggleProductSelection(product)">
+                <div class="product-image-small">
+                  <img
+                    :src="product.image"
+                    :alt="product.name"
+                    loading="lazy"
+                    @error="handleImageError($event, product)"
+                  />
+                </div>
+                <div class="product-details">
+                  <h4>{{ product.name }}</h4>
+                  <p>₱{{ formatPrice(product.price) }}</p>
+                  <small v-if="isProductAlreadyInCategory(product.id)" class="already-added-text">Already added</small>
+                </div>
+                <div class="selection-indicator">
+                  <div v-if="selectedProducts.includes(product.id)" class="checkmark">✓</div>
                 </div>
               </div>
             </div>
           </div>
-          
-          <!-- Selection Summary -->
-          <div v-if="selectedProducts.length > 0" class="selection-summary">
-            <p>{{ selectedProducts.length }} product(s) selected</p>
+
+          <!-- Right: Preview -->
+          <div class="selector-right">
+            <div class="preview-panel">
+              <div class="preview-header">
+                <span class="preview-title">Selected</span>
+                <span class="preview-count">{{ selectedProducts.length }}</span>
+              </div>
+
+              <div v-if="selectedProducts.length === 0" class="preview-empty text-secondary">
+                <ShoppingBag :size="32" />
+                <p>No products selected</p>
+                <small>Click products on the left to add them</small>
+              </div>
+
+              <div v-else class="preview-list">
+                <div
+                  v-for="productId in selectedProducts"
+                  :key="productId"
+                  class="preview-item">
+                  <img
+                    :src="allProducts.find(p => p.id === productId)?.image"
+                    :alt="allProducts.find(p => p.id === productId)?.name"
+                    class="preview-item-img"
+                    @error="handleImageError($event, allProducts.find(p => p.id === productId))"
+                  />
+                  <div class="preview-item-info">
+                    <span class="preview-item-name">{{ allProducts.find(p => p.id === productId)?.name }}</span>
+                    <span class="preview-item-price">₱{{ formatPrice(allProducts.find(p => p.id === productId)?.price) }}</span>
+                  </div>
+                  <button
+                    class="preview-item-remove btn-complete"
+                    @click="toggleProductSelection(allProducts.find(p => p.id === productId))">
+                    <X :size="14" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+
         </div>
         <div class="modal-footer">
           <button class="btn-secondary btn-complete" @click="closeProductSelectorModal">Cancel</button>
           <button 
             class="btn-primary btn-complete" 
             @click="addSelectedProductsToCategory" 
-            :disabled="selectedProducts.length === 0 || wouldExceedLimit">
+            :disabled="selectedProducts.length === 0">
             Add {{ selectedProducts.length }} Products
-            <span v-if="wouldExceedLimit" class="error-text">
-              (Exceeds 8 item limit)
-            </span>
           </button>
         </div>
       </div>
@@ -397,6 +432,43 @@
       </div>
     </div>
 
+    <!-- Delete Page Confirmation Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showDeletePageModal"
+        class="modal-overlay"
+        @click.self="showDeletePageModal = false; pendingDeleteCategoryId = null"
+      >
+        <div class="shift-modal">
+          <div class="shift-modal-header">
+            <div class="shift-modal-icon" style="color: var(--error)">
+              <Trash2 :size="48" />
+            </div>
+            <h3 class="shift-modal-title">Delete Page?</h3>
+            <p class="shift-modal-message">
+              This will permanently delete the page and remove all product assignments from it.
+              Products themselves will not be affected.
+            </p>
+          </div>
+          <div class="shift-modal-footer">
+            <button
+              class="shift-modal-btn shift-modal-btn-cancel"
+              @click="showDeletePageModal = false; pendingDeleteCategoryId = null"
+            >
+              Cancel
+            </button>
+            <button
+              class="done-btn"
+              style="background: var(--error); border-color: var(--error);"
+              @click="confirmDeleteCategory"
+            >
+              Delete Page
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Shift Required Modal -->
     <Teleport to="body">
       <div 
@@ -444,9 +516,10 @@ import { useCartStore } from '@/stores/cartStores'
 import categoriesAPI from '@/services/apiCategory.js'
 import productsAPI from '@/services/apiProducts.js'
 import apiService, { api } from '@/services/api.js'
+import posPageAPI from '@/services/apiPosPages.js'
 import { useStockCache } from '@/composables/data/useStockCache.js'
 import { useBarcode } from '@/composables/useBarcode.js'
-import { RefreshCw } from 'lucide-vue-next'
+import { RefreshCw, GripVertical } from 'lucide-vue-next'
 
 export default {
   name: 'NewOrder',
@@ -469,11 +542,12 @@ export default {
       backendCategories: [],
       customCategories: [],
       activeCategory: null,
-      
+
       // Products
       products: [],
       customCategoryProducts: {},
       allProducts: [],
+      stockPollInterval: null,
       
       // Cart UI state - always visible now
       showCart: true,
@@ -482,6 +556,8 @@ export default {
       showCategoryModal: false,
       showProductSelectorModal: false,
       showShiftRequiredModal: false,
+      showDeletePageModal: false,
+      pendingDeleteCategoryId: null,
       
       // Navigation state
       viewMode: 'products',
@@ -489,13 +565,18 @@ export default {
       categorySearch: '',
       breadcrumbs: [],
       
-      // Infinite scroll
-      displayedItemsCount: 38,
-      itemsPerLoad: 12,
-      
-      // Custom category creation - will be loaded from localStorage
-      nextCategoryId: 100,
-      nextProductId: 1000,
+      // Stock refresh state
+      isRefreshingStock: false,
+
+      // Edit mode (reorder products on custom pages)
+      editMode: false,
+      draggedIndex: null,
+      dragOverIndex: null,
+
+      // Promotion discount amount
+      promoDiscount: 0,
+
+      // Custom page creation
       newCategory: {
         name: '',
         icon: 'Package'
@@ -521,8 +602,6 @@ export default {
         { name: 'Utensils' }
       ],
       
-      // Barcode scanning
-      manualBarcodeInput: '',
     }
   },
 
@@ -546,14 +625,17 @@ export default {
       }
     } catch (_) {}
     
-    // Load custom categories and products from localStorage
-    this.loadCustomCategories()
-    this.loadCustomCategoryProducts()
-    this.loadIdCounters()
-    
     await this.initializeSession()
     await this.loadCategories()
-    
+    await this.loadPosPages()
+
+    // Poll stock levels every 45 seconds so multi-terminal stock stays in sync
+    this.stockPollInterval = setInterval(() => this.pollStockLevels(), 45000)
+
+    // Also refresh stock when the user returns to this tab
+    this._onVisibilityChange = () => { if (!document.hidden) this.pollStockLevels() }
+    document.addEventListener('visibilitychange', this._onVisibilityChange)
+
     // Start barcode scanner automatically
     this.startBarcodeScanner()
     
@@ -580,6 +662,8 @@ export default {
   },
 
   beforeUnmount() {
+    if (this.stockPollInterval) clearInterval(this.stockPollInterval)
+    if (this._onVisibilityChange) document.removeEventListener('visibilitychange', this._onVisibilityChange)
     // Stop barcode scanner
     this.barcodeScanner.stopScanning()
   },
@@ -631,57 +715,34 @@ export default {
     },
 
     filteredProducts() {
-      if (this.viewMode === 'subcategories') {
-        const category = this.categories.find(cat => cat.id === this.activeCategory)
-        if (category && category.subcategories) {
-          return category.subcategories.map(sub => ({
-            id: sub.id,
-            name: sub.name,
-            description: `${sub.productCount} items available`,
-            price: '',
-            image: this.generateSubcategoryImage(sub.name),
-            isSubcategory: true,
-            subcategoryData: sub
-          }))
-        }
-        return []
-      }
-      
-      let products
-      
       if (this.isCustomCategory) {
-        products = this.customCategoryProducts[this.activeCategory] || []
-      } else {
-        products = this.products
+        const products = this.customCategoryProducts[this.activeCategory] || []
+        if (this.categorySearch.trim()) {
+          // When searching, skip blank slots and filter by name
+          return products.filter(p =>
+            !p.isBlank && p.name?.toLowerCase().includes(this.categorySearch.toLowerCase())
+          )
+        }
+        // Custom pages always preserve the user-defined order (including blank slots)
+        return products
       }
-      
+
+      let products = this.products
       if (this.categorySearch.trim()) {
-        products = products.filter(product => 
-          product.name.toLowerCase().includes(this.categorySearch.toLowerCase())
+        products = products.filter(p =>
+          p.name.toLowerCase().includes(this.categorySearch.toLowerCase())
         )
       }
-      
-      // Sort products: in-stock first, sold-out last
       return products.sort((a, b) => {
         const aInStock = a.total_stock !== null && a.total_stock > 0
         const bInStock = b.total_stock !== null && b.total_stock > 0
-        
         if (aInStock === bInStock) return 0
         return aInStock ? -1 : 1
       })
     },
 
     paginatedProducts() {
-      if (this.viewMode === 'subcategories') {
-        return this.filteredProducts
-      }
-      
-      // Return items up to displayedItemsCount for infinite scroll
-      return this.filteredProducts.slice(0, this.displayedItemsCount)
-    },
-
-    hasMoreItems() {
-      return this.displayedItemsCount < this.filteredProducts.length
+      return this.filteredProducts
     },
 
     isCustomCategory() {
@@ -698,17 +759,17 @@ export default {
     },
 
     availableProductsForSelection() {
-      let products = this.allProducts.filter(product => 
-        product.category === this.selectedSourceCategory
-      )
-      
-      if (this.productSearchQuery.trim()) {
-        products = products.filter(product => 
-          product.name.toLowerCase().includes(this.productSearchQuery.toLowerCase())
+      const query = this.productSearchQuery.trim().toLowerCase()
+
+      if (query) {
+        return this.allProducts.filter(product =>
+          product.name.toLowerCase().includes(query)
         )
       }
-      
-      return products
+
+      return this.allProducts.filter(product =>
+        product.category === this.selectedSourceCategory
+      )
     },
 
     allAvailableProductsCount() {
@@ -716,10 +777,6 @@ export default {
       const currentProductIds = currentCategoryProducts.map(p => p.originalId || p.id)
       
       return this.allProducts.filter(p => !currentProductIds.includes(p.id)).length
-    },
-
-    wouldExceedLimit() {
-      return this.customCategoryItems.length + this.selectedProducts.length > 8
     },
 
     // Count products by category for the product selector modal
@@ -762,35 +819,12 @@ export default {
     async manualStockRefresh() {
       try {
         this.isRefreshingStock = true
-        
-        // Trigger startup sync (same as server startup)
-        const syncAPI = await import('../services/apiSync.js')
-        const result = await syncAPI.default.triggerStartupSync()
-        
-        if (result.success) {
-          // Reload current category products with fresh data
-          if (this.activeCategory) {
-            await this.loadProductsForCategory(this.activeCategory, this.currentSubcategory?.name)
-          }
-          
-          // Show success message
-          const totalSynced = (result.data?.products?.total_synced || 0) + (result.data?.batches?.total_synced || 0)
-          const stockUpdates = result.data?.stock_updates || 0
-          
-          if (totalSynced > 0 || stockUpdates > 0) {
-            console.log(`✓ Sync complete: ${totalSynced} items synced, ${stockUpdates} products updated`)
-          }
+        if (this.activeCategory) {
+          await this.loadProductsForCategory(this.activeCategory, this.currentSubcategory?.name)
         }
       } catch (error) {
         console.error('Stock refresh error:', error)
-        // Still try to reload products even if sync fails
-        if (this.activeCategory) {
-          try {
-            await this.loadProductsForCategory(this.activeCategory, this.currentSubcategory?.name)
-          } catch (e) {
-            alert('Failed to refresh stock levels. Please try again.')
-          }
-        }
+        alert('Failed to refresh products. Please try again.')
       } finally {
         this.isRefreshingStock = false
       }
@@ -856,58 +890,33 @@ export default {
       }
     },
 
-    // FIX: Load ALL products when modal opens
-    async openProductSelectorModal() {
+    openProductSelectorModal() {
       this.showProductSelectorModal = true
-      
-      // Always load products from all available categories
-      await this.loadAllProductsForSelection()
-      
-      // Then select the first category
       if (this.availableSourceCategories.length > 0) {
         this.selectedSourceCategory = this.availableSourceCategories[0].id
       }
     },
 
-    // FIX: New method to load all products at once
-    async loadAllProductsForSelection() {
-      try {
-        this.productsLoading = true
-        
-        // Load from ALL available source categories (excluding current active category)
-        // Fetch products directly from API
-        const productPromises = this.availableSourceCategories.map(category => {
-          return productsAPI.getProductsByCategory(category.id)
-        })
-        
-        // Wait for all requests to complete
-        const allCategoryProducts = await Promise.all(productPromises)
-        
-        // Flatten all products into a single array and filter valid entries
-        this.allProducts = allCategoryProducts.flat().filter(p => p && typeof p === 'object')
-        
-      } catch (error) {
-        this.error = error.message
-      } finally {
-        this.productsLoading = false
-      }
-    },
-
     async loadCategories() {
       try {
-        // Only show loader if we don't already have categories hydrated
         if (this.backendCategories.length === 0) this.loading = true
         this.error = null
-        
-        // Fetch categories directly from API
-        const categories = await categoriesAPI.getActiveCategories()
+
+        // Fetch categories and ALL products in parallel.
+        // Products use localStorage cache (1-hour TTL) for instant load on return visits.
+        const [categories, allProds] = await Promise.all([
+          categoriesAPI.getActiveCategories(),
+          productsAPI.getAllProductsAllPagesCached()
+        ])
+
         this.backendCategories = Array.isArray(categories) ? categories : []
-        
+        this.allProducts = Array.isArray(allProds) ? allProds : []
+
         if (this.backendCategories.length > 0 && !this.activeCategory) {
           this.activeCategory = this.backendCategories[0].id
           await this.selectCategory(this.backendCategories[0].id)
         }
-        
+
       } catch (error) {
         this.error = error.message
       } finally {
@@ -917,23 +926,17 @@ export default {
 
     async selectCategory(categoryId) {
       this.activeCategory = categoryId
-      this.displayedItemsCount = this.itemsPerLoad // Reset to initial load
       this.categorySearch = ''
       this.breadcrumbs = []
       this.currentSubcategory = null
-      
+      this.viewMode = 'products'
+      this.editMode = false
+      this.draggedIndex = null
+      this.dragOverIndex = null
+
       const category = this.categories.find(cat => cat.id === categoryId)
-      
-      if (category && !category.isCustom && category.hasSubcategories) {
-        this.viewMode = 'subcategories'
-        this.breadcrumbs = [
-          { name: category.name, type: 'categories', categoryId: categoryId }
-        ]
-      } else {
-        this.viewMode = 'products'
-        if (!category.isCustom) {
-          await this.loadProductsForCategory(categoryId)
-        }
+      if (category && !category.isCustom) {
+        await this.loadProductsForCategory(categoryId)
       }
     },
 
@@ -942,75 +945,111 @@ export default {
     },
 
     async loadProducts(categoryId, subcategoryName = null) {
+      if (this.isCustomCategory) return
+
+      this.error = null
+
+      // Filter from the in-memory cache — no API call, same as back office
+      let filtered = this.allProducts.filter(p => {
+        const cat = p.category_id || p.category
+        return cat === categoryId
+      })
+
+      if (subcategoryName) {
+        filtered = filtered.filter(p => {
+          const sub = p.subcategory_name || p.subcategory
+          return sub === subcategoryName
+        })
+      }
+
+      this.products = filtered
+    },
+
+    async pollStockLevels() {
       try {
-        this.error = null
-        
-        if (this.isCustomCategory) {
-          this.productsLoading = false
-          return
+        const stockData = await productsAPI.getStockLevels()
+        if (!stockData || stockData.length === 0) return
+
+        // Build a lookup by both padded (PROD-00001) and stripped (00001) IDs
+        const stockMap = {}
+        stockData.forEach(item => {
+          stockMap[item.product_id] = { stock: item.total_stock, status: item.status }
+          const stripped = item.product_id.replace('PROD-', '')
+          stockMap[stripped] = { stock: item.total_stock, status: item.status }
+        })
+
+        let changed = false
+        this.allProducts = this.allProducts.map(p => {
+          const entry = stockMap[p.id] || stockMap[p._id]
+          if (!entry) return p
+          if (entry.stock === p.total_stock && entry.status === p.status) return p
+          changed = true
+          return { ...p, stock: entry.stock, total_stock: entry.stock, status: entry.status }
+        })
+
+        if (changed && this.activeCategory) {
+          await this.loadProducts(this.activeCategory, this.currentSubcategory?.name)
         }
-        
-        // Fetch products directly from API
-        this.productsLoading = true
-        const products = await productsAPI.getProductsByCategory(categoryId, subcategoryName)
-        this.products = Array.isArray(products) ? products : []
-        
-      } catch (error) {
-        this.error = error.message
-        this.products = []
-      } finally {
-        this.productsLoading = false
+      } catch {
+        // Silent — polling failures should not surface errors to the user
       }
     },
 
 
-    generateSubcategoryImage(subcategoryName) {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(subcategoryName)}&size=200&background=A07BE3&color=fff`
+    generateSubcategoryImage() {
+      return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Crect x='55' y='60' width='90' height='80' rx='6' fill='%23e5e7eb'/%3E%3Ccircle cx='80' cy='88' r='10' fill='%23d1d5db'/%3E%3Cpolygon points='55,140 85,105 110,125 130,100 145,140' fill='%23d1d5db'/%3E%3C/svg%3E`
     },
-    getFallbackProductImage(productName) {
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(productName || 'Product')}&size=200&background=7392E2&color=fff`
+    getFallbackProductImage() {
+      return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Crect x='55' y='60' width='90' height='80' rx='6' fill='%23e5e7eb'/%3E%3Ccircle cx='80' cy='88' r='10' fill='%23d1d5db'/%3E%3Cpolygon points='55,140 85,105 110,125 130,100 145,140' fill='%23d1d5db'/%3E%3C/svg%3E`
     },
 
-    createCategory() {
+    async createCategory() {
       if (!this.newCategory.name.trim()) return
-      
-      const categoryId = `custom_${this.nextCategoryId++}`
-      const category = {
-        id: categoryId,
-        name: this.newCategory.name.trim(),
-        icon: this.newCategory.icon,
-        isCustom: true,
-        hasSubcategories: false,
-        subcategories: []
+
+      try {
+        const page = await posPageAPI.createPage(this.newCategory.name.trim(), this.newCategory.icon)
+        const category = {
+          id: page.page_id,
+          name: page.page_name,
+          icon: page.icon,
+          isCustom: true,
+          hasSubcategories: false,
+          subcategories: [],
+          productIds: []
+        }
+        this.customCategoryProducts[page.page_id] = Array.from({ length: 15 }, (_, i) => ({
+          id: `blank-${page.page_id}-${i}`,
+          isBlank: true
+        }))
+        this.customCategories.push(category)
+        this.closeCategoryModal()
+        this.selectCategory(page.page_id)
+      } catch (error) {
+        alert('Failed to create page. Please try again.')
       }
-      
-      this.customCategoryProducts[categoryId] = []
-      this.customCategories.push(category)
-      
-      // Save to localStorage for persistence
-      this.saveCustomCategories()
-      this.saveCustomCategoryProducts()
-      this.saveIdCounters()
-      
-      this.closeCategoryModal()
-      this.selectCategory(categoryId)
     },
 
     deleteCategory(categoryId) {
-      if (confirm('Are you sure you want to delete this page and all its items?')) {
+      this.pendingDeleteCategoryId = categoryId
+      this.showDeletePageModal = true
+    },
+
+    async confirmDeleteCategory() {
+      const categoryId = this.pendingDeleteCategoryId
+      this.showDeletePageModal = false
+      this.pendingDeleteCategoryId = null
+
+      try {
+        await posPageAPI.deletePage(categoryId)
         this.customCategories = this.customCategories.filter(cat => cat.id !== categoryId)
         delete this.customCategoryProducts[categoryId]
-        
-        // Save to localStorage after deletion
-        this.saveCustomCategories()
-        this.saveCustomCategoryProducts()
-        
+
         if (this.activeCategory === categoryId) {
           this.activeCategory = this.categories[0]?.id
-          if (this.activeCategory) {
-            this.selectCategory(this.activeCategory)
-          }
+          if (this.activeCategory) this.selectCategory(this.activeCategory)
         }
+      } catch (error) {
+        alert('Failed to delete page. Please try again.')
       }
     },
 
@@ -1029,73 +1068,68 @@ export default {
       this.selectedProducts = []
       this.productSearchQuery = ''
       this.selectedSourceCategory = null
-      this.allProducts = []
     },
 
     toggleProductSelection(product) {
       if (this.isProductAlreadyInCategory(product.id)) return
-      
       const index = this.selectedProducts.indexOf(product.id)
       if (index > -1) {
         this.selectedProducts.splice(index, 1)
       } else {
-        if (this.customCategoryItems.length + this.selectedProducts.length < 8) {
-          this.selectedProducts.push(product.id)
-        }
+        this.selectedProducts.push(product.id)
       }
     },
 
     isProductAlreadyInCategory(productId) {
       if (this.isCustomCategory && this.customCategoryProducts[this.activeCategory]) {
-        return this.customCategoryProducts[this.activeCategory].some(product => 
-          product.originalId === productId || product.id === productId
-        )
+        return this.customCategoryProducts[this.activeCategory].some(p => p.id === productId)
       }
       return false
     },
 
-    addSelectedProductsToCategory() {
-      const selectedProductData = this.allProducts.filter(product => 
-        this.selectedProducts.includes(product.id)
-      )
-      
-      if (!this.customCategoryProducts[this.activeCategory]) {
-        this.customCategoryProducts[this.activeCategory] = []
-      }
-      
-      selectedProductData.forEach(product => {
-        const newProduct = {
-          ...product,
-          id: `custom_${this.nextProductId++}`,
-          category: this.activeCategory,
-          isReference: true,
-          originalId: product.id
+    async addSelectedProductsToCategory() {
+      const productIds = [...this.selectedProducts]
+      try {
+        const slots = [...(this.customCategoryProducts[this.activeCategory] || [])]
+
+        for (const pid of productIds) {
+          if (slots.some(s => s.id === pid)) continue // already on page
+          const product = this.allProducts.find(p => p.id === pid)
+          if (!product) continue
+          const blankIdx = slots.findIndex(s => s.isBlank)
+          if (blankIdx >= 0) {
+            slots[blankIdx] = product
+          }
+          // If no blank slots remain, product is silently skipped (grid is full)
         }
-        
-        this.customCategoryProducts[this.activeCategory].push(newProduct)
-      })
-      
-      // Save to localStorage after adding products
-      this.saveCustomCategoryProducts()
-      this.saveIdCounters()
-      
-      this.$forceUpdate()
-      this.closeProductSelectorModal()
+
+        this.customCategoryProducts[this.activeCategory] = slots
+        await this.savePageOrder(slots.map(p => p.id))
+
+        this.$forceUpdate()
+        this.closeProductSelectorModal()
+      } catch (error) {
+        alert('Failed to add products to page. Please try again.')
+      }
     },
 
-    removeFromCategory(productId) {
-      if (this.isCustomCategory && this.customCategoryProducts[this.activeCategory]) {
-        this.customCategoryProducts[this.activeCategory] = 
-          this.customCategoryProducts[this.activeCategory].filter(product => product.id !== productId)
-        
-        // Save to localStorage after removing product
-        this.saveCustomCategoryProducts()
-        
+    async removeFromCategory(productId) {
+      try {
+        const slots = [...(this.customCategoryProducts[this.activeCategory] || [])]
+        const idx = slots.findIndex(p => p.id === productId)
+        if (idx >= 0) {
+          slots[idx] = { id: `blank-${this.activeCategory}-${Date.now()}`, isBlank: true }
+        }
+        this.customCategoryProducts[this.activeCategory] = slots
+        await this.savePageOrder(slots.map(p => p.id))
         this.$forceUpdate()
+      } catch (error) {
+        alert('Failed to remove product from page. Please try again.')
       }
     },
 
     handleProductClick(product) {
+      if (product.isBlank) return
       if (product.isSubcategory) {
         this.selectSubcategory(product.subcategoryData)
       } else {
@@ -1133,28 +1167,6 @@ export default {
       }
     },
 
-    handleProductsScroll(event) {
-      const container = event.target
-      const scrollTop = container.scrollTop
-      const scrollHeight = container.scrollHeight
-      const clientHeight = container.clientHeight
-      
-      // Check if scrolled near bottom (within 100px)
-      if (scrollTop + clientHeight >= scrollHeight - 100) {
-        this.loadMoreItems()
-      }
-    },
-
-    loadMoreItems() {
-      if (!this.hasMoreItems) return
-      
-      // Load next batch of items
-      this.displayedItemsCount += this.itemsPerLoad
-    },
-
-    resetInfiniteScroll() {
-      this.displayedItemsCount = this.itemsPerLoad
-    },
 
     retryLoad() {
       this.error = null
@@ -1260,58 +1272,67 @@ export default {
       this.$router.push('/shift')
     },
 
-    // Cart methods removed - sidebar is always visible now
-    filterPromoSuggestions() {
-      const searchQuery = this.promoCode.toLowerCase().trim()
-      
-      if (!searchQuery) {
-        // Show all available promotions if input is empty
-        this.filteredPromoSuggestions = this.availablePromotions
-      } else {
-        // Filter promotions by name or description
-        this.filteredPromoSuggestions = this.availablePromotions.filter(promo => 
-          promo.name.toLowerCase().includes(searchQuery) ||
-          promo.description.toLowerCase().includes(searchQuery)
-        )
+    closeCart() {
+      // Cart sidebar is always visible — no-op
+    },
+
+    // ================================================================
+    // EDIT MODE — PRODUCT REORDERING
+    // ================================================================
+
+    toggleEditMode() {
+      this.editMode = !this.editMode
+      this.draggedIndex = null
+      this.dragOverIndex = null
+    },
+
+    dragStart(event, index) {
+      this.draggedIndex = index
+      event.dataTransfer.effectAllowed = 'move'
+    },
+
+    dragOver(event, index) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
+      this.dragOverIndex = index
+    },
+
+    drop(event, index) {
+      event.preventDefault()
+      if (this.draggedIndex === null || this.draggedIndex === index) {
+        this.draggedIndex = null
+        this.dragOverIndex = null
+        return
+      }
+
+      const products = [...(this.customCategoryProducts[this.activeCategory] || [])]
+      // Swap the two positions so grid layout stays stable
+      ;[products[this.draggedIndex], products[index]] = [products[index], products[this.draggedIndex]]
+      this.customCategoryProducts[this.activeCategory] = products
+
+      this.draggedIndex = null
+      this.dragOverIndex = null
+
+      this.savePageOrder(products.map(p => p.id))
+    },
+
+    dragEnd() {
+      this.draggedIndex = null
+      this.dragOverIndex = null
+    },
+
+    async savePageOrder(localIds) {
+      // Convert local blank IDs (blank-xxx) to the 'BLANK' sentinel for the backend
+      const backendIds = localIds.map(id =>
+        typeof id === 'string' && id.startsWith('blank-') ? 'BLANK' : id
+      )
+      try {
+        await posPageAPI.updatePage(this.activeCategory, { product_ids: backendIds })
+      } catch (error) {
+        console.error('Failed to save page order:', error)
       }
     },
-    
-    hidePromoSuggestionsDelayed() {
-      // Delay hiding to allow click events to fire
-      setTimeout(() => {
-        this.showPromoSuggestions = false
-      }, 200)
-    },
-    
-    selectPromoFromSuggestion(promo) {
-      this.promoCode = promo.name
-      this.showPromoSuggestions = false
-      this.applyPromotionById(promo._id)
-    },
-    
-    formatPromotionValue(promo) {
-      if (promo.type === 'percentage') {
-        return `${promo.discount_value}% OFF`
-      } else if (promo.type === 'fixed') {
-        return `₱${this.formatPrice(promo.discount_value)} OFF`
-      }
-      return 'Discount'
-    },
-    
-    formatPromotionTarget(promo) {
-      const targetType = promo.discount_config?.target_type
-      
-      if (targetType === 'all') {
-        return 'All items'
-      } else if (targetType === 'categories') {
-        const count = promo.discount_config?.target_ids?.length || 0
-        return `${count} ${count === 1 ? 'category' : 'categories'}`
-      } else if (targetType === 'products') {
-        const count = promo.discount_config?.target_ids?.length || 0
-        return `${count} ${count === 1 ? 'product' : 'products'}`
-      }
-      return 'Selected items'
-    },
+
     
     // ================================================================
     // CUSTOM CATEGORY STOCK UPDATE
@@ -1326,9 +1347,7 @@ export default {
           const products = this.customCategoryProducts[categoryId]
           if (Array.isArray(products)) {
             products.forEach(product => {
-              // Use originalId if available, otherwise use id
-              const originalId = product.originalId || product.id
-              const newStock = stockUpdates[originalId]
+              const newStock = stockUpdates[product.id]
               
               if (newStock !== undefined && newStock !== product.total_stock) {
                 product.stock = newStock
@@ -1350,96 +1369,37 @@ export default {
     },
 
     // ================================================================
-    // PERSISTENCE METHODS
+    // POS PAGES
     // ================================================================
-    
-    saveCustomCategories() {
+
+    async loadPosPages() {
       try {
-        localStorage.setItem('customCategories', JSON.stringify(this.customCategories))
+        const pages = await posPageAPI.getPages()
+
+        this.customCategories = pages.map(page => ({
+          id: page.page_id,
+          name: page.page_name,
+          icon: page.icon,
+          isCustom: true,
+          hasSubcategories: false,
+          subcategories: [],
+          productIds: page.product_ids || []
+        }))
+
+        const GRID_SIZE = 15
+        pages.forEach(page => {
+          let blankCount = 0
+          const makeBlank = () => ({ id: `blank-${page.page_id}-${blankCount++}`, isBlank: true })
+          const items = (page.product_ids || []).map(pid =>
+            (!pid || pid === 'BLANK')
+              ? makeBlank()
+              : (this.allProducts.find(p => p.id === pid) || makeBlank())
+          )
+          while (items.length < GRID_SIZE) items.push(makeBlank())
+          this.customCategoryProducts[page.page_id] = items.slice(0, GRID_SIZE)
+        })
       } catch (error) {
-        console.error('Failed to save custom categories:', error)
-      }
-    },
-    
-    loadCustomCategories() {
-      try {
-        const stored = localStorage.getItem('customCategories')
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          if (Array.isArray(parsed)) {
-            this.customCategories = parsed
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load custom categories:', error)
-      }
-    },
-    
-    saveCustomCategoryProducts() {
-      try {
-        localStorage.setItem('customCategoryProducts', JSON.stringify(this.customCategoryProducts))
-      } catch (error) {
-        console.error('Failed to save custom category products:', error)
-      }
-    },
-    
-    loadCustomCategoryProducts() {
-      try {
-        const stored = localStorage.getItem('customCategoryProducts')
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          if (parsed && typeof parsed === 'object') {
-            this.customCategoryProducts = parsed
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load custom category products:', error)
-      }
-    },
-    
-    saveIdCounters() {
-      try {
-        // Use direct localStorage (no expiration) for permanent storage of ID counters
-        localStorage.setItem('nextCategoryId', this.nextCategoryId.toString())
-        localStorage.setItem('nextProductId', this.nextProductId.toString())
-      } catch (error) {
-        console.error('Failed to save ID counters:', error)
-      }
-    },
-    
-    loadIdCounters() {
-      try {
-        // Load from localStorage directly (permanent storage, no expiration)
-        const savedCategoryId = localStorage.getItem('nextCategoryId')
-        const savedProductId = localStorage.getItem('nextProductId')
-        
-        if (savedCategoryId) {
-          const parsed = parseInt(savedCategoryId, 10)
-          if (!isNaN(parsed) && parsed > this.nextCategoryId) {
-            this.nextCategoryId = parsed
-          }
-        }
-        if (savedProductId) {
-          const parsed = parseInt(savedProductId, 10)
-          if (!isNaN(parsed) && parsed > this.nextProductId) {
-            this.nextProductId = parsed
-          }
-        }
-        
-        // Default values if not found
-        if (!savedCategoryId || !savedProductId) {
-          // Use defaults
-          if (this.nextCategoryId < 100) {
-            this.nextCategoryId = oldCategoryId
-            this.saveIdCounters() // Migrate to new format
-          }
-          if (oldProductId && typeof oldProductId === 'number' && oldProductId > this.nextProductId) {
-            this.nextProductId = oldProductId
-            this.saveIdCounters() // Migrate to new format
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load ID counters:', error)
+        console.error('Failed to load POS pages:', error)
       }
     },
     
@@ -1457,29 +1417,18 @@ export default {
       })
     },
     
-    async processManualBarcode() {
-      if (!this.manualBarcodeInput.trim()) return
-      
+    async handleSearchEnter() {
+      const input = this.categorySearch.trim()
+      if (!input) return
+
       try {
-        // Process the barcode
-        const product = await this.barcodeScanner.processBarcode(this.manualBarcodeInput.trim())
-        
+        const product = await this.barcodeScanner.processBarcode(input)
         if (product) {
-          // Add to cart
           this.addToCart(product)
-          
-          // Clear input but keep scanner active
-          this.manualBarcodeInput = ''
-          
-          // Focus back on input for next scan
-          this.$nextTick(() => {
-            if (this.$refs.barcodeInput) {
-              this.$refs.barcodeInput.focus()
-            }
-          })
+          this.categorySearch = ''
         }
       } catch (error) {
-        // Manual barcode processing failed
+        // Not a barcode match — keep as text search filter
       }
     },
     
@@ -1556,94 +1505,6 @@ export default {
   100% { transform: translateX(100%); }
 }
 
-/* Manual Barcode Input Section */
-.manual-barcode-input-section {
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin-bottom: 1rem;
-  border: 1px solid;
-}
-
-.barcode-input-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.barcode-label {
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  margin: 0;
-}
-
-.barcode-input-group {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-/* Manual Barcode Input */
-.manual-barcode-input {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.barcode-input {
-  flex: 1;
-  padding: 0.75rem;
-  border: 1px solid var(--neutral);
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  background: var(--surface-primary);
-  color: var(--text-primary);
-}
-
-.barcode-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(115, 146, 226, 0.1);
-}
-
-.process-barcode-btn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  border: none;
-  background: var(--primary);
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.process-barcode-btn:hover:not(:disabled) {
-  background: var(--primary-dark);
-}
-
-.process-barcode-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .barcode-input-group {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .barcode-input {
-    width: 100%;
-  }
-  
-  .process-barcode-btn {
-    width: 100%;
-  }
-  
-}
 
 /* Shift Required Modal */
 .modal-overlay {

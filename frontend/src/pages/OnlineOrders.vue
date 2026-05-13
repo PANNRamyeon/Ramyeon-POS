@@ -250,12 +250,7 @@ export default {
 
   async mounted() {
     this.currentUser = this.getCurrentUser()
-    await this.loadOrders()
-    
-    // Auto-refresh every 30 seconds
-    this.refreshInterval = setInterval(() => {
-      this.loadOrders()
-    }, 30000)
+    // TODO: restore loadOrders() and polling when online orders endpoint is stable
   },
 
   beforeUnmount() {
@@ -266,50 +261,52 @@ export default {
 
   methods: {
     async loadOrders() {
-      try {
-        this.loading = true
-        this.error = null
-        
-        const response = await apiOnlineOrders.getAllOrders()
-        
-        if (response.success) {
-          this.orders = response.data.orders.map(order => this.transformOrder(order))
-        }
-      } catch (error) {
-        console.error('Error loading orders:', error)
-        this.error = 'Failed to load orders. Please try again.'
-      } finally {
-        this.loading = false
-      }
+      // TODO: re-enable when online orders DynamoDB endpoint is stable
+      this.orders = []
+      this.loading = false
     },
 
     transformOrder(apiOrder) {
-      // Extract delivery address - structure: { address: string, type: string }
-      const deliveryAddress = apiOrder.delivery_address || {}
-      
-      // Get the address directly from delivery_address.address
-      const fullAddress = deliveryAddress.address || ''
-      
-      // Extract phone from order level (customer_phone)
-      const phone = apiOrder.customer_phone || ''
-      
-      // Extract notes from order level
+      // Handle both legacy flat format and new nested to_dict() format
+      const customer = apiOrder.customer || {}
+      const timing = apiOrder.timing || {}
+      const financial = apiOrder.financial || {}
+
+      const customerId = apiOrder.customer_id || customer.customer_id || ''
+      const customerPhone = apiOrder.customer_phone || customer.customer_phone || ''
+      const deliveryAddress = apiOrder.delivery_address || apiOrder.delivery?.address || ''
+      const transactionDate = apiOrder.transaction_date
+        || timing.transaction_date_utc
+        || apiOrder.created_at
+        || ''
+      const totalAmount = apiOrder.total_amount
+        || financial.total_amount
+        || 0
+      const paymentStatus = apiOrder.payment_status || financial.payment_status || 'pending'
+      const orderStatus = apiOrder.order_status || 'pending'
+      const orderId = apiOrder.transaction_id || apiOrder._id || apiOrder.sk || ''
+      const items = apiOrder.items || []
       const notes = apiOrder.notes || 'No notes'
-      
+
       return {
         ...apiOrder,
-        id: apiOrder._id,
-        total_price: apiOrder.total_amount,
-        quantity: apiOrder.items.reduce((sum, item) => sum + item.quantity, 0),
-        timestamp: this.formatTime(apiOrder.transaction_date),
-        cashReceived: apiOrder.payment_status === 'paid',
-        items: apiOrder.items,
+        id: orderId,
+        customer_id: customerId,
+        customer_phone: customerPhone,
+        total_price: totalAmount,
+        total_amount: totalAmount,
+        order_status: orderStatus,
+        payment_status: paymentStatus,
+        quantity: items.reduce((sum, item) => sum + (item.quantity || 0), 0),
+        timestamp: this.formatTime(transactionDate),
+        cashReceived: paymentStatus === 'paid',
+        items,
         customer: {
-          community: fullAddress, // Use address as community/barangay
-          address: fullAddress,   // Use address directly
-          phone: phone
+          community: deliveryAddress,
+          address: deliveryAddress,
+          phone: customerPhone
         },
-        notes: notes
+        notes
       }
     },
 
