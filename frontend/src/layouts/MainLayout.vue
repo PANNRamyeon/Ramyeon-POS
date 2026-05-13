@@ -22,7 +22,11 @@
       
       <!-- Page Content - This will now show the routed component -->
       <div class="page-content">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <keep-alive include="NewOrder">
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
       </div>
     </main>
 

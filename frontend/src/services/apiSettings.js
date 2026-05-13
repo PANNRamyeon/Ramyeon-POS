@@ -12,7 +12,7 @@ class SettingsAPIService {
 
   async getCurrentUser() {
     try {
-      const response = await api.get('/auth/me/');
+      const response = await api.get('/pos/auth/me/');
       const userData = response.data;
       
       // Transform the response to match your frontend needs
@@ -35,7 +35,7 @@ class SettingsAPIService {
 
   async updateUser(userId, userData) {
     try {
-      const response = await api.put(`/users/${userId}/`, userData);
+      const response = await api.put(`/admin/users/${userId}/`, userData);
 
       return { 
         success: true, 
@@ -51,7 +51,7 @@ class SettingsAPIService {
 
   async verifyToken() {
     try {
-      const response = await api.post('/auth/verify-token/');
+      const response = await api.post('/pos/auth/verify/');
       return response.data;
       
     } catch (error) {
@@ -67,7 +67,7 @@ class SettingsAPIService {
         throw new Error('No refresh token found');
       }
 
-      const response = await api.post('/auth/refresh/', {
+      const response = await api.post('/pos/auth/refresh/', {
         refresh: refreshToken
       });
 

@@ -43,8 +43,8 @@
           </div>
           <span class="nav-label">Pending Order</span>
           <!-- ✅ Dynamic Badge -->
-          <div v-if="pendingOrderCount > 0" class="notification-badge" :class="{ 'badge-pulse': pendingOrderCount > 0 }">
-            {{ pendingOrderCount > 99 ? '99+' : pendingOrderCount }}
+          <div v-if="pendingCount > 0" class="notification-badge" :class="{ 'badge-pulse': pendingCount > 0 }">
+            {{ pendingCount > 99 ? '99+' : pendingCount }}
           </div>
         </div>
 

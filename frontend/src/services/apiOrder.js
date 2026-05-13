@@ -18,8 +18,8 @@ class OrderAPIService {
   // Recommended API calls
 async loadCategory(categoryId) {
   // First, get category with subcategory counts
-  const category = await api.get(`/categories/${categoryId}`)
-  
+  const category = await api.get(`/admin/categories/${categoryId}/`)
+
   // Decide navigation strategy based on product counts
   if (category.total_products > 25) {
     // Load subcategories only
@@ -31,7 +31,7 @@ async loadCategory(categoryId) {
     }))
   } else {
     // Load all products flattened
-    return await api.get(`/categories/${categoryId}/products`)
+    return await api.get(`/admin/categories/${categoryId}/products/`)
   }
 }
   

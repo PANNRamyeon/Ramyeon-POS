@@ -106,6 +106,7 @@ import { Printer, ShoppingCart, ArrowLeft, RefreshCw } from 'lucide-vue-next'
 import { usePaymongo } from '@/composables/api/usePaymongo'
 import { useCartStore } from '@/stores/cartStores'
 import apiSales from '@/services/apiSales'
+import apiProducts from '@/services/apiProducts'
 import { useStockCache } from '@/composables/data/useStockCache.js'
 import { formatDateTimeShortPH } from '@/utils/dateTimeHelper.js'
 
@@ -242,9 +243,30 @@ export default {
         }
         
         console.log('📝 Creating sale:', saleData)
-        
+
+        // Idempotency guard: if this source_id was already processed, reuse the stored sale
+        const idempotencyKey = `completedSale_${pending.source_id}`
+        const existingSaleId = sessionStorage.getItem(idempotencyKey)
+        if (existingSaleId) {
+          console.log('⚠️ Duplicate callback detected, reusing sale:', existingSaleId)
+          this.saleDetails = {
+            saleId: existingSaleId,
+            amount: pending.amount,
+            timestamp: new Date().toISOString()
+          }
+          this.paymentStatus = 'success'
+          this.isProcessing = false
+          sessionStorage.removeItem('pendingEWalletPayment')
+          this.cartStore.clearCart()
+          this.startCountdown()
+          return
+        }
+
         const result = await apiSales.createSale(saleData)
-        
+
+        // Mark this payment as processed so a page refresh won't create a duplicate
+        sessionStorage.setItem(idempotencyKey, result.sale_id || result._id || '')
+
         // Update stock cache with sold items
         try {
           this.stockCache.updateStockAfterSale(saleData.items)
@@ -254,26 +276,41 @@ export default {
           // Don't block success flow if cache update fails
         }
         
-        // Signal NewOrder to perform targeted stock refresh on return
         try {
-          const affectedIds = (saleData.items || []).map(i => i.product_id).filter(Boolean)
-          if (affectedIds.length > 0) {
-            sessionStorage.setItem('refreshProductIds', JSON.stringify(affectedIds))
-          }
-          sessionStorage.setItem('refreshStockAfterCheckout', 'true')
+          sessionStorage.setItem('refreshStockAfterCheckout', 'full')
         } catch (_) {}
         
         // Step 3: Finalize
         this.currentStep = 3
         this.statusMessage = 'Finalizing...'
         this.subMessage = 'Almost done!'
-        
-        await this.delay(800)
+
+        // Await fresh stock before completing — ensures NewOrder shows
+        // accurate levels the moment it loads, not 45 seconds later
+        try {
+          console.log('[PaymentCallback] Awaiting getStockLevels...')
+          const stockData = await apiProducts.getStockLevels()
+          console.log('[PaymentCallback] getStockLevels returned', stockData?.length, 'items')
+          if (Array.isArray(stockData) && stockData.length > 0) {
+            sessionStorage.setItem('prefetchedStockLevels', JSON.stringify({
+              data: stockData,
+              fetchedAt: Date.now()
+            }))
+            console.log('[PaymentCallback] prefetchedStockLevels stored in sessionStorage')
+          } else {
+            console.warn('[PaymentCallback] getStockLevels returned empty — nothing stored')
+          }
+        } catch (err) {
+          console.error('[PaymentCallback] getStockLevels threw:', err)
+        }
+
+        await this.delay(400)
         
         // Clear session data
         sessionStorage.removeItem('pendingEWalletPayment')
         sessionStorage.removeItem('appliedPromotion')
         sessionStorage.removeItem('checkoutCustomer')
+        sessionStorage.removeItem(idempotencyKey)
         this.cartStore.clearCart()
         
         // Store sale details

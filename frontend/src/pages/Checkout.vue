@@ -83,13 +83,13 @@
     </div>
 
 
-    <div class="surface-primary shadow-sm rounded-4 p-4 d-flex flex-column" style="width: 400px; min-height: 0; max-height: 100%; overflow-y: auto;">
+    <div class="surface-primary shadow-sm rounded-4 p-4 d-flex flex-column" style="width: 380px; flex-shrink: 0; overflow-y: auto;">
       <div class="d-flex flex-column flex-fill">
-        <h2 class="mb-4 fs-4 text-primary fw-semibold">Order Summary</h2>
+        <h2 class="mb-2 fs-5 text-primary fw-semibold">Order Summary</h2>
 
         <!-- Customer Section -->
-        <div class="mb-4 pb-4 border-bottom-theme">
-          <h3 class="fs-6 fw-semibold mb-3 text-primary">Customer (Optional)</h3>
+        <div class="mb-3 pb-2 border-bottom-theme">
+          <h3 class="fs-6 fw-semibold mb-2 text-primary">Customer (Optional)</h3>
 
           <!-- Customer Search -->
           <div v-if="!selectedCustomer" class="d-flex gap-2">
@@ -111,8 +111,8 @@
           </div>
 
           <!-- Customer Found -->
-          <div v-if="selectedCustomer" class="surface-secondary rounded-3 p-3">
-            <div class="d-flex justify-content-between align-items-start mb-3">
+          <div v-if="selectedCustomer" class="surface-secondary rounded-3 p-2">
+            <div class="d-flex justify-content-between align-items-start mb-1">
               <div>
                 <h5 class="fs-6 fw-semibold mb-1">{{ selectedCustomer.full_name }}</h5>
                 <p class="fs-6 text-secondary mb-1">@{{ selectedCustomer.username }}</p>
@@ -124,16 +124,16 @@
             </div>
 
             <!-- Loyalty Points Display -->
-            <div class="surface-primary rounded-3 p-2 mb-3">
+            <div class="surface-primary rounded-3 p-2 mb-1">
               <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span class="fs-7 text-secondary">Available Points:</span>
-                <span class="fs-5 fw-bold text-accent">{{ selectedCustomer.loyalty_points || 0 }} pts</span>
+                <span class="fs-6 fw-bold text-accent">{{ selectedCustomer.loyalty_points || 0 }} pts</span>
                 <span class="fs-7 text-secondary">(₱{{ formatPrice((selectedCustomer.loyalty_points || 0) / 4) }})</span>
               </div>
             </div>
 
             <!-- Points Action Buttons -->
-            <div class="d-flex gap-2 mb-3">
+            <div class="d-flex gap-2 mb-1">
               <button
                 :class="pointsMode === 'earn' ? 'btn btn-primary flex-fill d-flex align-items-center gap-2 p-2 rounded-3' : 'btn btn-outline-secondary flex-fill d-flex align-items-center gap-2 p-2 rounded-3'"
                 @click="setPointsMode('earn')"
@@ -260,41 +260,41 @@
         </div>
 
         <!-- Special Discounts -->
-        <div class="mb-4 pb-4 border-bottom-theme">
-          <h3 class="fs-6 fw-semibold mb-3 text-primary">Special Discounts</h3>
-          <div class="d-flex flex-column gap-2">
+        <div class="mb-2 pb-2 border-bottom-theme">
+          <h3 class="fs-6 fw-semibold mb-2 text-primary">Special Discounts</h3>
+          <div class="d-flex flex-column gap-1">
             <!-- Drinks Promo Checkbox -->
-            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+            <label class="d-flex align-items-center cursor-pointer p-2 rounded-3 border border-theme hover-surface transition-theme">
               <input
                 type="checkbox"
                 v-model="isDrinksPromo"
                 :disabled="isProcessing"
-                class="me-3"
-                style="accent-color: var(--primary); width: 18px; height: 18px;"
+                class="me-2"
+                style="accent-color: var(--primary); width: 16px; height: 16px;"
               >
-              <span class="fs-6 text-primary">🥤 Drinks Promo</span>
+              <span class="fs-7 text-primary">🥤 Drinks Promo</span>
             </label>
-            
+
             <!-- PWD / Senior Citizen Discount (Single Checkbox) -->
-            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+            <label class="d-flex align-items-center cursor-pointer p-2 rounded-3 border border-theme hover-surface transition-theme">
               <input
                 type="checkbox"
                 v-model="isSpecialDiscount"
                 :disabled="isProcessing"
-                class="me-3"
-                style="accent-color: var(--primary); width: 18px; height: 18px;"
+                class="me-2"
+                style="accent-color: var(--primary); width: 16px; height: 16px;"
               >
-              <span class="fs-6 text-primary">🦽👴 PWD / Senior Citizen (20% Discount)</span>
+              <span class="fs-7 text-primary">🦽👴 PWD / Senior Citizen (20% off)</span>
             </label>
           </div>
         </div>
 
         <!-- Auto-Applied Promotions Display -->
-        <div v-if="autoAppliedPromotions.length > 0" class="mb-4 pb-4 border-bottom-theme">
-          <h3 class="fs-6 fw-semibold mb-3 text-primary">Applied Promotions</h3>
-          <div v-for="promo in autoAppliedPromotions" :key="promo._id" class="mb-2">
-            <div class="rounded-3 p-3" style="background: linear-gradient(135deg, #FFD700, #FFA500);">
-              <div class="d-flex align-items-center gap-3">
+        <div v-if="autoAppliedPromotions.length > 0" class="mb-2 pb-2 border-bottom-theme">
+          <h3 class="fs-6 fw-semibold mb-1 text-primary">Applied Promotions</h3>
+          <div v-for="promo in autoAppliedPromotions" :key="promo._id" class="mb-1">
+            <div class="rounded-3 p-2" style="background: linear-gradient(135deg, #FFD700, #FFA500);">
+              <div class="d-flex align-items-center gap-2">
                 <span class="fs-4">🎉</span>
                 <div class="d-flex flex-column flex-fill">
                   <span class="fs-6 fw-semibold text-dark">{{ promo.name }}</span>
@@ -306,96 +306,113 @@
         </div>
 
         <!-- Summary -->
-        <div class="surface-secondary rounded-3 p-3 mb-4">
+        <div class="surface-secondary rounded-3 p-2 mb-2">
           <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary">
-            <span class="text-secondary">Subtotal:</span>
-            <span class="text-primary">₱{{ formatPrice(cartSubtotal) }}</span>
+            <span class="fs-7 text-secondary">Subtotal:</span>
+            <span class="fs-7 text-primary">₱{{ formatPrice(cartSubtotal) }}</span>
           </div>
 
           <!-- Auto-applied promotions -->
           <div v-for="promo in autoAppliedPromotions" :key="promo._id" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
-            <span>{{ promo.name }}</span>
-            <span class="fw-semibold">-₱{{ formatPrice(promo.discountAmount) }}</span>
+            <span class="fs-7">{{ promo.name }}</span>
+            <span class="fs-7 fw-semibold">-₱{{ formatPrice(promo.discountAmount) }}</span>
           </div>
 
           <!-- Drinks Promo Discount -->
           <div v-if="drinksPromoDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
-            <span>Drinks Promo</span>
-            <span class="fw-semibold">-₱{{ formatPrice(drinksPromoDiscount) }}</span>
+            <span class="fs-7">Drinks Promo</span>
+            <span class="fs-7 fw-semibold">-₱{{ formatPrice(drinksPromoDiscount) }}</span>
           </div>
 
           <!-- PWD / Senior Citizen Discount -->
           <div v-if="specialDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
-            <span>PWD / Senior Citizen Discount (20%)</span>
-            <span class="fw-semibold">-₱{{ formatPrice(specialDiscount) }}</span>
+            <span class="fs-7">PWD / Senior Citizen (20%)</span>
+            <span class="fs-7 fw-semibold">-₱{{ formatPrice(specialDiscount) }}</span>
           </div>
 
           <!-- Points Discount -->
           <div v-if="appliedPointsDiscount > 0" class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary text-success">
-            <span>Points Discount</span>
-            <span class="fw-semibold">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
+            <span class="fs-7">Points Discount</span>
+            <span class="fs-7 fw-semibold">-₱{{ formatPrice(appliedPointsDiscount) }}</span>
           </div>
 
           <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary">
-            <span class="text-secondary">Tax (12%):</span>
-            <span class="text-primary">₱{{ formatPrice(taxAmount) }}</span>
+            <span class="fs-7 text-secondary">Tax (12%):</span>
+            <span class="fs-7 text-primary">₱{{ formatPrice(taxAmount) }}</span>
           </div>
 
-          <div class="d-flex justify-content-between align-items-center pt-3 fw-bold fs-5">
-            <strong class="text-primary">TOTAL:</strong>
-            <strong class="text-primary">₱{{ formatPrice(grandTotal) }}</strong>
+          <div class="d-flex justify-content-between align-items-center pt-2 fw-bold">
+            <strong class="fs-6 text-primary">TOTAL:</strong>
+            <strong class="fs-6 text-primary">₱{{ formatPrice(grandTotal) }}</strong>
           </div>
         </div>
         
         <!-- Payment Method Selection -->
-        <div class="mb-4">
-          <h3 class="fs-6 fw-semibold mb-3 text-primary">Payment Method</h3>
-          <div class="d-flex flex-column gap-2">
-            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+        <div class="mb-2">
+          <h3 class="fs-6 fw-semibold mb-2 text-primary">Payment Method</h3>
+          <div class="d-flex flex-column gap-1">
+            <label class="d-flex align-items-center cursor-pointer p-2 rounded-3 border border-theme hover-surface transition-theme">
               <input
                 type="radio"
                 name="payment"
                 value="cash"
                 v-model="paymentMethod"
                 :disabled="isProcessing"
-                class="me-3"
+                class="me-2"
                 style="accent-color: var(--primary);"
               >
-              <span class="fs-6 text-primary">💵 Cash</span>
+              <span class="fs-7 text-primary">💵 Cash</span>
             </label>
 
-            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+            <label class="d-flex align-items-center cursor-pointer p-2 rounded-3 border border-theme hover-surface transition-theme">
               <input
                 type="radio"
                 name="payment"
                 value="gcash"
                 v-model="paymentMethod"
                 :disabled="isProcessing"
-                class="me-3"
+                class="me-2"
                 style="accent-color: var(--primary);"
               >
-              <span class="fs-6 text-primary">📱 GCash</span>
+              <span class="fs-7 text-primary">📱 GCash</span>
             </label>
 
-            <label class="d-flex align-items-center cursor-pointer p-3 rounded-3 border border-theme hover-surface transition-theme">
+            <label class="d-flex align-items-center cursor-pointer p-2 rounded-3 border border-theme hover-surface transition-theme">
               <input
                 type="radio"
                 name="payment"
                 value="paymaya"
                 v-model="paymentMethod"
                 :disabled="isProcessing"
-                class="me-3"
+                class="me-2"
                 style="accent-color: var(--primary);"
               >
-              <span class="fs-6 text-primary">💳 Maya (PayMaya)</span>
+              <span class="fs-7 text-primary">💳 Maya (PayMaya)</span>
             </label>
           </div>
         </div>
 
         <!-- Cash Payment Details -->
-        <div v-if="paymentMethod === 'cash'" class="mt-3 p-3 surface-secondary rounded-3">
-          <div class="mb-3">
-            <label class="form-label fw-semibold text-primary mb-2">Cash Tendered</label>
+        <div v-if="paymentMethod === 'cash'" class="mt-2 p-2 surface-secondary rounded-3">
+          <div class="mb-2">
+            <label class="form-label fw-semibold text-primary mb-1 fs-7">Cash Tendered</label>
+
+            <!-- Smart bill suggestions -->
+            <div class="d-flex gap-1 flex-wrap mb-2">
+              <button
+                v-for="amount in cashSuggestions"
+                :key="amount"
+                type="button"
+                class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold"
+                style="font-size: 0.9rem;"
+                :class="{ 'btn-primary text-white border-primary': cashTendered === amount }"
+                @click="selectSuggestion(amount)"
+                :disabled="isProcessing"
+              >
+                ₱{{ amount.toLocaleString() }}
+              </button>
+            </div>
+
             <div class="input-with-currency">
               <span class="currency-symbol text-primary">₱</span>
               <input
@@ -404,43 +421,41 @@
                 placeholder="0.00"
                 step="0.01"
                 min="0"
-                class="form-control input-theme rounded-3 fw-semibold fs-5"
+                class="form-control input-theme rounded-3 fw-semibold"
                 :disabled="isProcessing"
                 @input="validateCashPayment"
               />
             </div>
-            <small v-if="cashValidationError" class="d-block mt-2 text-danger fs-7">
+            <small v-if="cashValidationError" class="d-block mt-1 text-danger fs-7">
               {{ cashValidationError }}
             </small>
           </div>
 
-          <div v-if="changeAmount >= 0 && cashTendered > 0" class="d-flex justify-content-between align-items-center p-3 surface-primary rounded-3 border-2 border-success">
-            <span class="text-secondary">Change</span>
-            <span class="fs-4 fw-bold text-success">₱{{ formatPrice(changeAmount) }}</span>
+          <div v-if="changeAmount >= 0 && cashTendered > 0" class="d-flex justify-content-between align-items-center p-2 surface-primary rounded-3 border-2 border-success">
+            <span class="fs-7 text-secondary">Change</span>
+            <span class="fs-5 fw-bold text-success">₱{{ formatPrice(changeAmount) }}</span>
           </div>
         </div>
-        
+
         <!-- GCash Payment Info -->
-        <div v-else-if="paymentMethod === 'gcash'" class="mt-3">
-          <div class="surface-secondary rounded-3 p-3 text-center">
-            <div class="fs-3 mb-2">📱</div>
-            <h4 class="fs-6 fw-semibold mb-1 text-primary">GCash Payment</h4>
-            <p class="text-secondary fs-7 mb-0">You will be redirected to GCash to complete your payment securely.</p>
+        <div v-else-if="paymentMethod === 'gcash'" class="mt-2">
+          <div class="surface-secondary rounded-3 p-2 text-center">
+            <div class="fs-4 mb-1">📱</div>
+            <h4 class="fs-7 fw-semibold mb-0 text-primary">You will be redirected to GCash to complete your payment.</h4>
           </div>
         </div>
 
         <!-- Maya Payment Info -->
-        <div v-else-if="paymentMethod === 'paymaya'" class="mt-3">
-          <div class="surface-secondary rounded-3 p-3 text-center">
-            <div class="fs-3 mb-2">💳</div>
-            <h4 class="fs-6 fw-semibold mb-1 text-primary">Maya (PayMaya) Payment</h4>
-            <p class="text-secondary fs-7 mb-0">You will be redirected to Maya to complete your payment securely.</p>
+        <div v-else-if="paymentMethod === 'paymaya'" class="mt-2">
+          <div class="surface-secondary rounded-3 p-2 text-center">
+            <div class="fs-4 mb-1">💳</div>
+            <h4 class="fs-7 fw-semibold mb-0 text-primary">You will be redirected to Maya to complete your payment.</h4>
           </div>
         </div>
 
         <!-- Place Order Button -->
         <button
-          class="btn btn-primary w-100 py-3 rounded-3 fs-5 fw-semibold mt-auto hover-lift transition-theme"
+          class="btn btn-primary w-100 py-3 rounded-3 fs-6 fw-semibold mt-auto hover-lift transition-theme"
           @click="placeOrder"
           :disabled="!canPlaceOrder"
         >
@@ -504,8 +519,13 @@
           <button class="btn btn-outline-secondary flex-fill d-flex align-items-center justify-content-center gap-2 py-3 rounded-3" @click="printReceipt">
             <Printer :size="18" /> Print Receipt
           </button>
-          <button class="btn btn-primary flex-fill py-3 rounded-3 fw-semibold" @click="startNewOrder">
-            New Order
+          <button
+            class="btn btn-primary flex-fill py-3 rounded-3 fw-semibold d-flex align-items-center justify-content-center gap-2"
+            @click="startNewOrder"
+            :disabled="stockSyncing"
+          >
+            <span v-if="stockSyncing" class="spinner-border spinner-border-sm" role="status"></span>
+            {{ stockSyncing ? 'Syncing stock...' : 'New Order' }}
           </button>
         </div>
       </div>
@@ -681,6 +701,7 @@ export default {
       // Payment
       paymentMethod: 'cash', // 'cash', 'gcash', 'paymaya'
       cashTendered: 0,
+      stockSyncing: false,
       cashValidationError: null,
       
       // Success modal
@@ -835,6 +856,25 @@ export default {
       return currentPoints - pointsUsed + pointsEarned
     },
     
+    cashSuggestions() {
+      const total = this.grandTotal
+      if (!total || total <= 0) return []
+
+      const denominations = [50, 100, 200, 500, 1000]
+      const exact = Math.ceil(total)
+      const set = new Set([exact])
+
+      for (const denom of denominations) {
+        set.add(Math.ceil(total / denom) * denom)
+      }
+
+      // Always include one option comfortably above the total
+      const base1000 = Math.ceil(total / 1000) * 1000
+      set.add(base1000 + 1000)
+
+      return [...set].sort((a, b) => a - b).filter(s => s >= exact).slice(0, 4)
+    },
+
     changeAmount() {
       if (this.paymentMethod !== 'cash') return 0
       return Math.max(0, this.cashTendered - this.grandTotal)
@@ -1319,6 +1359,11 @@ export default {
     // CASH PAYMENT
     // ----------------------------------------------------------------
     
+    selectSuggestion(amount) {
+      this.cashTendered = amount
+      this.validateCashPayment()
+    },
+
     validateCashPayment() {
       this.cashValidationError = null
       
@@ -1365,8 +1410,9 @@ export default {
           timestamp: new Date().toISOString()
         })
         
+        console.log('[Checkout] createSale sending...')
         const result = await apiSales.createSale(saleData)
-        
+        console.log('[Checkout] createSale succeeded. sale_id:', result?.sale_id)
         this.handleSaleSuccess(result, 'cash')
         
       } catch (error) {
@@ -1545,21 +1591,27 @@ export default {
         ? (typeof backendChange === 'number' ? backendChange : snapshotChange)
         : 0
 
-      // Update stock cache with sold items
-      try {
-        this.stockCache.updateStockAfterSale(this.cartItems)
-      } catch (error) {
-        // Don't block success flow if cache update fails
-      }
+      // Fetch fresh stock — "New Order" button stays disabled until this
+      // resolves. A 700ms delay lets DynamoDB propagate the UpdateItem before
+      // the stock endpoint reads it (eventual consistency window).
+      this.stockSyncing = true
+      console.log('[Checkout] handleSaleSuccess: starting stock sync, disabling New Order button')
+      apiProducts.getStockLevels()
+        .then(stockData => {
+          console.log('[Checkout] stock sync complete, got', stockData?.length, 'items')
+          if (Array.isArray(stockData) && stockData.length > 0) {
+            sessionStorage.setItem('prefetchedStockLevels', JSON.stringify({
+              data: stockData,
+              fetchedAt: Date.now()
+            }))
+            console.log('[Checkout] prefetchedStockLevels stored, enabling New Order button')
+          } else {
+            console.warn('[Checkout] stock sync returned empty')
+          }
+        })
+        .catch(err => console.error('[Checkout] stock sync error:', err))
+        .finally(() => { this.stockSyncing = false })
       
-      // Signal NewOrder to perform targeted stock refresh on return
-      try {
-        const affectedIds = (this.cartItems || []).map(i => i.productId).filter(Boolean)
-        if (affectedIds.length > 0) {
-          sessionStorage.setItem('refreshProductIds', JSON.stringify(affectedIds))
-        }
-        sessionStorage.setItem('refreshStockAfterCheckout', 'true')
-      } catch (_) {}
       
       this.cartStore.clearCart()
       sessionStorage.removeItem('appliedPromotion')
@@ -1615,11 +1667,13 @@ export default {
     },
     
     startNewOrder() {
+      console.log('[Checkout] startNewOrder clicked — navigating to /new-order')
+      console.log('[Checkout] prefetchedStockLevels in sessionStorage at navigation:', sessionStorage.getItem('prefetchedStockLevels') ? 'YES' : 'NO')
       this.cashTendered = 0
       this.paymentMethod = 'cash'
+      this.stockSyncing = false
       
-      // Signal NewOrder to refresh stock after transaction
-      sessionStorage.setItem('refreshStockAfterCheckout', 'true')
+      sessionStorage.setItem('refreshStockAfterCheckout', 'full')
       
       this.$router.replace('/new-order')
     },

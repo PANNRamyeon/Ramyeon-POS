@@ -179,9 +179,13 @@ class ProductAPIService {
 
   async getStockLevels() {
     try {
+      console.log('[getStockLevels] Calling /admin/products/stock/')
       const response = await api.get('/admin/products/stock/')
-      return response.data?.data || []
-    } catch {
+      const result = response.data?.data || []
+      console.log(`[getStockLevels] Got ${result.length} items. Sample:`, result.slice(0, 3).map(i => ({ id: i.product_id, stock: i.total_stock })))
+      return result
+    } catch (err) {
+      console.error('[getStockLevels] ERROR:', err)
       return []
     }
   }

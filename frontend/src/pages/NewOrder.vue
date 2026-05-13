@@ -523,7 +523,9 @@ import { RefreshCw, GripVertical } from 'lucide-vue-next'
 
 export default {
   name: 'NewOrder',
-  
+
+  components: { RefreshCw, GripVertical },
+
   setup() {
     const cartStore = useCartStore()
     const stockCache = useStockCache()
@@ -606,27 +608,19 @@ export default {
   },
 
   async mounted() {
-    
-    // Check if returning from checkout
+    console.log('[NewOrder:mounted] Component MOUNTED (fresh mount, not KeepAlive re-entry)')
+    console.log('[NewOrder:mounted] prefetchedStockLevels in sessionStorage:', sessionStorage.getItem('prefetchedStockLevels') ? 'YES' : 'NO')
+
+    // Check if returning from a completed sale — full resync required
     const shouldRefreshStock = sessionStorage.getItem('refreshStockAfterCheckout')
-    if (shouldRefreshStock === 'true') {
+    if (shouldRefreshStock) {
       sessionStorage.removeItem('refreshStockAfterCheckout')
     }
-    
-    // Read targeted product IDs to refresh (set by checkout/payment callback)
-    let targetedProductIds = []
-    try {
-      const raw = sessionStorage.getItem('refreshProductIds')
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          targetedProductIds = [...new Set(parsed)]
-        }
-      }
-    } catch (_) {}
-    
+
     await this.initializeSession()
+    console.log('[NewOrder:mounted] initializeSession done, calling loadCategories...')
     await this.loadCategories()
+    console.log('[NewOrder:mounted] loadCategories done. products.length:', this.products.length, '| allProducts.length:', this.allProducts.length)
     await this.loadPosPages()
 
     // Poll stock levels every 45 seconds so multi-terminal stock stays in sync
@@ -638,25 +632,60 @@ export default {
 
     // Start barcode scanner automatically
     this.startBarcodeScanner()
-    
+
     // Set up global function for direct cart addition
     window.addToCartDirectly = (product) => {
       this.addToCart(product)
     }
-    
-    // If returning from checkout, refresh specific products
-    if (shouldRefreshStock === 'true') {
+  },
+
+  // KeepAlive re-entry — fired every time the user navigates back to this page
+  async activated() {
+    console.log('[NewOrder:activated] *** KEEPALIVE ACTIVATED *** (not a fresh mount)')
+    console.log('[NewOrder:activated] Current allProducts.length:', this.allProducts.length, '| activeCategory:', this.activeCategory)
+    const prefetchRaw = sessionStorage.getItem('prefetchedStockLevels')
+    console.log('[NewOrder:activated] prefetchedStockLevels:', prefetchRaw ? 'YES' : 'NO')
+
+    if (prefetchRaw) {
       try {
-        if (targetedProductIds.length > 0) {
-          await this.refreshSpecificStockLevels(targetedProductIds)
-        } else {
-          // Reload current category
+        const { data, fetchedAt } = JSON.parse(prefetchRaw)
+        const ageMs = Date.now() - fetchedAt
+        console.log(`[NewOrder:activated] Prefetch age: ${ageMs}ms, items: ${data?.length}`)
+
+        if (ageMs < 30000 && Array.isArray(data) && data.length > 0) {
+          // Build stock map
+          const stockMap = {}
+          data.forEach(item => {
+            const entry = { stock: item.total_stock, total_stock: item.total_stock, status: item.status }
+            stockMap[item.product_id] = entry
+            stockMap[item.product_id.replace('PROD-', '')] = entry
+          })
+
+          // Merge into current allProducts
+          this.allProducts = this.allProducts.map(p => {
+            const entry = stockMap[p.id] || stockMap[p._id]
+            if (!entry) return p
+            if (p.id === '00027' || p._id === '00027') {
+              console.log(`[NewOrder:activated] 00027 — old: ${p.total_stock}, new: ${entry.total_stock}`)
+            }
+            return { ...p, stock: entry.stock, total_stock: entry.total_stock, status: entry.status }
+          })
+
+          // Re-filter the current view
           if (this.activeCategory) {
-            await this.loadProductsForCategory(this.activeCategory, this.currentSubcategory?.name)
+            await this.loadProducts(this.activeCategory, this.currentSubcategory?.name)
           }
+
+          console.log('[NewOrder:activated] Stock merged from prefetch')
+        } else {
+          console.warn('[NewOrder:activated] Prefetch stale or empty, running poll')
+          await this.pollStockLevels()
         }
+      } catch (e) {
+        console.error('[NewOrder:activated] Error applying prefetch:', e)
+        await this.pollStockLevels()
       } finally {
-        try { sessionStorage.removeItem('refreshProductIds') } catch (_) {}
+        sessionStorage.removeItem('prefetchedStockLevels')
       }
     }
   },
@@ -899,23 +928,83 @@ export default {
 
     async loadCategories() {
       try {
+        console.log('[loadCategories] START — backendCategories.length:', this.backendCategories.length, '| activeCategory:', this.activeCategory)
         if (this.backendCategories.length === 0) this.loading = true
         this.error = null
 
-        // Fetch categories and ALL products in parallel.
-        // Products use localStorage cache (1-hour TTL) for instant load on return visits.
-        const [categories, allProds] = await Promise.all([
+        // Static product data (name, price, image, category) comes from cache.
+        // Stock levels: use pre-fetched data from the checkout/callback page if
+        // it is fresh (< 30 s), otherwise fetch live from the backend.
+        const prefetchRaw = sessionStorage.getItem('prefetchedStockLevels')
+        let stockPromise
+        console.log('[NewOrder:loadCategories] prefetchedStockLevels in sessionStorage:', prefetchRaw ? 'YES' : 'NO')
+        if (prefetchRaw) {
+          try {
+            const { data, fetchedAt } = JSON.parse(prefetchRaw)
+            const ageMs = Date.now() - fetchedAt
+            console.log(`[NewOrder:loadCategories] Prefetch age: ${ageMs}ms, items: ${data?.length}`)
+            if (ageMs < 30000 && Array.isArray(data) && data.length > 0) {
+              console.log('[NewOrder:loadCategories] Using prefetched stock data')
+              stockPromise = Promise.resolve(data)
+            } else {
+              console.warn('[NewOrder:loadCategories] Prefetch too old or empty, fetching live')
+            }
+          } catch (e) {
+            console.error('[NewOrder:loadCategories] Failed to parse prefetch:', e)
+          }
+        }
+        if (!stockPromise) {
+          console.log('[NewOrder:loadCategories] No prefetch — calling getStockLevels() live')
+          stockPromise = productsAPI.getStockLevels()
+        }
+        sessionStorage.removeItem('prefetchedStockLevels')
+
+        console.log('[loadCategories] Firing Promise.all — categories + products + stock at', new Date().toISOString())
+        const t0 = performance.now()
+        const [categories, allProds, stockData] = await Promise.all([
           categoriesAPI.getActiveCategories(),
-          productsAPI.getAllProductsAllPagesCached()
+          productsAPI.getAllProductsAllPagesCached(),
+          stockPromise
         ])
+        console.log(`[loadCategories] Promise.all resolved in ${(performance.now() - t0).toFixed(0)}ms — categories:${categories?.length} products:${allProds?.length} stock:${stockData?.length}`)
 
         this.backendCategories = Array.isArray(categories) ? categories : []
-        this.allProducts = Array.isArray(allProds) ? allProds : []
+
+        // Build stock lookup keyed by both PROD-00001 and 00001 formats
+        const stockMap = {}
+        if (Array.isArray(stockData)) {
+          stockData.forEach(item => {
+            const entry = { stock: item.total_stock, total_stock: item.total_stock, status: item.status }
+            stockMap[item.product_id] = entry
+            stockMap[item.product_id.replace('PROD-', '')] = entry
+          })
+        }
+        console.log('[loadCategories] stockMap built — total entries:', Object.keys(stockMap).length, '| 00027 entry:', stockMap['00027'] || stockMap['PROD-00027'] || 'NOT FOUND')
+
+        // Merge live stock into cached product records
+        this.allProducts = (Array.isArray(allProds) ? allProds : []).map(p => {
+          const entry = stockMap[p.id] || stockMap[p._id]
+          if (!entry) return p
+          if (p.id === '00027' || p._id === '00027') {
+            console.log(`[loadCategories] 00027 merge — cached: ${p.total_stock} → live: ${entry.total_stock}`)
+          }
+          return { ...p, stock: entry.stock, total_stock: entry.total_stock, status: entry.status }
+        })
+        console.log('[loadCategories] allProducts merged. Total:', this.allProducts.length)
 
         if (this.backendCategories.length > 0 && !this.activeCategory) {
+          console.log('[loadCategories] activeCategory not set — calling selectCategory')
           this.activeCategory = this.backendCategories[0].id
           await this.selectCategory(this.backendCategories[0].id)
+        } else {
+          console.log('[loadCategories] activeCategory already set:', this.activeCategory, '— calling loadProducts directly')
+          if (this.activeCategory) {
+            await this.loadProducts(this.activeCategory, this.currentSubcategory?.name)
+          }
         }
+
+        const prod00027 = this.products.find(p => p.id === '00027' || p._id === '00027')
+        console.log('[loadCategories] END — products.length:', this.products.length, '| 00027 in products:', prod00027 ? `stock=${prod00027.total_stock}` : 'not in current category')
 
       } catch (error) {
         this.error = error.message
@@ -963,10 +1052,13 @@ export default {
       }
 
       this.products = filtered
+      const p27 = filtered.find(p => p.id === '00027' || p._id === '00027')
+      console.log(`[loadProducts] SET products — count:${filtered.length} | 00027 stock: ${p27 ? p27.total_stock : 'not in category'}`)
     },
 
     async pollStockLevels() {
       try {
+        console.log('[pollStockLevels] Firing...')
         const stockData = await productsAPI.getStockLevels()
         if (!stockData || stockData.length === 0) return
 
@@ -976,6 +1068,9 @@ export default {
           stockMap[item.product_id] = { stock: item.total_stock, status: item.status }
           const stripped = item.product_id.replace('PROD-', '')
           stockMap[stripped] = { stock: item.total_stock, status: item.status }
+          if (stripped === '00027') {
+            console.log(`[pollStockLevels] Product 00027 stock from backend: ${item.total_stock}`)
+          }
         })
 
         let changed = false
