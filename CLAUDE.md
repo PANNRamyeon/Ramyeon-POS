@@ -1,6 +1,6 @@
 # CLAUDE.md — PANN POS System
 
-**Last Updated:** 2026-05-06
+**Last Updated:** 2026-05-14
 **Repository:** PANN_POS_SYSTEM
 
 ---
@@ -28,7 +28,7 @@ When the user says "refactor to v5", it means:
 
 - **Sales Transactions**: Order creation, cart management, and checkout
 - **Shift Management**: Cashier clock-in/out, shift summaries, and handover
-- **Payment Processing**: PayMongo integration (GCash, card, cash)
+- **Payment Processing**: Maya Business API direct integration (Maya, cash); GCash pending
 - **Online Orders**: Receiving and fulfilling online orders
 - **Customer Loyalty**: Loyalty point lookup and redemption at checkout
 - **Promotions**: Applying active discounts and BOGO deals at POS
@@ -40,7 +40,7 @@ When the user says "refactor to v5", it means:
 - Frontend uses a mix of Options API and Composition API
 - Service-layer files (`services/api*.js`) handle all API calls
 - Windows .exe installer exists for on-premises deployment
-- PayMongo is in test mode
+- Maya Business API in sandbox mode — switch `VITE_MAYA_MODE=live` for production
 
 **Migration Target (v5):**
 - Backend: Replace PyMongo with PynamoDB, align models with PANN_BACK_OFFICE single-table design
@@ -63,7 +63,7 @@ When the user says "refactor to v5", it means:
 - **Authentication**: JWT via python-jose 3.5.0
 - **Password Hashing**: bcrypt 4.3.0, passlib 1.7.4
 - **Email**: SendGrid 6.11.0
-- **Payment**: PayMongo (via HTTP, not a pip package)
+- **Payment**: Maya Business API (direct HTTP, no pip package)
 - **Production Server**: Gunicorn 21.2.0 + WhiteNoise 6.6.0
 - **Packaging**: PyInstaller 6.16.0 (Windows .exe installer)
 
@@ -83,7 +83,7 @@ When the user says "refactor to v5", it means:
 - **Cloud DB**: MongoDB Atlas (v4) → AWS DynamoDB (v5)
 - **Frontend Hosting**: Netlify
 - **Backend Hosting**: Render (cloud) or Windows .exe (on-premises)
-- **Payments**: PayMongo (GCash, card)
+- **Payments**: Maya Business API (direct) — sandbox: `pg-sandbox.maya.ph`, live: `pg.maya.ph`
 - **Email**: SendGrid
 
 ---
@@ -236,7 +236,8 @@ PANN_POS_SYSTEM/
 │       │   ├── api/              # API composables (target for v5 migration)
 │       │   │   ├── useProducts.js
 │       │   │   ├── useCustomers.js
-│       │   │   └── useReports.js
+│       │   │   ├── useReports.js
+│       │   │   └── usePaymaya.js     # Maya Business Checkout API (replaces usePaymongo)
 │       │   ├── business/
 │       │   │   └── useInventory.js   # Currently empty — needs implementation
 │       │   ├── data/
@@ -410,10 +411,14 @@ export function useSales() {
 - **Status**: `"pending"` → `"accepted"` / `"rejected"` → `"fulfilled"`
 
 ### **Payments**
-- Supported methods: cash, GCash (PayMongo), card (PayMongo)
-- PayMongo in test mode — switch to live keys for production
-- Cash payments: change calculation handled on frontend, no PayMongo call
-- PayMongo keys stored in `.env` — never hardcode
+- Supported methods: cash, Maya (direct via Maya Business API)
+- GCash is currently unavailable — was previously routed through PayMongo which is no longer used
+- Cash payments: change calculation handled on frontend, no external API call
+- Maya is in sandbox mode (`VITE_MAYA_MODE=sandbox`) — set to `live` for production
+- Maya keys stored in frontend `.env` — never hardcode
+- **Payment flow (Maya)**: `Checkout.vue` → `usePaymaya.createCheckout()` → redirect to `checkout.redirectUrl` → customer pays on Maya → redirect back to `/pos/payment-callback?status=success` → `PaymentCallback.vue` creates sale record
+- **Idempotency**: `PaymentCallback.vue` uses `checkout_id` from `sessionStorage.pendingEWalletPayment` as the idempotency key to prevent duplicate sale creation on page refresh
+- **Maya API reference**: Sandbox `https://pg-sandbox.maya.ph` · Live `https://pg.maya.ph` · Auth: Basic auth with secret key (`btoa(secretKey + ':')`)
 
 ### **Promotions**
 - Promotions are fetched from back office (shared data source in v5)
@@ -455,8 +460,8 @@ export function useSales() {
 2. **NEVER create a sale record without a valid open shift**
    - Validate `shift_id` exists and `status === "open"` before committing a sale
 
-3. **NEVER expose PayMongo secret keys in responses or logs**
-   - Keys are server-side only — never return them to the frontend
+3. **NEVER expose Maya secret keys in responses or logs**
+   - `VITE_MAYA_SECRET_KEY` is used only inside `usePaymaya.js` for API auth headers — never log or return it
 
 4. **NEVER hard-delete sale or shift records**
    - Use soft deletes (`isDeleted` flag) — sales are financial records
@@ -479,9 +484,9 @@ export function useSales() {
 2. **NEVER add items to cart without checking product stock**
    - Prevent overselling at the UI level before the backend rejects it
 
-3. **NEVER store PayMongo keys in frontend code or localStorage**
-   - Public key only in `.env` (`VITE_PAYMONGO_PUBLIC_KEY`)
-   - Secret key never touches the frontend
+3. **NEVER store Maya keys in frontend code or localStorage**
+   - Keys live in `.env` only: `VITE_MAYA_PUBLIC_KEY`, `VITE_MAYA_SECRET_KEY`
+   - `usePaymaya.js` exposes a redacted config object (`secretKey: '***'`) — never the raw key
 
 4. **NEVER mutate cart state directly outside `cartStores.js`**
    - All cart mutations go through Pinia actions
@@ -490,7 +495,7 @@ export function useSales() {
    - Use `import.meta.env.VITE_API_URL`
 
 6. **NEVER complete a sale without confirming payment success**
-   - PayMongo callback must return success before the sale record is committed
+   - Maya redirects to `/pos/payment-callback?status=success` only after the customer completes payment — the sale record is created there, not before the redirect
 
 ---
 
@@ -526,7 +531,6 @@ DYNAMO_TABLE_NAME=RamyeonCornerDB
 DEBUG=True
 SECRET_KEY=your-secret-key
 SENDGRID_API_KEY=SG....
-PAYMONGO_SECRET_KEY=sk_test_...
 ```
 
 ### **Frontend**
@@ -540,8 +544,11 @@ npm run dev
 **`.env` file (frontend/):**
 ```env
 VITE_API_URL=http://localhost:8000/api/v1
-VITE_PAYMONGO_PUBLIC_KEY=pk_test_...
-VITE_PAYMONGO_MODE=test
+
+# Maya Business API — get keys from Maya Business Dashboard > Developer > API Keys
+VITE_MAYA_PUBLIC_KEY=pk-sandbox-...
+VITE_MAYA_SECRET_KEY=sk-sandbox-...
+VITE_MAYA_MODE=sandbox   # change to 'live' for production
 ```
 
 ### **Common Commands**
@@ -586,7 +593,7 @@ python manage.py createsuperuser
 - Vue Router structure and auth guards
 - Pinia `cartStores.js` (already Composition API)
 - CSS theme system (`colors.css`, CSS variables)
-- PayMongo integration logic
+- Maya payment integration logic (`usePaymaya.js`)
 - Bootstrap 5 layout
 - Existing page structure (`pages/`)
 
@@ -603,12 +610,13 @@ python manage.py createsuperuser
 
 1. **`composables/business/useInventory.js`** — file exists but is empty
 2. **`composables/forms/useFormValidation.js`** — file exists but is empty
-3. **PayMongo live keys** — system is in test mode, needs switch for production
-4. **Offline mode in v5** — `offlineManager.js` is MongoDB-era; decide if DynamoDB changes the offline strategy
-5. **Shift auto-close** — no automated shift closure on inactivity
-6. **Refund/void flow** — no dedicated refund endpoint or UI found
-7. **Barcode scanner** — `useBarcode.js` exists but integration completeness unknown
-8. **`settings/` directory** — mentioned in docs but may not be fully implemented
+3. **Maya live keys** — system is in sandbox mode; set `VITE_MAYA_MODE=live` and replace keys for production
+4. **GCash payment** — removed when PayMongo was dropped; needs a direct GCash API solution (Maya Pay does not process GCash)
+5. **Offline mode in v5** — `offlineManager.js` is MongoDB-era; decide if DynamoDB changes the offline strategy
+6. **Shift auto-close** — no automated shift closure on inactivity
+7. **Refund/void flow** — no dedicated refund endpoint or UI found
+8. **Barcode scanner** — `useBarcode.js` exists but integration completeness unknown
+9. **`settings/` directory** — mentioned in docs but may not be fully implemented
 
 ---
 

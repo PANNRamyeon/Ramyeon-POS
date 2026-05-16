@@ -629,7 +629,7 @@
               <button class="btn btn-outline-secondary" @click="cancelEWalletConfirm" :disabled="isProcessing">
                 Cancel
               </button>
-              <button class="btn btn-primary" style="background-color: #00AFEF; border-color: #00AFEF;" @click="confirmEWalletPayment('grab_pay')" :disabled="isProcessing">
+              <button class="btn btn-primary" style="background-color: #00AFEF; border-color: #00AFEF;" @click="confirmEWalletPayment('maya')" :disabled="isProcessing">
                 <span v-if="!isProcessing">Continue to Maya →</span>
                 <span v-else class="d-flex align-items-center gap-2">
                   Creating payment link...
@@ -644,7 +644,7 @@
 
 <script>
 import { useCartStore } from '@/stores/cartStores'
-import { usePaymongo } from '@/composables/api/usePaymongo'
+import { usePaymaya } from '@/composables/api/usePaymaya'
 import apiSales from '@/services/apiSales'
 import apiProducts from '@/services/apiProducts'
 import { api } from '@/services/api.js'
@@ -656,12 +656,12 @@ export default {
   
   setup() {
     const cartStore = useCartStore()
-    const paymongo = usePaymongo()
+    const maya = usePaymaya()
     const stockCache = useStockCache()
     
     return { 
       cartStore,
-      paymongo,
+      maya,
       stockCache
     }
   },
@@ -1351,7 +1351,7 @@ export default {
       } else if (this.paymentMethod === 'gcash') {
         await this.processEWalletPayment('gcash')
       } else if (this.paymentMethod === 'paymaya') {
-        await this.processEWalletPayment('grab_pay') // PayMongo uses 'grab_pay' for Maya
+        await this.processEWalletPayment('maya')
       }
     },
     
@@ -1429,55 +1429,61 @@ export default {
     // ----------------------------------------------------------------
     
     async processEWalletPayment(type) {
-      // Show custom confirmation modal instead of browser confirm
       if (type === 'gcash') {
         this.showGCashConfirmModal = true
-      } else if (type === 'grab_pay') {
+      } else if (type === 'maya') {
         this.showPayMayaConfirmModal = true
       }
     },
 
     async executeEWalletPayment(type) {
       const walletName = type === 'gcash' ? 'GCash' : 'Maya'
-      
+
+      if (type === 'gcash') {
+        alert('GCash payments are temporarily unavailable. Please use Maya or Cash.')
+        this.showGCashConfirmModal = false
+        return
+      }
+
       try {
         this.isProcessing = true
         this.isLoading = true
         this.loadingMessage = `Creating ${walletName} payment link...`
-        this.showGCashConfirmModal = false // Close modals immediately when processing starts
         this.showPayMayaConfirmModal = false
-        
+
         await this.validateStock()
-        
+
         if (this.validationErrors.length > 0) {
           throw new Error('Stock validation failed')
         }
-        
-        // Prepare order metadata (PayMongo requires all string values)
+
+        const referenceNumber = `POS-${this.cartStore.shiftId || 'S'}-${Date.now()}`
+
         const orderMetadata = {
-          order_id: `ORDER-${Date.now()}`,
-          customer_id: String(this.selectedCustomer?._id || 'guest'),
-          customer_name: String(this.selectedCustomer?.full_name || 'Guest'),
-          cashier_id: String(this.cartStore.cashierId || 'unknown'),
-          shift_id: String(this.cartStore.shiftId || 'unknown'),
-          items_count: String(this.totalItems),
-          description: `Ramyeon Food Corner - ${this.totalItems} items`
+          order_id: referenceNumber,
+          customer_id: this.selectedCustomer?._id || 'guest',
+          customer_name: this.selectedCustomer?.full_name || 'Guest',
+          cashier_id: this.cartStore.cashierId || 'unknown',
+          shift_id: this.cartStore.shiftId || 'unknown'
         }
-        
-        // Create PayMongo source
-        const source = await this.paymongo.createEWalletSource(
+
+        // Create Maya checkout session
+        const checkout = await this.maya.createCheckout(
           this.grandTotal,
-          type, // 'gcash' or 'grab_pay'
+          this.cartStore.items,
           {
+            referenceNumber,
             successUrl: `${window.location.origin}/pos/payment-callback?status=success`,
-            failedUrl: `${window.location.origin}/pos/payment-callback?status=failed`,
+            failureUrl: `${window.location.origin}/pos/payment-callback?status=failed`,
+            cancelUrl: `${window.location.origin}/pos/payment-callback?status=failed`,
+            description: `Ramyeon Food Corner - ${this.totalItems} items`,
             metadata: orderMetadata
           }
         )
-        
+
         // Save pending transaction to sessionStorage
         const pendingPayment = {
-          source_id: source.id,
+          checkout_id: checkout.checkoutId,
           payment_type: type,
           wallet_name: walletName,
           amount: this.grandTotal,
@@ -1499,16 +1505,15 @@ export default {
           timestamp: new Date().toISOString(),
           metadata: orderMetadata
         }
-        
+
         sessionStorage.setItem('pendingEWalletPayment', JSON.stringify(pendingPayment))
-        
-        // Redirect to GCash/Maya
+
         this.loadingMessage = `Redirecting to ${walletName}...`
-        
+
         setTimeout(() => {
-          window.location.href = source.attributes.redirect.checkout_url
+          window.location.href = checkout.redirectUrl
         }, 500)
-        
+
       } catch (error) {
         alert(`${walletName} payment failed: ${error.message}`)
         this.isProcessing = false

@@ -103,7 +103,7 @@
 
 <script>
 import { Printer, ShoppingCart, ArrowLeft, RefreshCw } from 'lucide-vue-next'
-import { usePaymongo } from '@/composables/api/usePaymongo'
+import { usePaymaya } from '@/composables/api/usePaymaya'
 import { useCartStore } from '@/stores/cartStores'
 import apiSales from '@/services/apiSales'
 import apiProducts from '@/services/apiProducts'
@@ -121,10 +121,10 @@ export default {
   },
   
   setup() {
-    const paymongo = usePaymongo()
+    const maya = usePaymaya()
     const cartStore = useCartStore()
     const stockCache = useStockCache()
-    return { paymongo, cartStore, stockCache }
+    return { maya, cartStore, stockCache }
   },
   
   data() {
@@ -201,8 +201,8 @@ export default {
           amount_paid: pending.amount,
           change: 0,
           status: 'completed',
-          transaction_id: pending.source_id,
-          source_id: pending.source_id,
+          transaction_id: pending.checkout_id,
+          checkout_id: pending.checkout_id,
           wallet_type: pending.wallet_name,
           timestamp: new Date().toISOString()
         }
@@ -245,7 +245,7 @@ export default {
         console.log('📝 Creating sale:', saleData)
 
         // Idempotency guard: if this source_id was already processed, reuse the stored sale
-        const idempotencyKey = `completedSale_${pending.source_id}`
+        const idempotencyKey = `completedSale_${pending.checkout_id}`
         const existingSaleId = sessionStorage.getItem(idempotencyKey)
         if (existingSaleId) {
           console.log('⚠️ Duplicate callback detected, reusing sale:', existingSaleId)
